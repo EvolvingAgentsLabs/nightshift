@@ -75,9 +75,11 @@ corresponde decir:
 
 - **Hecho:** captura (7 hooks), redactor determinista, store SQLite, retrieval
   estructural e inyección, `why`, doctor, selftest, `audit` (el gate de M1), **dream
-  fase 1 (`consolidate`)** con modelo local y el **scheduler** (launchd/systemd/loop) con
-  registro de corridas.
-- **No construido:** dream fase 2 (`verify`), benchmark. Hay `candidate`, pero
+  fase 1 (`consolidate`)** con modelo local el **scheduler** (launchd/systemd/loop) con
+  registro de corridas, y el **runner del benchmark de M4** — que se niega a correr
+  porque el pre-registro no está congelado.
+- **No construido:** dream fase 2 (`verify`). El benchmark tiene runner pero **no tiene
+  resultados**: no corrió nunca y no puede correr hasta que Matías congele `PREREG`. Hay `candidate`, pero
   **nada llega a `procedure`**: ninguna memoria inyectada está verificada. Una
   `candidate` la abstrajo un modelo local y nadie la reprodujo contra un gate. No la
   describas como si lo estuviera.

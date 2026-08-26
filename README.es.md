@@ -140,6 +140,7 @@ nightshift/                    La implementación. Sólo librería estándar
   retrieve.py                    Ranking estructural e inyección
   dream.py                       Dream fase 1: modelo local, agrupación estructural
   schedule.py                    Scheduler pluggable: launchd | systemd | loop
+  bench.py                       Runner de M4: lee los umbrales, nunca los fija
   cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Tests unitarios y el round trip captura→export→validar
 tools/                         El gate: lint-docs, lint-code, validate-schema
@@ -150,6 +151,7 @@ doc/adr/ADR-002-verify-gate.md Qué cuenta como reproducción
 schema/trajectory.v1.json      Esquema versionado de Trajectory (modelo de datos normativo)
 schema/examples/               Fixtures válidas e inválidas
 bench/PREREG.md                Benchmark pre-registrado, umbrales congelados antes de M1
+bench/fixtures/selftest/       Fixtures sintéticos del gate del runner. NO son los de M4
 doc/HANDOFF.md                 Handoff de control: estado, reglas y la cola de trabajo
 LATER.md                       Todo lo diferido a propósito, con el motivo
 ```
@@ -162,7 +164,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable ✅ | Los dos entregados: `nightshift dream --selftest` pasa y `nightshift schedule status` reporta las últimas corridas. El gate del milestone — **3 noches seguidas sin intervención** — lo corre Matías |
-| M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
+| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0. El runner está y **se niega a correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)` |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | Adapter de OpenCode, marketplace de plugins, Omarchy/Quattro | Ver [`LATER.md`](LATER.md) |
 
@@ -179,6 +181,8 @@ make validate-schema  # los válidos validan Y los inválidos son rechazados
 make test             # tests unitarios (unittest de la stdlib)
 make selftest         # replay de los siete hooks contra un store desechable
 make dream-selftest   # el gate de M3-a. Necesita modelo local, por eso NO está en check
+make bench-selftest   # el gate del runner de M4 (fixtures sintéticos, no el benchmark)
+make bench-check      # qué le falta al pre-registro para poder correr M4
 ```
 
 `make check` es el gate. No necesita dependencias más allá de
@@ -252,6 +256,28 @@ Cada corrida de dream queda registrada, y `schedule status` imprime las últimas
 código de salida. Ese es el punto: un scheduler sin corridas registradas es una promesa,
 no un hecho. El gate de M3 son tres noches seguidas sin intervención, lo corre una
 persona, y esto es lo que lo hace verificable.
+
+### El runner del benchmark de M4
+
+El runner está construido. **No puede correr**, y ése es el punto:
+
+```sh
+nightshift bench check      # qué le falta al pre-registro (hoy sale 1)
+nightshift bench plan --fixture <f>   # la grilla del experimento: planificar no es correr
+nightshift bench run  --fixture <f> --agent "<cmd>"   # sale 3 mientras PREREG esté abierto
+nightshift bench selftest   # el gate del propio runner, con fixtures sintéticos
+```
+
+`bench/PREREG.md` dice **BORRADOR — no congelado** y tiene 19 `TODO(Matias)`. Hasta que
+una persona lo congele, `bench run` se niega y lista qué falta, con sección y línea. Un
+umbral que se ajusta después de ver el resultado no es un umbral, y un runner que corre
+con el pre-registro abierto es la forma más cómoda de ajustarlo sin darse cuenta.
+
+Dos reglas más que el runner se aplica a sí mismo: **indecidible no es go** — si falta un
+umbral o falta una familia no hay veredicto, en vez de uno favorable — y **no hay juicio
+de modelo en ningún punto**: la resolución es el gate del fixture (sale 0 ahora, salía ≠ 0
+antes) y la clasificación falsa/stale de la familia D la hace el script determinista del
+propio fixture.
 
 `make doctor` va aparte a propósito: chequea *tu* instalación (config presente, captura
 activa), que no es algo que CI tenga por qué afirmar.

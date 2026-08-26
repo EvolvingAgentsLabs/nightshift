@@ -545,6 +545,31 @@ Mismo modelo, mismo seed de tareas, 3 corridas por celda.
 Claude Code **no** decide umbrales. Los lee de `bench/PREREG.md`. Un umbral que se
 ajusta después de ver el resultado no es un umbral.
 
+### 10.4 El runner (M4-a, implementado)
+
+`nightshift bench check|plan|run|report|selftest` construye la grilla, corre las celdas,
+resume y aplica la regla de §1. Tres invariantes, las tres testeadas:
+
+- **Se niega a correr con el pre-registro abierto.** Si `bench/PREREG.md` no dice
+  congelado, o le queda un `TODO(Matias)`, o un umbral primario no está fijado o no se
+  entiende, `bench run` sale 3 y lista qué falta. Planificar sí se puede: `bench plan` no
+  corre nada.
+- **Indecidible no es go.** Si falta un umbral o falta el dato de una familia, el
+  veredicto es `None`, no `False` y mucho menos `True`.
+- **El criterio de resolución es el gate del fixture** — sale 0 ahora y salía ≠ 0 antes —
+  y la clasificación falsa/stale de la familia D la hace un script determinista del
+  fixture. En ningún punto del runner hay un juicio de modelo.
+
+El formato en que se escribe un umbral (`+10 pp`, `-15 %`, `>= 0.30`) es cosa del runner
+y está documentado en `nightshift/bench.py`; el número es cosa de Matías y vive en el
+pre-registro. Un umbral que el runner no entiende **bloquea la corrida** en vez de
+interpretarse.
+
+Lo que el runner **no** puede hacer todavía: correr. Los repos fixture de A y C, el
+modelo, el seed y todos los umbrales son `TODO(Matias)`. El gate del runner
+(`make bench-selftest`) usa fixtures sintéticos y un agente falso, y afirma —entre otras
+cosas— que el pre-registro real sigue sin congelar.
+
 ---
 
 ## 11. Milestones y gates
@@ -558,7 +583,7 @@ humano es explícito).
 | M1 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor con tests | **Código listo.** Gate pendiente: 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) y fixtures de Histora |
 | M2 | Retrieve: inyección estructural en `SessionStart`, trayectorias crudas, sin dream | **Código listo.** `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 | Dream `consolidate` + scheduler pluggable | 3 noches seguidas sin intervención en la Air. **Fase 1 entregada** (`nightshift dream --selftest`); falta el scheduler |
-| M4 | **Benchmark — go/no-go** | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión en S0 |
+| M4 | **Benchmark — go/no-go** | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión en S0. **Runner entregado** (§10.4); no puede correr hasta que el pre-registro se congele |
 | M5 | Dream `verify` (worktree + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | OpenCode adapter, marketplace, Omarchy/Quattro | Ver `LATER.md` |
 

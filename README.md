@@ -139,6 +139,7 @@ nightshift/                    The implementation. Standard library only
   retrieve.py                    Structural ranking and injection
   dream.py                       Dream phase 1: local model, structural grouping
   schedule.py                    Pluggable scheduler: launchd | systemd | loop
+  bench.py                       M4 runner: reads thresholds, never sets them
   cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Unit tests plus the capture→export→validate round trip
 tools/                         The gate: lint-docs, lint-code, validate-schema
@@ -149,6 +150,7 @@ doc/adr/ADR-002-verify-gate.md What counts as reproduction
 schema/trajectory.v1.json      Versioned Trajectory schema (normative data model)
 schema/examples/               Valid and invalid fixtures
 bench/PREREG.md                Pre-registered benchmark, thresholds frozen before M1
+bench/fixtures/selftest/       Synthetic fixtures for the runner's gate. NOT the M4 fixtures
 doc/HANDOFF.md                 Control handoff: state, rules, and the ordered work queue
 LATER.md                       Everything deliberately deferred, with the reason
 ```
@@ -161,7 +163,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
 | **M2** 🟡 | Retrieve: structural injection at `SessionStart`, and again at the first classified prompt | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
 | M3 🟡 | Dream `consolidate` ✅ + pluggable scheduler ✅ | Both shipped: `nightshift dream --selftest` passes and `nightshift schedule status` reports the last runs. The milestone gate — **3 consecutive unattended nights** — is Matías's to run |
-| M4 | **Benchmark — go/no-go** | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0 |
+| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0. The runner is built and **refuses to run**: `bench/PREREG.md` is still a draft with 19 `TODO(Matias)` |
 | M5 | Dream `verify` (ephemeral worktree + gate). **Only if M4 passes** | Precision of `procedure` > `candidate` on a benchmark re-run |
 | M6+ | OpenCode adapter, plugin marketplace, Omarchy/Quattro | See [`LATER.md`](LATER.md) |
 
@@ -178,6 +180,8 @@ make validate-schema  # valid examples validate AND invalid ones are rejected
 make test             # unit tests (stdlib unittest)
 make selftest         # replays all seven hooks against a throwaway store
 make dream-selftest   # the M3-a gate. Needs a local model, so it is NOT part of check
+make bench-selftest   # the M4 runner's gate (synthetic fixtures, no real benchmark)
+make bench-check      # what the pre-registration still needs before M4 can run
 ```
 
 `make check` is the gate. It needs no dependencies except
@@ -250,6 +254,29 @@ Every dream run is recorded, and `schedule status` prints the last ones with the
 codes. That is the point: a scheduler with no recorded runs is a promise, not a fact. The
 M3 gate is three consecutive unattended nights, and a person runs it; this is what makes
 it checkable.
+
+### The M4 benchmark runner
+
+The runner is built. **It cannot run**, and that is the point:
+
+```sh
+nightshift bench check      # what the pre-registration still needs (exit 1 today)
+nightshift bench plan --fixture <f>   # the experiment grid: planning is not running
+nightshift bench run  --fixture <f> --agent "<cmd>"   # exits 3 while PREREG is open
+nightshift bench selftest   # the runner's own gate, on synthetic fixtures
+```
+
+`bench/PREREG.md` says **BORRADOR — no congelado** and holds 19 `TODO(Matias)`. Until a
+person freezes it, `bench run` refuses and lists what is missing, by section and line. A
+threshold that gets adjusted after seeing the result is not a threshold, and a runner
+that runs with the pre-registration still open is the most comfortable way to adjust one
+without noticing.
+
+Two more rules the runner enforces on itself: **undecidable is not go** — a missing
+threshold or a missing family yields no verdict rather than a favourable one — and there
+is **no model judgement anywhere** in it: resolution is the fixture's gate (exit 0 now,
+non-zero before), and family D's false/stale classification is the fixture's own
+deterministic script.
 
 `make doctor` is separate on purpose: it checks *your* installation (config present,
 capture enabled), which CI has no business asserting.
