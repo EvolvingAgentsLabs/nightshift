@@ -68,8 +68,13 @@ claude --plugin-dir .        # cargarlo por una sesión
 `init` no es ceremonia opcional: sin `deny_paths` resuelto la captura queda apagada y
 `SessionStart` lo dice en vez de capturar (spec §8.1).
 
-Para iterar sobre el plugin mismo, editá y corré `/reload-plugins` — los cambios en los
-hooks y en `nightshift/*.py` no tienen efecto hasta que lo hagas.
+Al arrancar, nightshift imprime una línea de estado (`nightshift: capturando · …`). La
+memoria inyectada **no** se imprime: va al contexto de Claude por `additionalContext`,
+que la terminal nunca muestra. `/nightshift:status` lista lo que se inyectó de verdad.
+
+Para iterar sobre el plugin: los cambios en `nightshift/*.py` aplican en el próximo
+evento de hook, porque cada hook corre un proceso nuevo. `/reload-plugins` hace falta
+cuando cambiás `hooks/hooks.json`, una skill o el manifiesto.
 
 ### Skills
 

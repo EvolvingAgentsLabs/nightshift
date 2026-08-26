@@ -17,8 +17,9 @@ class HookTest(IsolatedStoreTest):
     def test_sin_config_no_captura(self):
         config.config_path().unlink()
         self.assertFalse(config.is_enabled())
-        text = hook.dispatch("SessionStart", payload())
+        text, message = hook.dispatch("SessionStart", payload())
         self.assertIn("no configurado", text)
+        self.assertIn("nightshift init", message)
         hook.dispatch("PostToolUse", payload(tool_name="Bash", tool_input={"command": "ls"}))
         self.assertFalse(config.db_path().exists())
 
@@ -175,3 +176,48 @@ class DenyPathStepTest(IsolatedStoreTest):
             self.assertEqual(len(store.steps_of(conn, tid)), 1)
         finally:
             conn.close()
+
+
+class EmitShapeTest(IsolatedStoreTest):
+    """`additionalContext` va al contexto del modelo; `systemMessage` a la pantalla.
+
+    Sin la segunda, un plugin que funciona y uno que no hace nada se ven idénticos
+    desde la terminal: fue exactamente la confusión que motivó este test.
+    """
+
+    def run_main(self, event, data):
+        import io
+        import sys
+        saved_in, saved_out = sys.stdin, sys.stdout
+        try:
+            sys.stdin = io.StringIO(json.dumps(data))
+            sys.stdout = io.StringIO()
+            self.assertEqual(hook.main([event]), 0)
+            raw = sys.stdout.getvalue()
+        finally:
+            sys.stdin, sys.stdout = saved_in, saved_out
+        return json.loads(raw)["hookSpecificOutput"] if raw.strip() else {}
+
+    def test_session_start_siempre_dice_algo_al_usuario(self):
+        out = self.run_main("SessionStart", payload())
+        self.assertEqual(out["hookEventName"], "SessionStart")
+        self.assertIn("nightshift", out["systemMessage"])
+        self.assertIn("sin memoria previa", out["systemMessage"])
+
+    def test_sin_config_el_usuario_se_entera(self):
+        config.config_path().unlink()
+        out = self.run_main("SessionStart", payload())
+        self.assertIn("NO configurado", out["systemMessage"])
+        self.assertIn("no configurado", out["additionalContext"])
+
+    def test_los_hooks_de_captura_no_le_hablan_al_usuario(self):
+        """Un mensaje por tool call sería ruido insoportable."""
+        self.run_main("SessionStart", payload())
+        for event, extra in (("PostToolUse", {"tool_name": "Read",
+                                              "tool_input": {"file_path": "a.py"},
+                                              "tool_output": "x"}),
+                             ("PreCompact", {"compaction_reason": "auto"}),
+                             ("Stop", {}), ("SessionEnd", {})):
+            with self.subTest(event=event):
+                out = self.run_main(event, payload(**extra))
+                self.assertNotIn("systemMessage", out)

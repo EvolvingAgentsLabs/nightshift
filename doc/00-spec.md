@@ -258,6 +258,12 @@ Los campos van anidados bajo `hookSpecificOutput` (con `hookEventName`), no en l
 raíz del JSON. `additionalContext` está soportado en `SessionStart`, `UserPromptSubmit`,
 `Stop`, `PostToolUse`, `PostToolUseFailure`, `PreCompact` y `PostCompact`.
 
+`additionalContext` y `systemMessage` van a lugares distintos y no son intercambiables:
+el primero entra al contexto del modelo, el segundo se muestra en la terminal. nightshift
+usa los dos — la memoria inyectada por `additionalContext`, y una línea de estado por
+`systemMessage`. Sin la segunda, un plugin que funciona y uno que no hace nada se ven
+idénticos desde la terminal.
+
 **Este formato cambia entre versiones de Claude Code.** M1 debe re-verificarlo contra
 la doc vigente antes de escribir el primer hook, y dejar el resultado fechado aquí.
 

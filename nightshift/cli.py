@@ -279,8 +279,10 @@ def cmd_selftest(args) -> int:
         try:
             config.init(force=True)
             for event, payload in REPLAY:
-                text = hook.dispatch(event, payload)
-                print("  %-20s ok%s" % (event, "  (inyectó %d chars)" % len(text) if text else ""))
+                text, message = hook.dispatch(event, payload)
+                extra = "  (inyectó %d chars)" % len(text) if text else ""
+                extra += "  [%s]" % message if message else ""
+                print("  %-20s ok%s" % (event, extra))
             conn = store.connect()
             try:
                 rows = conn.execute("SELECT * FROM trajectories").fetchall()
