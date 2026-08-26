@@ -178,7 +178,7 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
     findings = []
     scanned = 0
 
-    for row in conn.execute("SELECT * FROM trajectories ORDER BY created_at"):
+    for row in conn.execute("SELECT * FROM trajectories ORDER BY created_at, rowid"):
         tid = row["id"]
         found, count = _scan_row(row, prefix="trajectory", redactor=redactor,
                                  home_dir=home_dir, skip=("id",))

@@ -93,6 +93,13 @@ SCHEMA_REVISION = "1"
 
 
 def now() -> str:
+    """Marca de tiempo UTC con resolución de **segundos**.
+
+    Ancho fijo para poder comparar con `<` en SQL, y por eso mismo dos filas creadas en
+    el mismo segundo empatan. Todo `ORDER BY created_at` lleva `rowid` de desempate: sin
+    eso "la última trayectoria" es indefinida, y con dos trayectorias del mismo segundo
+    SQLite devuelve la que quiera. Lo encontró un test que abría dos seguidas.
+    """
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -141,7 +148,7 @@ def open_trajectory(conn, *, session_id, repo_fingerprint, task_type, harness_na
 def active_trajectory(conn, session_id):
     row = conn.execute(
         "SELECT * FROM trajectories WHERE session_id = ? AND status = 'open'"
-        " ORDER BY created_at DESC LIMIT 1", (session_id,)).fetchone()
+        " ORDER BY created_at DESC, rowid DESC LIMIT 1", (session_id,)).fetchone()
     return row
 
 
@@ -208,7 +215,7 @@ def stale_open_trajectories(conn, *, cutoff, exclude_session=None, limit=50):
         " AND (? IS NULL OR t.session_id IS NULL OR t.session_id != ?)"
         " AND COALESCE((SELECT MAX(s.at) FROM steps AS s WHERE s.trajectory_id = t.id),"
         "              t.created_at) < ?"
-        " ORDER BY t.created_at LIMIT ?",
+        " ORDER BY t.created_at, t.rowid LIMIT ?",
         (exclude_session, exclude_session, cutoff, limit)).fetchall()
 
 
@@ -330,6 +337,64 @@ def get_trajectory(conn, trajectory_id):
 def steps_of(conn, trajectory_id):
     return conn.execute("SELECT * FROM steps WHERE trajectory_id = ? ORDER BY idx",
                         (trajectory_id,)).fetchall()
+
+
+def capture_quality(conn, limit=20):
+    """Qué tan buena es la captura de las últimas trayectorias, en números.
+
+    Existe por una razón concreta: durante M1 y M2 la captura guardó 223 pasos sin una
+    sola línea de contenido y **nadie se enteró**, porque los hooks salen 0 pase lo que
+    pase (spec §7.2). El modo de fallo de este plugin es el silencio, así que hay que
+    mirarlo a propósito: nada te lo va a decir.
+    """
+    filas = conn.execute(
+        "SELECT id FROM trajectories ORDER BY created_at DESC, rowid DESC LIMIT ?",
+        (limit,)).fetchall()
+    ids = [f["id"] for f in filas]
+    if not ids:
+        return {"trajectories": 0, "tool_steps": 0, "hollow": 0, "decisive": 0,
+                "hollow_ratio": None, "decisive_ratio": None, "unmapped": 0,
+                "broken": [], "worst": None, "latest": None}
+    marcas = ",".join("?" * len(ids))
+    pasos = conn.execute(
+        "SELECT trajectory_id, kind, tool, decisive,"
+        " (COALESCE(result_summary,'') = '' AND COALESCE(error_message,'') = '') AS vacio"
+        " FROM steps WHERE trajectory_id IN (%s)" % marcas, ids).fetchall()
+    de_tool = [p for p in pasos if p["kind"] in ("tool_use", "tool_failure")]
+    huecos = [p for p in de_tool if p["vacio"]]
+
+    # La peor trayectoria: la que tiene pasos de tool y ninguno con contenido. Eso no es
+    # "poca calidad", es la captura rota.
+    por_trayectoria = {}
+    for paso in de_tool:
+        celda = por_trayectoria.setdefault(paso["trajectory_id"], [0, 0])
+        celda[0] += 1
+        celda[1] += 1 if paso["vacio"] else 0
+    rotas = [tid for tid, (total, vacios) in por_trayectoria.items()
+             if total >= 3 and total == vacios]
+
+    # La última trayectoria con pasos de tool es la que dice si la captura funciona
+    # **ahora**. Las viejas son historia: una captura que se rompió y se arregló no puede
+    # dejar al doctor en rojo para siempre.
+    ultima = None
+    for tid in ids:                                   # ids viene en orden descendente
+        if tid in por_trayectoria and por_trayectoria[tid][0] >= 3:
+            total, vacios = por_trayectoria[tid]
+            ultima = {"trajectory": tid, "tool_steps": total, "hollow": vacios,
+                      "healthy": vacios < total}
+            break
+    return {
+        "latest": ultima,
+        "trajectories": len(ids),
+        "tool_steps": len(de_tool),
+        "hollow": len(huecos),
+        "decisive": sum(1 for p in pasos if p["decisive"]),
+        "hollow_ratio": (len(huecos) / len(de_tool)) if de_tool else None,
+        "decisive_ratio": (sum(1 for p in pasos if p["decisive"]) / len(pasos)) if pasos else None,
+        "unmapped": sum(1 for p in pasos if p["tool"] == "other"),
+        "broken": rotas,
+        "worst": rotas[0] if rotas else None,
+    }
 
 
 def counts(conn):

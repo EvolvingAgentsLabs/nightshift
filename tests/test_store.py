@@ -111,6 +111,83 @@ class StoreTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_la_calidad_de_captura_ve_una_trayectoria_hueca(self):
+        """El check que faltaba: pasos capturados sin una línea de contenido.
+
+        Es exactamente lo que pasó durante M1 y M2 —223 pasos de cáscara— sin que nada
+        lo dijera, porque los hooks salen 0 pase lo que pase.
+        """
+        conn = store.connect()
+        try:
+            hueca = store.open_trajectory(conn, session_id="hueca",
+                                          repo_fingerprint="a" * 64, task_type="general")
+            for _ in range(4):
+                store.append_step(conn, hueca, kind="tool_use", tool="run_shell")
+            calidad = store.capture_quality(conn)
+            self.assertEqual(calidad["tool_steps"], 4)
+            self.assertEqual(calidad["hollow"], 4)
+            self.assertEqual(calidad["hollow_ratio"], 1.0)
+            self.assertIn(hueca, calidad["broken"])
+            self.assertFalse(calidad["latest"]["healthy"])
+        finally:
+            conn.close()
+
+    def test_una_trayectoria_vieja_rota_no_deja_el_doctor_en_rojo_para_siempre(self):
+        """`status` cuenta la historia; el doctor afirma sobre el presente."""
+        conn = store.connect()
+        try:
+            vieja = store.open_trajectory(conn, session_id="vieja",
+                                          repo_fingerprint="a" * 64, task_type="general")
+            for _ in range(4):
+                store.append_step(conn, vieja, kind="tool_use", tool="run_shell")
+            store.close_trajectory(conn, vieja, result="unknown")
+
+            nueva = store.open_trajectory(conn, session_id="nueva",
+                                          repo_fingerprint="a" * 64, task_type="general")
+            for i in range(4):
+                store.append_step(conn, nueva, kind="tool_use", tool="run_shell",
+                                  result_summary="salida %d" % i)
+
+            calidad = store.capture_quality(conn)
+            self.assertIn(vieja, calidad["broken"], "la historia se sigue contando")
+            self.assertEqual(calidad["latest"]["trajectory"], nueva)
+            self.assertTrue(calidad["latest"]["healthy"], "y el presente está sano")
+        finally:
+            conn.close()
+
+    def test_dos_trayectorias_del_mismo_segundo_tienen_orden_definido(self):
+        """Las marcas de tiempo son de segundos: sin desempate, "la última" es la que quiera.
+
+        Lo encontró el test de arriba abriendo dos trayectorias seguidas. Afecta a todo
+        lo que ordena por `created_at`: cuál es la trayectoria activa de una sesión, cuál
+        es la última capturada, y en qué orden dream agrupa.
+        """
+        conn = store.connect()
+        try:
+            ids = [store.open_trajectory(conn, session_id="mismo-segundo",
+                                         repo_fingerprint="a" * 64, task_type="general")
+                   for _ in range(5)]
+            marcas = {r["created_at"] for r in
+                      conn.execute("SELECT created_at FROM trajectories")}
+            self.assertEqual(len(marcas), 1, "las cinco caen en el mismo segundo")
+            self.assertEqual(store.active_trajectory(conn, "mismo-segundo")["id"], ids[-1],
+                             "la activa es la última abierta, no una cualquiera")
+            for _ in range(3):
+                store.append_step(conn, ids[-1], kind="tool_use", tool="run_shell",
+                                  result_summary="con contenido")
+            self.assertEqual(store.capture_quality(conn)["latest"]["trajectory"], ids[-1])
+        finally:
+            conn.close()
+
+    def test_sin_pasos_de_tool_no_hay_veredicto(self):
+        conn = store.connect()
+        try:
+            calidad = store.capture_quality(conn)
+            self.assertIsNone(calidad["latest"])
+            self.assertEqual(calidad["tool_steps"], 0)
+        finally:
+            conn.close()
+
     def test_export_tiene_la_forma_del_schema(self):
         conn = store.connect()
         try:

@@ -35,7 +35,8 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback)).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = conn.execute(
         "SELECT * FROM trajectories WHERE status IN ('closed','candidate','procedure')"
-        " AND created_at >= ? ORDER BY created_at DESC LIMIT 200", (cutoff,)).fetchall()
+        " AND created_at >= ? ORDER BY created_at DESC, rowid DESC LIMIT 200",
+        (cutoff,)).fetchall()
 
     scored = []
     for row in rows:

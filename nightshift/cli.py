@@ -50,12 +50,34 @@ def cmd_status(args) -> int:
             print("  %-11s %d" % (status, c[status]))
         print("  %-11s %d" % ("pasos", c["steps"]))
         print("  %-11s %d" % ("inyecciones", c["injections"]))
+        calidad = store.capture_quality(conn)
+        if calidad["tool_steps"]:
+            print()
+            print("calidad de la captura (últimas %d trayectorias):" % calidad["trajectories"])
+            print("  %-11s %d" % ("pasos tool", calidad["tool_steps"]))
+            print("  %-11s %d (%.0f%%)" % ("sin contenido", calidad["hollow"],
+                                             100 * calidad["hollow_ratio"]))
+            print("  %-11s %d (%.0f%%)" % ("decisivos", calidad["decisive"],
+                                           100 * calidad["decisive_ratio"]))
+            print("  %-11s %d (caen a `other`)" % ("sin mapear", calidad["unmapped"]))
+            ultima = calidad["latest"]
+            if ultima:
+                print("  %-11s %s" % ("última", "captura con contenido"
+                                      if ultima["healthy"]
+                                      else "SIN contenido: la captura está rota AHORA"))
+            if calidad["broken"]:
+                print("  %d trayectoria(s) con pasos y ninguno con contenido: %s"
+                      % (len(calidad["broken"]),
+                         ", ".join(t[:8] for t in calidad["broken"][:4])))
+                print("  (las anteriores al 2026-08-26 son cascarón por el bug de los")
+                print("   campos del payload; ver LATER.md)")
         print()
         print("dream fase 1 (`consolidate`) existe: las `candidate` salieron de ahí.")
         print("La fase 2 (`verify`) es M5 y no existe, así que **nada llega a")
         print("`procedure`**: ninguna memoria inyectada está verificada.")
         rows = conn.execute(
-            "SELECT * FROM trajectories ORDER BY created_at DESC LIMIT ?", (args.limit,)).fetchall()
+            "SELECT * FROM trajectories ORDER BY created_at DESC, rowid DESC LIMIT ?",
+            (args.limit,)).fetchall()
         if rows:
             print()
             print("últimas trayectorias:")
@@ -1267,6 +1289,32 @@ def run_doctor() -> list[dict]:
             else "%d hallazgo(s): corré `nightshift audit`" % len(hallazgos)))
     except Exception as exc:
         checks.append(_check("store sin fugas (audit)", False, str(exc)))
+
+    # La invariante que faltaba, y la más cara: una trayectoria con pasos de tool y
+    # ninguno con contenido significa que la captura se rompió. Pasó durante dos
+    # milestones sin que nada lo dijera (spec §5.9).
+    try:
+        conn = store.connect()
+        try:
+            calidad = store.capture_quality(conn)
+        finally:
+            conn.close()
+        ultima = calidad["latest"]
+        if not ultima:
+            detalle, ok = "todavía no hay una trayectoria con pasos de tool", True
+        elif not ultima["healthy"]:
+            # El doctor afirma sobre el presente. Que haya trayectorias viejas rotas es
+            # historia y lo cuenta `status`; que la última lo esté es un bug ahora.
+            detalle = ("la última trayectoria (%s) tiene %d pasos de tool y ninguno con "
+                       "contenido" % (ultima["trajectory"][:8], ultima["tool_steps"]))
+            ok = False
+        else:
+            detalle = ("última: %d pasos de tool, %d sin contenido"
+                       % (ultima["tool_steps"], ultima["hollow"]))
+            ok = True
+        checks.append(_check("la captura trae contenido", ok, detalle))
+    except Exception as exc:
+        checks.append(_check("la captura trae contenido", False, str(exc)))
 
     manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
     hooks = PLUGIN_ROOT / "hooks" / "hooks.json"
