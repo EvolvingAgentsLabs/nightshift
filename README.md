@@ -125,7 +125,7 @@ change `hooks/hooks.json`, a skill, or the manifest.
 | `/nightshift:why <id>` | Reconstruct the source trajectory behind an injection — the M2 gate |
 | `/nightshift:doctor` | Runtime invariant checks plus an end-to-end replay of all seven hooks |
 | `/nightshift:dev` | Development state of the plugin, for sessions that modify it |
-| `/nightshift:dream` | Phase 1 (`consolidate`) over closed trajectories, with the local model |
+| `/nightshift:dream` | Phase 1 (`consolidate`) over closed trajectories, with Claude Code itself |
 | `/nightshift:schedule` | The nightly run: which backend, what is installed, and how the last runs went |
 
 `/nightshift:dream --verify` does not exist: phase 2 is M5, blocked until M4 returns a
@@ -154,7 +154,9 @@ and then by running the thing:
 
 ### What it stores, and where
 
-`~/.nightshift/trajectories.sqlite3` — one location, whoever runs the process. Override
+`~/.nightshift/trajectories.sqlite3` — one location, whoever runs the process. `status`
+reports how much it takes on disk, because a retention policy needs something to measure
+first. Override
 it with `NIGHTSHIFT_HOME` if you must. Never inside your repo,
 and never under `~/.claude/projects/*/memory/` — a guard in `config.py` raises if any
 code path tries, and a test asserts a full session leaves the native memory untouched.
@@ -177,7 +179,7 @@ nightshift/                    The implementation. Standard library only
   context.py                     Repo fingerprint, task classification, tool normalisation
   hook.py                        Hook dispatch. Never raises, always exits 0
   retrieve.py                    Structural ranking and injection
-  dream.py                       Dream phase 1: local model, structural grouping
+  dream.py                       Dream phase 1: Claude Code or a local model, by config
   schedule.py                    Pluggable scheduler: launchd | systemd | loop
   bench.py                       M4 runner: reads thresholds, never sets them
   simulate.py                    End-to-end rehearsal. Never touches the real store
@@ -223,7 +225,7 @@ make lint-code        # stdlib only, no network, Auto Memory coexistence, plugin
 make validate-schema  # valid examples validate AND invalid ones are rejected
 make test             # unit tests (stdlib unittest)
 make selftest         # replays all seven hooks against a throwaway store
-make dream-selftest   # the M3-a gate. Needs a local model, so it is NOT part of check
+make dream-selftest   # the M3-a gate. Calls a model, so it is NOT part of check
 make bench-selftest   # the M4 runner's gate (synthetic fixtures, no real benchmark)
 make bench-fixtures   # every fixture task fails before and is fixed by its reference fix
 make bench-check      # what the pre-registration still needs before M4 can run
@@ -260,10 +262,15 @@ the structural pattern behind each group, and leaves the result as a `candidate`
 one becomes `superseded` with a link to its successor — **it is never deleted**.
 
 ```sh
-nightshift dream              # consolidate the last 7 days
-nightshift dream --dry-run    # show what it would do, write nothing
-nightshift dream --selftest   # the M3-a gate, on a throwaway fixture store
+nightshift dream                  # consolidate the last 7 days
+nightshift dream --max-groups 3   # cap how many groups one run consolidates
+nightshift dream --dry-run        # show what it would do, write nothing
+nightshift dream --selftest       # the M3-a gate, on a throwaway fixture store
 ```
+
+Consolidation costs money now, so it is measured: every run records what it spent, and
+`nightshift why` on a `candidate` tells you which model abstracted it and at what cost —
+without that, `why` reconstructs the pattern but not where it came from.
 
 The model runs through `subprocess`, and there are two backends (**ADR-003**): Claude
 Code by default — the agent that is already installed and authenticated, invoked
@@ -287,7 +294,7 @@ unverified, because `verify` (M5) is blocked until M4 returns a verdict.
 ### Scheduling the nightly run
 
 ```sh
-nightshift schedule status              # backend, what is installed, and the last runs
+nightshift schedule status              # backend, next run, and how the last ones went
 nightshift schedule install --dry-run   # show the unit, write nothing
 nightshift schedule install             # write it and load it
 nightshift schedule uninstall
@@ -311,13 +318,13 @@ it checkable.
 
 ```sh
 nightshift simulate              # synthetic sessions through the real hooks
-nightshift simulate --no-model   # skip dream, for machines with no local model
+nightshift simulate --no-model   # skip dream, for machines with no model available
 ```
 
 It drives seven synthetic sessions through the seven hooks — including one that dies
 without `SessionEnd`, one that touches a `deny_path`, and one carrying a secret — then
 audits the store, checks the orphan got closed, checks retrieval ran in both passes,
-consolidates with the local model, installs the scheduler in a temporary `HOME` and runs
+consolidates with the configured model, installs the scheduler in a temporary `HOME` and runs
 three simulated nights, and audits again. Everything happens in a throwaway store.
 
 **It is not evidence for the M1 or M3 gates.** M1 asks for five *real* sessions; M3 asks
