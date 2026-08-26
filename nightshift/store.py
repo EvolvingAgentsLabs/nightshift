@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import SCHEMA_VERSION, config
@@ -80,6 +80,16 @@ SCHEMA_REVISION = "1"
 
 def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def hours_ago(hours: float) -> str:
+    """Marca de tiempo de hace N horas, en el mismo formato que `now()`.
+
+    Los timestamps son ISO-8601 UTC de ancho fijo, así que comparar con `<` en SQL es
+    comparar fechas. Cambiar el formato de `now()` rompe eso en silencio.
+    """
+    then = datetime.now(timezone.utc) - timedelta(hours=float(hours))
+    return then.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -151,6 +161,22 @@ def mark_last_contradicted(conn, trajectory_id):
                  (trajectory_id, row["m"]))
     conn.commit()
     return int(row["m"])
+
+
+def stale_open_trajectories(conn, *, cutoff, exclude_session=None, limit=50):
+    """Trayectorias `open` sin actividad desde `cutoff`, de otras sesiones.
+
+    "Sin actividad" es el último paso, no la fecha de apertura: una sesión de doce horas
+    sigue apendeando pasos, y cerrarle la trayectoria por debajo la partiría en dos —
+    exactamente lo que spec §5.6 evita al no cerrar en `Stop`.
+    """
+    return conn.execute(
+        "SELECT * FROM trajectories AS t WHERE t.status = 'open'"
+        " AND (? IS NULL OR t.session_id IS NULL OR t.session_id != ?)"
+        " AND COALESCE((SELECT MAX(s.at) FROM steps AS s WHERE s.trajectory_id = t.id),"
+        "              t.created_at) < ?"
+        " ORDER BY t.created_at LIMIT ?",
+        (exclude_session, exclude_session, cutoff, limit)).fetchall()
 
 
 def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None, redaction=None):

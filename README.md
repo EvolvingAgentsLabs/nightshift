@@ -103,6 +103,9 @@ and then by running the thing:
   nightshift's own store. It is a sealing signal, not a data source.
 - `Stop` fires at the end of **every turn**, not the session. It seals the turn;
   `SessionEnd` closes the trajectory.
+- A session that dies without `SessionEnd` leaves its trajectory `open` forever, and
+  retrieval never sees it. `SessionStart` closes those orphans — other sessions only,
+  and only when there has been no activity for `orphan_after_hours` (spec §5.8).
 - `SessionStart` runs **before** you type, so the task type there is still `general`.
   Structural retrieval is redone on the first prompt that classifies the task, without
   repeating anything already injected (spec §5.7).

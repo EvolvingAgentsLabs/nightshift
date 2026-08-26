@@ -47,6 +47,10 @@ DEFAULTS = {
     "max_steps_per_trajectory": 400,
     "max_result_summary_chars": 400,
     "retrieval_lookback_days": 30,
+    # Una sesión que murió sin `SessionEnd` deja su trayectoria `open` para siempre, y el
+    # retrieval sólo mira `closed`/`candidate`/`procedure`: se pierde entera. Se cierra
+    # por falta de actividad, no por antigüedad — una sesión larga sigue viva.
+    "orphan_after_hours": 12,
     # Transferencia cross-repo real necesita `abstraction`, que la produce dream (M3).
     # Hasta entonces esto inyecta trayectorias crudas de otro repo: apagado por defecto.
     "cross_repo": False,

@@ -101,6 +101,9 @@ de correr la cosa:
   Es señal de sellado, no fuente de datos.
 - `Stop` dispara al final de **cada turno**, no de la sesión. Sella el turno;
   `SessionEnd` cierra la trayectoria.
+- Una sesión que muere sin `SessionEnd` deja su trayectoria `open` para siempre, y el
+  retrieval nunca la ve. `SessionStart` cierra esas huérfanas — sólo de otras sesiones, y
+  sólo si no hubo actividad en `orphan_after_hours` (spec §5.8).
 - `SessionStart` corre **antes** de que escribas, así que ahí el tipo de tarea todavía es
   `general`. El retrieval por estructura se rehace en el primer prompt que clasifica la
   tarea, sin repetir nada de lo ya inyectado (spec §5.7).
