@@ -124,7 +124,7 @@ cuando cambiás `hooks/hooks.json`, una skill o el manifiesto.
 | `/nightshift:why <id>` | Reconstruye la trayectoria origen de una inyección — el gate de M2 |
 | `/nightshift:doctor` | Chequeo de invariantes en runtime más un replay end-to-end de los siete hooks |
 | `/nightshift:dev` | Estado de desarrollo del plugin, para las sesiones que lo modifican |
-| `/nightshift:dream` | Fase 1 (`consolidate`) sobre las trayectorias cerradas, con el modelo local |
+| `/nightshift:dream` | Fase 1 (`consolidate`) sobre las trayectorias cerradas, con el propio Claude Code |
 | `/nightshift:schedule` | La corrida nocturna: qué backend, qué hay instalado y cómo salieron las últimas |
 
 `/nightshift:dream --verify` no existe: la fase 2 es M5 y está bloqueada hasta el
@@ -155,6 +155,8 @@ de correr la cosa:
 ### Qué guarda, y dónde
 
 `~/.nightshift/trajectories.sqlite3` — una sola ubicación, la ejecute quien la ejecute.
+`status` reporta cuánto ocupa en disco, porque una política de retención necesita primero
+con qué medirse.
 Se mueve con `NIGHTSHIFT_HOME` si hace falta. Nunca dentro de tu repo,
 y nunca bajo `~/.claude/projects/*/memory/` — un guard en `config.py` levanta si alguna
 ruta de código lo intenta, y un test afirma que una sesión completa deja la memoria
@@ -178,7 +180,7 @@ nightshift/                    La implementación. Sólo librería estándar
   context.py                     Fingerprint del repo, clasificación de tarea, normalización
   hook.py                        Despacho de hooks. Nunca levanta, siempre sale 0
   retrieve.py                    Ranking estructural e inyección
-  dream.py                       Dream fase 1: modelo local, agrupación estructural
+  dream.py                       Dream fase 1: Claude Code o un modelo local, por config
   schedule.py                    Scheduler pluggable: launchd | systemd | loop
   bench.py                       Runner de M4: lee los umbrales, nunca los fija
   simulate.py                    Ensayo end-to-end. Nunca toca el store real
@@ -224,7 +226,7 @@ make lint-code        # stdlib pura, sin red, coexistencia con Auto Memory, plug
 make validate-schema  # los válidos validan Y los inválidos son rechazados
 make test             # tests unitarios (unittest de la stdlib)
 make selftest         # replay de los siete hooks contra un store desechable
-make dream-selftest   # el gate de M3-a. Necesita modelo local, por eso NO está en check
+make dream-selftest   # el gate de M3-a. Llama a un modelo, por eso NO está en check
 make bench-selftest   # el gate del runner de M4 (fixtures sintéticos, no el benchmark)
 make bench-fixtures   # cada tarea falla antes y la resuelve su fix de referencia
 make bench-check      # qué le falta al pre-registro para poder correr M4
@@ -261,10 +263,15 @@ quien lo corrió.
 pasa a `superseded` enlazada a su sucesora — **no se borra nunca**.
 
 ```sh
-nightshift dream              # consolidar los últimos 7 días
-nightshift dream --dry-run    # mostrar qué haría, sin escribir
-nightshift dream --selftest   # el gate de M3-a, sobre un set fixture desechable
+nightshift dream                  # consolidar los últimos 7 días
+nightshift dream --max-groups 3   # limitar cuántos grupos consolida una corrida
+nightshift dream --dry-run        # mostrar qué haría, sin escribir
+nightshift dream --selftest       # el gate de M3-a, sobre un set fixture desechable
 ```
+
+Consolidar ahora cuesta dinero, así que se mide: cada corrida registra lo que gastó, y
+`nightshift why` sobre una `candidate` dice con qué modelo se abstrajo y a qué costo — sin
+eso, `why` reconstruye el patrón pero no de dónde salió.
 
 El modelo corre por `subprocess`, y hay dos backends (**ADR-003**): Claude Code por
 defecto —el agente que ya está instalado y autenticado, en modo no interactivo— o Qwen
@@ -289,7 +296,7 @@ verificada, porque `verify` (M5) está bloqueado hasta el veredicto de M4.
 ### Programar la corrida nocturna
 
 ```sh
-nightshift schedule status              # backend, qué hay instalado y las últimas corridas
+nightshift schedule status              # backend, próxima corrida y cómo salieron las últimas
 nightshift schedule install --dry-run   # mostrar la unidad, sin escribir nada
 nightshift schedule install             # escribirla y cargarla
 nightshift schedule uninstall
@@ -313,13 +320,13 @@ persona, y esto es lo que lo hace verificable.
 
 ```sh
 nightshift simulate              # sesiones sintéticas por los hooks reales
-nightshift simulate --no-model   # saltar dream, para máquinas sin modelo local
+nightshift simulate --no-model   # saltar dream, para máquinas sin ningún modelo
 ```
 
 Corre siete sesiones sintéticas por los siete hooks —incluida una que muere sin
 `SessionEnd`, una que toca un `deny_path` y otra que lleva un secreto—, después audita el
 store, verifica que la huérfana quedó cerrada, que el retrieval corrió en las dos pasadas,
-consolida con el modelo local, instala el scheduler en un `HOME` temporal, corre tres
+consolida con el modelo configurado, instala el scheduler en un `HOME` temporal, corre tres
 noches simuladas y vuelve a auditar. Todo en un store desechable.
 
 **No es evidencia para el gate de M1 ni para el de M3.** M1 pide cinco sesiones *reales*;
