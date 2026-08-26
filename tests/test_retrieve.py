@@ -185,6 +185,55 @@ class RetrieveTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_de_otro_repo_cruza_el_patron_y_no_los_pasos(self):
+        """Spec §4.2 es una regla sobre lo que se emite, no sólo sobre lo que se elige.
+
+        `candidates()` ya exigía abstracción para cruzar de repo. Pero `render()` seguía
+        imprimiendo los pasos de esa trayectoria — nombres de archivo, comandos y
+        mensajes de error del otro repo — en cuanto alguien encendiera `cross_repo`.
+        """
+        import json as _json
+
+        ajeno = self.seed(fingerprint="a" * 64)
+        conn = store.connect()
+        try:
+            conn.execute(
+                "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
+                " valid_when_json = ? WHERE id = ?",
+                (_json.dumps({"pattern": "el lector no declara codificación y falla en el"
+                                         " primer byte no ASCII"}),
+                 _json.dumps([{"condition": "la entrada no es ASCII puro",
+                               "source": "inferred"}]), ajeno))
+            conn.commit()
+            cfg = dict(config.load())
+            cfg["cross_repo"] = True
+            scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                         repo_fingerprint=FP, cfg=cfg)
+            self.assertTrue(scored, "con abstracción sí puede cruzar de repo")
+            texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                       task_type="debug_test_failure", repo_fingerprint=FP)
+        finally:
+            conn.close()
+
+        self.assertIn("el lector no declara codificación", texto)
+        self.assertIn("de otro repo", texto)
+        self.assertNotIn("UnicodeDecodeError en el borde", texto,
+                         "el paso crudo del otro repo no puede cruzar")
+        self.assertNotIn("señal decisiva", texto)
+
+    def test_del_mismo_repo_sí_se_muestran_los_pasos(self):
+        source = self.seed()
+        conn = store.connect()
+        try:
+            scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                         repo_fingerprint=FP, cfg=config.load())
+            texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                       task_type="debug_test_failure", repo_fingerprint=FP)
+        finally:
+            conn.close()
+        self.assertIn(source[:8], texto)
+        self.assertIn("UnicodeDecodeError en el borde", texto)
+
     def test_sin_historia_no_inyecta_nada(self):
         text, message = hook.dispatch("SessionStart",
                                       {"session_id": "limpia", "cwd": "."})

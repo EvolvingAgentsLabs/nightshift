@@ -449,8 +449,19 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             continue
 
         if not dry_run:
-            store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
-                                       valid_when=valid_when, weight=CANDIDATE_WEIGHT)
+            estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
+                                                valid_when=valid_when,
+                                                weight=CANDIDATE_WEIGHT)
+            if estado != "candidate":
+                # La promoción exige `closed`. Si la trayectoria cambió de estado entre
+                # que se agrupó y que se promovió, el UPDATE no toca nada — y un reporte
+                # que igual la lista como candidata es un reporte que miente.
+                say("  %s no se promovió: quedó en %s" % (winner["id"][:8], estado))
+                reporte["rejected"].append({
+                    "trajectory": winner["id"],
+                    "reasons": ["la promoción no se aplicó: la trayectoria está en `%s`,"
+                                " no en `closed`" % estado]})
+                continue
         reporte["candidates"].append({"trajectory": winner["id"],
                                       "task_type": winner["task_type"],
                                       "pattern": abstraction["pattern"],

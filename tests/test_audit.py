@@ -236,6 +236,28 @@ class AuditTest(IsolatedStoreTest):
             self.assertEqual(cli.main(["audit"]), 1)
         self.assertIn("nightshift init", err.getvalue())
 
+    # ------------------------------------------------------------------- doctor
+    def test_el_doctor_afirma_que_el_store_no_tiene_fugas(self):
+        """El gate de M1 también como invariante de runtime, no sólo como reporte."""
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="todo redactado: <PATH> y <SECRET>")
+        finally:
+            conn.close()
+        nombres = {c["name"]: c for c in cli.run_doctor()}
+        self.assertIn("store sin fugas (audit)", nombres)
+        self.assertTrue(nombres["store sin fugas (audit)"]["ok"])
+
+        conn = store.connect()
+        try:
+            self.seed(conn, session_id="s2", result_summary="el token es %s" % SECRET)
+        finally:
+            conn.close()
+        nombres = {c["name"]: c for c in cli.run_doctor()}
+        self.assertFalse(nombres["store sin fugas (audit)"]["ok"])
+        self.assertNotIn(SECRET, nombres["store sin fugas (audit)"]["detail"],
+                         "ni el doctor imprime el valor")
+
     # --------------------------------------------------------------- invariantes
     def test_el_patron_de_abstraction_sigue_al_esquema(self):
         """Si el esquema cambia su red contra paths, este módulo se entera acá."""

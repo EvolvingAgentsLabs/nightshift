@@ -281,6 +281,60 @@ class DreamTest(IsolatedStoreTest):
             code = cli.main(["dream", "--model", "/bin/echo"])
         self.assertEqual(code, 1, "un consolidate que no consolidó no puede salir 0")
 
+    def test_no_lista_como_candidata_lo_que_no_se_promovio(self):
+        """La promoción exige `closed`. Un reporte que igual la lista es un reporte que miente."""
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+            # Alguien la movió entre que se agrupó y que se iba a promover.
+            original = store.promote_to_candidate
+
+            def sabotaje(conn_, trajectory_id, **kwargs):
+                conn_.execute("UPDATE trajectories SET status = 'discarded' WHERE id = ?",
+                              (trajectory_id,))
+                conn_.commit()
+                return original(conn_, trajectory_id, **kwargs)
+        finally:
+            conn.close()
+
+        store.promote_to_candidate = sabotaje
+        try:
+            report = self.run_dream(FakeModel(BUENA))
+        finally:
+            store.promote_to_candidate = original
+
+        self.assertEqual(report["candidates"], [], "no se promovió: no se lista")
+        self.assertEqual(len(report["rejected"]), 1)
+        self.assertIn("no se aplicó", report["rejected"][0]["reasons"][0])
+        self.assertEqual(self.row(tid)["status"], "discarded")
+
+    def test_why_reconstruye_el_origen_de_una_candidata(self):
+        """Condición de éxito 3: una candidata se inyecta por su patrón, no por sus pasos."""
+        conn = store.connect()
+        try:
+            vieja = self.seed(conn, outcome="user_corrected", contradicted=True)
+            nueva = self.seed(conn, outcome="tests_passed")
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(BUENA))
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(cli.main(["why", nueva[:8]]), 0)
+        texto = out.getvalue()
+        self.assertIn("abstracción", texto)
+        self.assertIn("codificación", texto, "el patrón por el que se inyectaría")
+        self.assertIn("aplica cuando", texto)
+        self.assertIn("contradice a 1", texto)
+        self.assertIn(vieja[:8], texto)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli.main(["why", vieja[:8]])
+        texto = out.getvalue()
+        self.assertIn("sobrevive enlazada, no se borró", texto)
+        self.assertIn(nueva[:8], texto)
+
     # ------------------------------------------------- la salida cruda del modelo
     def test_extrae_json_entre_prosa(self):
         self.assertEqual(dream.extract_json('bla bla {"pattern": "x"} y más bla'),
