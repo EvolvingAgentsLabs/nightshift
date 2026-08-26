@@ -258,6 +258,20 @@ class AuditTest(IsolatedStoreTest):
         self.assertNotIn(SECRET, nombres["store sin fugas (audit)"]["detail"],
                          "ni el doctor imprime el valor")
 
+    def test_el_doctor_falla_si_la_captura_de_ahora_llega_vacia(self):
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="hueca",
+                                        repo_fingerprint="f" * 64, task_type="general")
+            for _ in range(4):
+                store.append_step(conn, tid, kind="tool_use", tool="run_shell")
+        finally:
+            conn.close()
+        nombres = {c["name"]: c for c in cli.run_doctor()}
+        self.assertIn("la captura trae contenido", nombres)
+        self.assertFalse(nombres["la captura trae contenido"]["ok"],
+                         "cuatro pasos y ninguno con contenido es la captura rota")
+
     # --------------------------------------------------------------- invariantes
     def test_el_patron_de_abstraction_sigue_al_esquema(self):
         """Si el esquema cambia su red contra paths, este módulo se entera acá."""

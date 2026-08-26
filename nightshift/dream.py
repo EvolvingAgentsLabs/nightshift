@@ -236,7 +236,7 @@ def groups(conn, *, lookback_days=7, limit=200):
     cutoff = store.hours_ago(24 * lookback_days)
     rows = conn.execute(
         "SELECT * FROM trajectories WHERE status = 'closed' AND created_at >= ?"
-        " ORDER BY created_at LIMIT ?", (cutoff, limit)).fetchall()
+        " ORDER BY created_at, rowid LIMIT ?", (cutoff, limit)).fetchall()
     buckets = {}
     for row in rows:
         steps = store.steps_of(conn, row["id"])

@@ -29,7 +29,9 @@ TASK_TYPE_RULES = [
     ("docs", re.compile(r"(?i)\b(docs?|documenta\w*|readme|spec|adr|changelog)\b")),
     ("explore", re.compile(
         r"(?i)\b(explica\w*|explain|entend\w*|understand|c[o\u00f3]mo funciona|how does|"
-        r"d[o\u00f3]nde|where is|revis\w*|review)\b")),
+        r"d[o\u00f3]nde|where is|revis\w*|review|analiz\w*|analyz\w*|analys\w*|"
+        r"audit\w*|inspeccion\w*|inspect\w*|diagnostic\w*|c[o\u00f3]mo (?:est[a\u00e1]|va|"
+        r"anda|viene)\w*)\b")),
 ]
 DEFAULT_TASK_TYPE = "general"
 
@@ -54,9 +56,19 @@ CORRECTION_RE = re.compile(
     r"\bnot (right|correct)\b|\bwrong\b|\brevert\b|\bundo\b|\bdeshac|\bvolv[ée] atr[aá]s\b|"
     r"\bno es (as[ií]|eso)\b|\bactually,? no\b)")
 
+# Un comando de test, y **en posición de comando**: al principio, o después de `;`,
+# `&&`, `||`, `|`, un salto de línea o un `$(`. No en cualquier parte de la cadena.
+#
+# Medido sobre una sesión real de 252 pasos: buscando la subcadena en cualquier lugar,
+# el 41% de los pasos quedaba marcado como señal decisiva. Los comandos de shell de una
+# sesión de trabajo son compuestos —`cp x y; python3 - <<PY ...; make check`— y alcanzaba
+# con que la palabra apareciera adentro de un heredoc para que el paso entero contara como
+# concluyente. Una señal que dispara en la mitad de los pasos no es una señal.
 TEST_CMD_RE = re.compile(
-    r"(?i)\b(pytest|unittest|npm (run )?test|yarn test|go test|cargo test|make test|"
-    r"make check|tox|jest|vitest|rspec|mvn test|gradle test)\b")
+    r"(?im)(?:^|[;&|]|\$\(|\n)\s*(?:sudo\s+|env\s+\S+=\S+\s+)*"
+    r"(pytest|unittest|python[0-9.]*\s+-m\s+(?:unittest|pytest)|npm (?:run )?test|"
+    r"yarn test|go test|cargo test|make (?:test|check)|tox|jest|vitest|rspec|mvn test|"
+    r"gradle test)\b")
 
 
 def normalize_tool(native: str | None) -> str:

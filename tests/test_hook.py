@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from tests.base import IsolatedStoreTest
-from nightshift import config, hook, store
+from nightshift import config, context, hook, store
 
 
 def payload(**kwargs):
@@ -33,6 +33,90 @@ CLAVES_REALES = {
     "SessionEnd": ["cwd", "hook_event_name", "prompt_id", "reason", "session_id",
                    "transcript_path"],
 }
+
+
+class SenalDecisivaTest(IsolatedStoreTest):
+    """La heurística de señal decisiva, medida contra una sesión real de 252 pasos.
+
+    Buscando la subcadena en cualquier parte del comando, el 41% de los pasos quedaba
+    marcado como concluyente. Los comandos de una sesión de trabajo son compuestos y
+    llevan heredocs adentro: alcanzaba con que un **título de PR** o un **mensaje de
+    commit** mencionaran `make check` para que el paso contara como test que pasa.
+    Una señal que dispara en la mitad de los pasos no es una señal.
+    """
+
+    def decisivo(self, comando):
+        base = {"session_id": "dec-%d" % abs(hash(comando)), "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUse", dict(base, tool_name="Bash",
+                                          tool_input={"command": comando},
+                                          tool_response={"type": "text", "file": "ok"}))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, base["session_id"])["id"]
+            return bool(store.steps_of(conn, tid)[-1]["decisive"])
+        finally:
+            conn.close()
+
+    def test_un_comando_de_test_en_posicion_de_comando_es_decisivo(self):
+        for comando in ("make check",
+                        "pytest -q",
+                        "cd repo && python3 -m unittest tests.test_x -q",
+                        "npm run test",
+                        "make lint ; make check",
+                        "python3 -m pytest tests/"):
+            with self.subTest(comando=comando):
+                self.assertTrue(self.decisivo(comando))
+
+    def test_mencionarlo_adentro_de_otra_cosa_no_lo_es(self):
+        """Los tres casos salieron de la sesión real, tal como se capturaron."""
+        casos = [
+            'gh pr create --title "T1: el gate de M1 hecho script, con make check en verde"',
+            "git add -A && git commit -F - <<'MSG'\nT2: ahora pytest cubre el caso\nMSG",
+            'python3 - <<PY\nopen("g.sh","w").write("#!/bin/sh\\nmake check")\nPY',
+        ]
+        for comando in casos:
+            with self.subTest(comando=comando[:40]):
+                self.assertFalse(self.decisivo(comando),
+                                 "un commit que habla de tests no es un test que pasó")
+
+    def test_un_fallo_sigue_siendo_decisivo(self):
+        base = {"session_id": "fallo", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUseFailure", dict(base, tool_name="Bash", is_interrupt=False,
+                                                 tool_input={"command": "ls /no/existe"},
+                                                 error="No such file or directory"))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, "fallo")["id"]
+            self.assertTrue(store.steps_of(conn, tid)[-1]["decisive"])
+        finally:
+            conn.close()
+
+
+class ClasificacionTest(IsolatedStoreTest):
+    """El clasificador, contra los prompts que esta sesión realmente recibió."""
+
+    def test_pedir_un_analisis_es_explorar(self):
+        """Iba a `general`: la regla tenía `revis\\w*` y `review`, y no `analiz\\w*`."""
+        for prompt in ("analiza cómo está funcionando el plugin",
+                       "analizá lo evaluado hasta ahora",
+                       "auditá el store a ver qué hay",
+                       "diagnosticá por qué no inyecta nada",
+                       "cómo está andando la captura"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(context.classify_task(prompt), "explore")
+
+    def test_las_otras_clases_no_se_movieron(self):
+        casos = {"los tests fallan con UnicodeDecodeError": "debug_test_failure",
+                 "la app crashea al arrancar": "debug_runtime",
+                 "refactorizar el módulo de red": "refactor",
+                 "implementar el comando audit": "implement_feature",
+                 "actualizar el README": "docs",
+                 "hola": "general"}
+        for prompt, esperado in casos.items():
+            with self.subTest(prompt=prompt):
+                self.assertEqual(context.classify_task(prompt), esperado)
 
 
 class PayloadRealTest(IsolatedStoreTest):
