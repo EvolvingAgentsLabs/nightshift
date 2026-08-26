@@ -109,7 +109,11 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 | Ítem | Motivo |
 |---|---|
-| Todos los `TODO(Matias)` de `bench/PREREG.md` | **Claude Code no fija umbrales** (plan §5). Los resuelve una persona antes de congelar. |
+| Todos los `TODO(Matias)` de `bench/PREREG.md` | **Claude Code no fija umbrales** (plan §5). Los resuelve una persona antes de congelar. El runner ya los lee: `nightshift bench check` lista los 19 con su sección y su línea. |
+| Cómo se lanza el agente en cada celda | El runner recibe el comando por `--agent`. Cuál es ese comando para S0 y para S1 —con nightshift apagado y encendido, con Auto Memory en el mismo estado— es parte del protocolo, y el protocolo de reset entre corridas es un `TODO(Matias)` de PREREG §5. |
+| Conteo de tool calls | Métrica secundaria de A y C. El runner la registra **sólo si el agente la imprime** (`NIGHTSHIFT_BENCH {"tool_calls": N}`); si no, queda en `null` y el reporte lo dice. Contarlas es cosa del harness: estimarlas sería inventar un dato. |
+| La mitad "cero regresión" de la regla de decisión | La tolerancia es un `TODO(Matias)`. El runner evalúa la mitad que puede (≥2 de 3 familias) y **dice explícitamente** que la otra mitad no se evaluó. |
+| Fixtures reales de A, C y D | Los sintéticos de `bench/fixtures/selftest/` prueban el runner, no nightshift. Los de verdad —dos repos, 10 bugs con causa compartida, ground truth de contradicciones— los define Matías con PREREG. |
 | Repos fixture de las familias A y C | Se construyen en M1; los identificadores se congelan en PREREG antes de M4. |
 | Tratamiento estadístico con n=3 por celda | Hay que decidir y escribirlo antes de congelar, incluyendo reconocer el poder estadístico disponible. |
 | Protocolo de reset de Auto Dream entre corridas | Amenaza a la validez identificada, mitigación sin resolver (PREREG §5). |

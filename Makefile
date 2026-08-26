@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 SHELL := /usr/bin/env bash
 
-.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest doctor init clean help
+.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-check doctor init clean help
 
 ## check: el gate completo. Un gate es un script, no un juicio.
 check: lint validate-schema test selftest
@@ -34,6 +34,14 @@ selftest:
 ## dream-selftest: gate de M3-a. Necesita un modelo local, por eso no está en `check`
 dream-selftest:
 	@./bin/nightshift dream --selftest
+
+## bench-selftest: gate del runner de M4. No corre el benchmark: prueba el runner
+bench-selftest:
+	@./bin/nightshift bench selftest
+
+## bench-check: qué le falta al pre-registro para poder correr M4
+bench-check:
+	@./bin/nightshift bench check
 
 ## doctor: auto-diagnóstico de invariantes en runtime
 doctor:

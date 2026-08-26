@@ -37,14 +37,16 @@ Arrancá con `nightshift dev`.
 | Auditoría del store (gate de M1) | `nightshift/audit.py` |
 | Dream fase 1 — `consolidate` | `nightshift/dream.py` |
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
+| Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
 | Gate | `make check` — lint-docs, lint-code, schema, 106 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
 
-Dream fase 2 (`verify`) y el benchmark. Hay `candidate`, pero **nada llega a
-`procedure`**: ninguna memoria inyectada está verificada. Una `candidate` la abstrajo un
+Dream fase 2 (`verify`). El benchmark tiene runner pero **no tiene resultados**: no
+corrió nunca y no puede correr hasta que el pre-registro esté congelado. Hay
+`candidate`, pero **nada llega a `procedure`**: ninguna memoria inyectada está verificada. Una `candidate` la abstrajo un
 modelo local y nadie la reprodujo contra un gate. No lo describas como si lo estuviera,
 ni en el README, ni en un commit, ni en una demo.
 
@@ -140,10 +142,11 @@ el mismo commit y dejá la fecha.
 
 ### Bloqueado — no empieces
 
-- **M4.** Podés construir el runner del benchmark (las tres familias, las filas S0/S1, el
-  reporte). **No** podés fijar umbrales ni criterios de éxito: eso es `bench/PREREG.md`,
-  tiene 19 `TODO(Matias)`, y el pre-registro se congela **antes** de correr nada.
-  Completar un `TODO(Matias)` es una violación, no una ayuda.
+- **M4.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
+  correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)`. Lo que falta no es
+  código: son los umbrales, el modelo, el seed, el protocolo de reset y los repos
+  fixture. Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
+  `nightshift bench check` lista los 19 con sección y línea.
 - **M5 (`verify`).** Prohibido hasta que M4 dé veredicto. Hoy nada llega a `procedure`, y
   eso es correcto: ninguna memoria inyectada está verificada.
 - **Adapter de OpenCode.** Prohibido.
@@ -200,9 +203,9 @@ sesiones reales más para `nightshift audit --min-sessions 5`, y tres noches con
 el timer instalado para `nightshift schedule status`. Las dos las corre una
 persona.
 
-Si vas a construir algo, es el runner del benchmark de M4 — las tres familias,
-las filas S0/S1, el reporte — y **sin fijar un solo umbral**: los 19
-TODO(Matias) de bench/PREREG.md los resuelve Matías, y completar uno es una
-violación. No empieces M5 antes del veredicto de M4. Rama propia, gate en
-verde, PR, y un resumen de qué quedó en LATER.md.
+El runner de M4 también está, y se niega a correr hasta que el pre-registro
+esté congelado: `nightshift bench check` dice qué falta. No completes ningún
+TODO(Matias) — los 19 los resuelve Matías — y no empieces M5 antes del
+veredicto de M4. Si aparece trabajo de código, rama propia, gate en verde, PR,
+y un resumen de qué quedó en LATER.md.
 ```

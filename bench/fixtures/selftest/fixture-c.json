@@ -1,0 +1,47 @@
+{
+  "name": "selftest-C",
+  "family": "C",
+  "learning_tasks": 2,
+  "gate": [
+    "/bin/sh",
+    "gate.sh"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "prompt": "el pipeline falla al normalizar la entrada",
+      "setup": [
+        "/bin/sh",
+        "-c",
+        "mkdir -p state && rm -f state/t1.fixed"
+      ]
+    },
+    {
+      "id": "t2",
+      "prompt": "el pipeline falla al agrupar por clave",
+      "setup": [
+        "/bin/sh",
+        "-c",
+        "mkdir -p state && rm -f state/t2.fixed"
+      ]
+    },
+    {
+      "id": "t3",
+      "prompt": "el pipeline falla al serializar la salida",
+      "setup": [
+        "/bin/sh",
+        "-c",
+        "mkdir -p state && rm -f state/t3.fixed"
+      ]
+    },
+    {
+      "id": "t4",
+      "prompt": "el pipeline falla al leer el archivo de entrada",
+      "setup": [
+        "/bin/sh",
+        "-c",
+        "mkdir -p state && rm -f state/t4.fixed"
+      ]
+    }
+  ]
+}

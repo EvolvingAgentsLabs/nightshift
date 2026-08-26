@@ -11,6 +11,7 @@ import json
 import os
 import shlex
 import subprocess
+import time
 import sys
 import tempfile
 from pathlib import Path
@@ -513,6 +514,399 @@ def _dream_selftest(args) -> int:
     return 0
 
 
+# -------------------------------------------------------------------------- bench
+PREREG_PATH = PLUGIN_ROOT / "bench" / "PREREG.md"
+SELFTEST_FIXTURE = PLUGIN_ROOT / "bench" / "fixtures" / "selftest"
+
+
+def _bench_dir():
+    return config.guard_path(config.home() / "bench")
+
+
+def _print_readiness(prereg, estado):
+    print("pre-registro : %s" % prereg["path"])
+    print("estado       : %s" % prereg["estado"])
+    print("umbrales     : %s" % ", ".join(
+        "%s=%s" % (f, (bench_mod.primary_threshold(prereg, f) or {}).get("raw", "—"))
+        for f in bench_mod.FAMILIES))
+    print()
+    if estado["ready"]:
+        print("listo para correr: sí")
+        return
+    print("listo para correr: NO")
+    for item in estado["blockers"]:
+        print("  - %s" % item)
+    if prereg["todos"]:
+        print()
+        print("TODO pendientes, por sección:")
+        seccion = None
+        for item in prereg["todos"]:
+            if item["section"] != seccion:
+                seccion = item["section"]
+                print("  §%s" % seccion)
+            print("    línea %-4d %s" % (item["line"], item["text"]))
+
+
+def cmd_bench(args) -> int:
+    """Runner del benchmark de M4. **No fija umbrales: los lee.**"""
+    global bench_mod
+    from . import bench as bench_mod
+
+    if args.action == "selftest":
+        return _bench_selftest(args)
+
+    prereg = bench_mod.read_prereg(args.prereg or PREREG_PATH)
+    estado = bench_mod.readiness(prereg)
+
+    if args.action == "check":
+        if args.json:
+            json.dump({"prereg": {k: prereg[k] for k in ("path", "estado", "frozen", "todos")},
+                       "readiness": estado}, sys.stdout, indent=2, ensure_ascii=False)
+            sys.stdout.write("\n")
+            return 0 if estado["ready"] else 1
+        print("nightshift bench check · %s" % __version__)
+        print()
+        _print_readiness(prereg, estado)
+        print()
+        print("Claude Code lee este archivo: no propone, no completa ni ajusta umbrales.")
+        print("Todo TODO(Matias) lo resuelve una persona (PREREG §regla 3).")
+        return 0 if estado["ready"] else 1
+
+    if args.action == "plan":
+        try:
+            fixture = bench_mod.load_fixture(args.fixture)
+            celdas = bench_mod.matrix(fixture, rows=tuple(args.rows.split(",")),
+                                      repeats=args.repeats, seed=args.seed)
+        except (bench_mod.FixtureError, ValueError) as exc:
+            print("bench plan: %s" % exc, file=sys.stderr)
+            return 2
+        print("fixture   : %s (familia %s, %d tarea(s), %d de aprendizaje)"
+              % (fixture["name"], fixture["family"], len(fixture["tasks"]),
+                 fixture["learning_tasks"]))
+        print("celdas    : %d = %s filas × %d corridas × %d tareas"
+              % (len(celdas), args.rows, args.repeats, len(fixture["tasks"])))
+        print("orden     : fijo por seed=%s, idéntico en todas las filas (PREREG §5)"
+              % args.seed)
+        print()
+        for celda in celdas[:args.limit]:
+            print("  %-3s corrida %d  %-6s %-9s %s" % (celda["row"], celda["repeat"],
+                                                       celda["task"], celda["phase"],
+                                                       celda["family"]))
+        if len(celdas) > args.limit:
+            print("  … y %d celda(s) más (--limit)" % (len(celdas) - args.limit))
+        print()
+        if not estado["ready"]:
+            print("planificar no es correr: `bench run` va a negarse hasta que el")
+            print("pre-registro esté congelado. `nightshift bench check` dice qué falta.")
+        return 0
+
+    if args.action == "run":
+        if not estado["ready"] and not args.prereg:
+            print("bench run: el pre-registro no está listo. No se corre nada.",
+                  file=sys.stderr)
+            for item in estado["blockers"]:
+                print("  - %s" % item, file=sys.stderr)
+            print(file=sys.stderr)
+            print("Un umbral que se ajusta después de ver el resultado no es un umbral.",
+                  file=sys.stderr)
+            return 3
+        return _bench_run(args, prereg, estado)
+
+    if args.action == "report":
+        return _bench_report(args, prereg)
+
+    print("acción desconocida: %s" % args.action, file=sys.stderr)
+    return 2
+
+
+def _bench_run(args, prereg, estado, *, cwd=None, quiet=False,
+               silent_report=False) -> int:
+    if not args.agent:
+        print("bench run: falta `--agent`, el comando que corre el agente en cada tarea.",
+              file=sys.stderr)
+        return 2
+    try:
+        fixture = bench_mod.load_fixture(args.fixture)
+        celdas = bench_mod.matrix(fixture, rows=tuple(args.rows.split(",")),
+                                  repeats=args.repeats, seed=args.seed)
+    except (bench_mod.FixtureError, ValueError) as exc:
+        print("bench run: %s" % exc, file=sys.stderr)
+        return 2
+
+    # El id lleva segundos, y dos corridas en el mismo segundo son perfectamente
+    # posibles (tres familias seguidas, por ejemplo). Sobreescribir una corrida es
+    # perderla del reporte, y PREREG §4 pide publicarlas todas.
+    base = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    run_id, sufijo = base, 1
+    while (_bench_dir() / run_id).exists():
+        sufijo += 1
+        run_id = "%s-%d" % (base, sufijo)
+    destino = _bench_dir() / run_id
+    destino.mkdir(parents=True, exist_ok=True)
+    (destino / "meta.json").write_text(json.dumps({
+        "run_id": run_id, "fixture": fixture["path"], "family": fixture["family"],
+        "rows": args.rows, "repeats": args.repeats, "seed": args.seed,
+        "agent": args.agent, "prereg": prereg["path"], "prereg_estado": prereg["estado"],
+        "prereg_frozen": prereg["frozen"], "nightshift": __version__,
+    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    agente = shlex.split(args.agent)
+    registros = []
+    with (destino / "results.jsonl").open("w", encoding="utf-8") as handle:
+        for i, celda in enumerate(celdas, start=1):
+            entorno = dict(os.environ)
+            entorno["NIGHTSHIFT_BENCH_TASK"] = celda["task"]
+            entorno["NIGHTSHIFT_BENCH_ROW"] = celda["row"]
+            registro = bench_mod.run_cell(celda, fixture, agent_command=agente,
+                                          timeout=args.timeout, env=entorno, cwd=cwd)
+            registros.append(registro)
+            handle.write(json.dumps(registro, ensure_ascii=False) + "\n")
+            handle.flush()
+            if not quiet:
+                print("  [%3d/%3d] %-3s c%d %-6s %-8s resuelto=%s" % (
+                    i, len(celdas), celda["row"], celda["repeat"], celda["task"],
+                    celda["phase"], registro.get("resolved")))
+
+    if silent_report:
+        return 0
+    print()
+    print("corrida %s · %d celda(s) · %s" % (run_id, len(registros), destino))
+    return _render_report(registros, prereg, args)
+
+
+def _bench_report(args, prereg) -> int:
+    base = _bench_dir()
+    corridas = sorted([d for d in base.glob("*") if (d / "results.jsonl").is_file()]) \
+        if base.is_dir() else []
+    if not corridas:
+        print("no hay corridas registradas. `nightshift bench run` las produce.",
+              file=sys.stderr)
+        return 1
+    elegida = base / args.run if args.run else corridas[-1]
+    if not (elegida / "results.jsonl").is_file():
+        print("no encuentro la corrida %s" % args.run, file=sys.stderr)
+        return 1
+    registros = [json.loads(line) for line in
+                 (elegida / "results.jsonl").read_text(encoding="utf-8").splitlines() if line]
+    print("corrida: %s" % elegida.name)
+    return _render_report(registros, prereg, args)
+
+
+def _render_report(registros, prereg, args) -> int:
+    resumen = bench_mod.summarize(registros)
+    veredicto = bench_mod.decide(resumen, prereg)
+
+    if getattr(args, "json", False):
+        json.dump({"summary": [v for v in resumen.values()], "decision": veredicto,
+                   "records": registros}, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
+
+    print()
+    print("resultados (mediana por celda; se publican todas las corridas, PREREG §4):")
+    print("  %-8s %-4s %-6s %-10s %-16s %s" % ("familia", "fila", "corr.", "tareas",
+                                               "resolución", "tool calls (med.)"))
+    for clave in sorted(resumen):
+        item = resumen[clave]
+        rango = item["resolution_rate_range"]
+        print("  %-8s %-4s %-6d %-10d %-16s %s" % (
+            item["family"], item["row"], item["runs"], item["n"],
+            "—" if item["resolution_rate"] is None else "%.2f [%.2f–%.2f]" % (
+                item["resolution_rate"], rango[0], rango[1]),
+            "—" if item["tool_calls_median"] is None else "%.1f" % item["tool_calls_median"]))
+
+    print()
+    print("corridas individuales:")
+    for record in registros:
+        print("  %-3s c%d %-6s %-8s gate %s→%s  resuelto=%-5s %s" % (
+            record["row"], record["repeat"], record["task"], record["phase"],
+            record.get("gate_before"), record.get("gate_after"), record.get("resolved"),
+            record.get("error") or ""))
+
+    print()
+    print("regla de decisión (PREREG §1): %s" % veredicto["regla"])
+    for family, item in sorted(veredicto["por_familia"].items()):
+        print("  familia %s · %s" % (family, item["label"]))
+        print("      S0=%s  S1=%s  umbral=%s  →  %s" % (
+            "—" if item["S0"] is None else "%.3f" % item["S0"],
+            "—" if item["S1"] is None else "%.3f" % item["S1"],
+            item["threshold"] or "sin fijar",
+            {True: "alcanza", False: "no alcanza", None: "indecidible"}[item["met"]]))
+    print()
+    if veredicto["go"] is None:
+        print("veredicto: INDECIDIBLE — falta(n) umbral(es) para %s."
+              % ", ".join(veredicto["indecidibles"]))
+        print("Indecidible no es no-go, y sobre todo no es go.")
+        return 1
+    print("veredicto: %s (%d de 3 familias alcanzan el umbral)"
+          % ("GO" if veredicto["go"] else "NO-GO", len(veredicto["familias_alcanzadas"])))
+    print("La tolerancia de regresión sigue siendo un TODO(Matias): esa mitad de la")
+    print("regla no se evaluó.")
+    return 0
+
+
+SELFTEST_PREREG = """# PREREG SINTÉTICO — sólo para el selftest del runner
+
+| Campo | Valor |
+|---|---|
+| Estado | CONGELADO (sintético) |
+
+Los números de acá son inventados para probar el runner. **No son los umbrales de M4**:
+ésos viven en bench/PREREG.md, están sin fijar, y los fija Matías.
+
+### A — Bug recurrente variado
+
+| Métrica | Umbral de go (S1 vs S0) |
+|---|---|
+| Tasa de resolución | +20 pp |
+
+### C — Transferencia cross-repo
+
+| Métrica | Umbral de go (S1 vs S0) |
+|---|---|
+| Tasa de resolución en repo B | +20 pp |
+
+### D — Precisión de consolidación
+
+| Métrica | Umbral de go (S1 vs S0) |
+|---|---|
+| Proporción de memorias falsas o stale | -10 pp |
+"""
+
+
+def _bench_selftest(args) -> int:
+    """Gate del runner: matriz → ejecución → gate → clasificador → resumen → decisión.
+
+    Con fixtures sintéticos y un agente falso, en un directorio temporal. **No prueba que
+    nightshift sirva** — eso es lo que M4 mide, y M4 no puede correr todavía porque su
+    pre-registro no está congelado. Prueba que el runner no miente cuando le toque.
+    """
+    import shutil as _shutil
+
+    failures = []
+    with tempfile.TemporaryDirectory(prefix="nightshift-bench-") as tmp:
+        raiz = Path(tmp)
+        trabajo = raiz / "fixture"
+        _shutil.copytree(SELFTEST_FIXTURE, trabajo)
+        prereg_path = raiz / "PREREG-sintetico.md"
+        prereg_path.write_text(SELFTEST_PREREG, encoding="utf-8")
+
+        # 1. Sobre el pre-registro REAL, correr tiene que estar prohibido.
+        real = bench_mod.read_prereg(PREREG_PATH)
+        if bench_mod.readiness(real)["ready"]:
+            failures.append("el pre-registro real se declaró listo, y tiene TODO(Matias) "
+                            "sin resolver y dice BORRADOR")
+        print("  el pre-registro real no está listo: `run` se niega  ✓")
+
+        prereg = bench_mod.read_prereg(prereg_path)
+        estado = bench_mod.readiness(prereg)
+        if not estado["ready"]:
+            failures.append("el pre-registro sintético debería alcanzar para correr: %s"
+                            % "; ".join(estado["blockers"]))
+
+        # 2. El pipeline entero, las tres familias.
+        registros = []
+        previous = os.environ.get("NIGHTSHIFT_HOME")
+        os.environ["NIGHTSHIFT_HOME"] = str(raiz / "home")
+        try:
+            config.init(force=True)
+            for familia in ("a", "c", "d"):
+                class _Args:
+                    fixture = str(trabajo / ("fixture-%s.json" % familia))
+                    agent = "./agent.sh {task} {row}"
+                    rows = "S0,S1"
+                    repeats = 2
+                    seed = "selftest"
+                    timeout = 60
+                    json = False
+                    run = None
+                _bench_run(_Args(), prereg, estado, cwd=str(trabajo), quiet=True,
+                           silent_report=True)
+            for corrida in sorted((raiz / "home" / "bench").glob("*")):
+                registros.extend(json.loads(line) for line in
+                                 (corrida / "results.jsonl").read_text(encoding="utf-8")
+                                 .splitlines() if line)
+        finally:
+            if previous is None:
+                os.environ.pop("NIGHTSHIFT_HOME", None)
+            else:
+                os.environ["NIGHTSHIFT_HOME"] = previous
+
+        resumen = bench_mod.summarize(registros)
+        veredicto = bench_mod.decide(resumen, prereg)
+
+        if len(registros) != 48:
+            failures.append("esperaba 48 celdas (3 familias × 2 filas × 2 corridas × 4 "
+                            "tareas), hubo %d" % len(registros))
+        aprendizaje = [r for r in registros if r["phase"] == "learning"]
+        if len(aprendizaje) != 24:
+            failures.append("esperaba 24 celdas de aprendizaje (la mitad), hubo %d"
+                            % len(aprendizaje))
+        if any(r["phase"] == "learning" and r["task_index"] >= 2 for r in registros):
+            failures.append("la fase de aprendizaje son las primeras tareas del orden fijo")
+        for familia in ("A", "C"):
+            s0 = (resumen.get((familia, "S0")) or {}).get("resolution_rate")
+            s1 = (resumen.get((familia, "S1")) or {}).get("resolution_rate")
+            if s0 is None or s1 is None:
+                failures.append("familia %s: falta la tasa de resolución de alguna fila"
+                                % familia)
+            elif not s1 > s0:
+                failures.append("familia %s: el agente falso resuelve más en S1 y el "
+                                "resumen no lo refleja" % familia)
+        d_s1 = (resumen.get(("D", "S1")) or {}).get("false_stale_ratio")
+        if d_s1 is None:
+            failures.append("familia D: el clasificador del fixture no dejó "
+                            "`false_stale_ratio` en el resumen")
+        if veredicto["go"] is not True:
+            failures.append("con las tres familias medidas y umbrales fijados, el "
+                            "veredicto debería ser GO y fue %s" % veredicto["go"])
+        print("  pipeline completo: %d celdas, 3 familias, veredicto=%s  ✓"
+              % (len(registros), {True: "GO", False: "NO-GO"}.get(veredicto["go"], "?")))
+
+        # 3. En D, menor es mejor: si S1 empeora, la familia NO alcanza.
+        peor = dict(resumen)
+        peor[("D", "S1")] = dict(resumen[("D", "S1")], false_stale_ratio=0.9)
+        if bench_mod.decide(peor, prereg)["por_familia"]["D"]["met"] is not False:
+            failures.append("en la familia D menor es mejor: empeorar no puede alcanzar "
+                            "el umbral")
+        print("  en D menor es mejor: empeorar no alcanza el umbral  ✓")
+
+        # 4. Sin una familia medida, el veredicto es indecidible: nunca go.
+        parcial = {k: v for k, v in resumen.items() if k[0] != "C"}
+        if bench_mod.decide(parcial, prereg)["go"] is not None:
+            failures.append("con una familia sin medir el veredicto tiene que ser "
+                            "indecidible")
+        # 5. Y sin umbrales, también.
+        if bench_mod.decide(resumen, real)["go"] is not None:
+            failures.append("sin umbrales el veredicto tiene que ser indecidible")
+        print("  sin una familia, o sin umbrales: indecidible, nunca go  ✓")
+
+        # 6. La fila S2 es de M5 y M5 está bloqueado.
+        try:
+            bench_mod.matrix(bench_mod.load_fixture(str(trabajo / "fixture-a.json")),
+                             rows=("S0", "S2"))
+            failures.append("la fila S2 se dejó planificar y M5 está bloqueado")
+        except ValueError:
+            pass
+        print("  la fila S2 (M5) se rechaza  ✓")
+
+        # 7. El pre-registro real no se tocó.
+        if "TODO(Matias)" not in PREREG_PATH.read_text(encoding="utf-8"):
+            failures.append("FUGA DE PROCESO: el pre-registro real perdió sus TODO(Matias)")
+        print("  el pre-registro real sigue con sus TODO(Matias) intactos  ✓")
+
+    print()
+    if failures:
+        for item in failures:
+            print("  FALLA  %s" % item)
+        print("bench --selftest: %d fallo(s)" % len(failures))
+        return 1
+    print("bench --selftest: OK — el runner corre entero con un pre-registro congelado,")
+    print("se niega con el real, y ante un dato o un umbral que falta dice indecidible")
+    print("en vez de adivinar.")
+    return 0
+
+
 # ----------------------------------------------------------------------- schedule
 def _schedule_state(cfg, requested=None):
     from . import schedule as sched
@@ -941,6 +1335,22 @@ def main(argv=None) -> int:
     p.add_argument("--limit", type=int, default=10)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_schedule)
+
+    p = sub.add_parser("bench", help="runner del benchmark de M4 (lee los umbrales, no los fija)")
+    p.add_argument("action", nargs="?", default="check",
+                   choices=("check", "plan", "run", "report", "selftest"))
+    p.add_argument("--fixture", default=None, help="ruta a un fixture.json")
+    p.add_argument("--agent", default=None,
+                   help="comando del agente por tarea; admite {prompt} {task} {row}")
+    p.add_argument("--rows", default="S0,S1", help="filas a correr (S2 es de M5)")
+    p.add_argument("--repeats", type=int, default=3)
+    p.add_argument("--seed", default=None)
+    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--prereg", default=None, help="pre-registro alternativo (para pruebas)")
+    p.add_argument("--run", default=None, help="id de corrida para `report`")
+    p.add_argument("--limit", type=int, default=24)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_bench)
 
     p = sub.add_parser("doctor", help="auto-diagnóstico de invariantes")
     p.add_argument("--json", action="store_true")
