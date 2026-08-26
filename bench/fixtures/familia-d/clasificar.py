@@ -21,7 +21,9 @@ import sqlite3
 import sys
 
 RAIZ = pathlib.Path(__file__).resolve().parent
-STORE = pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_WORKDIR", str(RAIZ))) / ".store"
+STORE = pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_STORE")
+                     or (pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_WORKDIR",
+                                                     str(RAIZ))) / ".store"))
 CLAIM_RE = re.compile(r"claim:(\w+)")
 
 

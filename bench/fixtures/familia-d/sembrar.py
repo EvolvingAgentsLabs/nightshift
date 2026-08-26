@@ -17,7 +17,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 RAIZ = pathlib.Path(__file__).resolve().parent
-DESTINO = pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_WORKDIR", str(RAIZ))) / ".store"
+DESTINO = pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_STORE")
+                       or (pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_WORKDIR",
+                                                       str(RAIZ))) / ".store"))
 FINGERPRINT = "d" * 64
 
 

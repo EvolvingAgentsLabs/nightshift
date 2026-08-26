@@ -67,5 +67,6 @@
       "prompt": "En este repo, una fila válida se rechaza. Encontralo y arreglalo. El gate es `python3 -m unittest test_10_validacion -q`.",
       "symptom": "una fila válida se rechaza"
     }
-  ]
+  ],
+  "repo_url": "https://example.invalid/registro-fixture.git"
 }

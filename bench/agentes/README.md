@@ -28,8 +28,18 @@ después de escribirlo, que es exactamente lo que el pre-registro existe para im
   baseline real (ADR-001): comparar contra un agente sin memoria sería comparar contra un
   rival que ya no existe.
 - **S1** — lo mismo, más nightshift cargado con `--plugin-dir`, con `NIGHTSHIFT_HOME`
-  apuntando a `.store/` dentro de la celda. Así cada celda arranca con la memoria que el
-  fixture sembró y con ninguna otra.
+  apuntando al store que el runner crea por **(fila, repetición)**.
+
+  El runner usa un directorio de trabajo por (fila, repetición) y le resetea el
+  contenido antes de cada tarea. La ruta se mantiene a propósito. Las dos memorias que se comparan keyean por ruta —
+  Auto Memory por ruta de proyecto, nightshift por fingerprint del repo— así que con una
+  ruta nueva por tarea ninguna acumula nada y la fase de aprendizaje no existe. Y con
+  ruta nueva sólo del lado de S0, el benchmark le daría ventaja a nightshift **por
+  construcción**: un experimento que favorece a lo que mide no mide.
+
+  Los fixtures declaran `repo_url` y el runner inicializa cada copia como repo git con ese
+  remote, así el fingerprint tampoco depende de la ruta entre repeticiones. De paso, cada
+  tarea tiene `base_commit`, sin el cual no hay worktree reproducible (ADR-002).
 - **S2** — se rechaza. Es de M5, y M5 está bloqueado hasta el veredicto de M4.
 
 ## Dos cosas verificadas contra el CLI el 2026-08-26

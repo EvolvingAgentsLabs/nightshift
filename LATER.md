@@ -186,6 +186,22 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 ---
 
+## Dos amenazas a la validez que sólo aparecieron corriendo el benchmark
+
+Ninguna de las dos rompía nada: las dos producían un número confiado y falso.
+
+| Amenaza | Qué habría medido |
+|---|---|
+| Store de nightshift por celda | La fase de aprendizaje no le enseñaba nada a la de medición: **cero transferencia por construcción**, o sea un no-go garantizado sin importar si nightshift sirve. |
+| Ruta de trabajo nueva por tarea | Auto Memory keyea por ruta de proyecto y nightshift por fingerprint del repo. Arreglar sólo el lado de nightshift habría dado ventaja a nightshift **por construcción**: el error opuesto y peor, porque favorece a lo que se mide. |
+
+Las dos se arreglaron con la misma decisión: un directorio de trabajo y un store por
+**(fila, repetición)**, con el contenido del repo reseteado antes de cada tarea. Queda
+como recordatorio de que las amenazas a la validez de PREREG §5 no son todas las que hay:
+ésas dos no estaban en la lista y aparecieron a los cinco minutos de correr la cosa.
+
+---
+
 ## Sobre el ensayo end-to-end
 
 `nightshift simulate` corre la máquina entera con sesiones sintéticas y tres noches

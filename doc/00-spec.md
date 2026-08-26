@@ -615,6 +615,14 @@ resuelve el fix de referencia**. Un fixture donde una tarea ya pasa, o donde nin
 resolución es posible, no mide nada y no rompe nada: es la forma más silenciosa de tener
 un benchmark que no mide. Sus identificadores los congela Matías en el pre-registro.
 
+La celda corre en un directorio de trabajo por **(fila, repetición)** con el contenido
+reseteado antes de cada tarea, y con un store de nightshift de la misma vida. Las dos
+mitades son necesarias y por motivos opuestos: sin resetear el contenido, la segunda tarea
+encuentra el fix de la primera; sin mantener la ruta, ni Auto Memory ni nightshift
+acumulan nada —las dos keyean por ruta— y la fase de aprendizaje no existe. Arreglar sólo
+el lado de nightshift le habría dado ventaja por construcción, que es el error peor de los
+dos porque favorece a lo que se mide.
+
 El adaptador que lanza el agente en cada celda está en `bench/agentes/`, y **se niega a
 correr por el mismo motivo que el runner**: sin el modelo, el límite de tool calls y el
 protocolo de reset —los tres `TODO(Matias)`— no elige valores por su cuenta. Dos cosas

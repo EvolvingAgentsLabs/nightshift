@@ -233,6 +233,81 @@ class CliTest(IsolatedStoreTest):
         self.assertFalse(data["readiness"]["ready"])
         self.assertGreaterEqual(len(data["prereg"]["todos"]), 19)
 
+    def test_la_ruta_de_trabajo_es_estable_dentro_de_una_repeticion(self):
+        """Las dos memorias que se comparan keyean por ruta.
+
+        Auto Memory por ruta de proyecto y nightshift por fingerprint del repo. Con una
+        ruta nueva por tarea ninguna acumula nada y la fase de aprendizaje no existe. Y
+        con ruta nueva sólo para S0 —store de nightshift compartido y workdir no— el
+        benchmark le daría ventaja a nightshift por construcción.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        registro = Path(tmp.name) / "registro.jsonl"
+        agente = ("/bin/sh -c "
+                  "'echo \"$NIGHTSHIFT_BENCH_ROW|$NIGHTSHIFT_BENCH_TASK|"
+                  "$NIGHTSHIFT_BENCH_STORE|$NIGHTSHIFT_BENCH_WORKDIR\" >> %s'" % registro)
+        code, _, err = self.run_cli(
+            ["bench", "run", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--prereg", str(self.prereg_congelado()), "--agent", agente,
+             "--rows", "S1", "--repeats", "2", "--timeout", "60"])
+        self.assertIn(code, (0, 1), err)
+
+        filas = [l.split("|") for l in registro.read_text(encoding="utf-8").splitlines() if l]
+        self.assertEqual(len(filas), 8, "1 fila × 2 repeticiones × 4 tareas")
+        por_repeticion = {}
+        for _, tarea, store, workdir in filas:
+            por_repeticion.setdefault(store, set()).add(workdir)
+
+        self.assertEqual(len(por_repeticion), 2, "una memoria por repetición")
+        for store, workdirs in por_repeticion.items():
+            self.assertEqual(len(workdirs), 1,
+                             "las 4 tareas de una repetición comparten ruta de trabajo")
+        rutas = {w for ws in por_repeticion.values() for w in ws}
+        self.assertEqual(len(rutas), 2, "y cada repetición tiene la suya")
+
+    def test_el_contenido_del_repo_se_resetea_entre_tareas(self):
+        """La ruta se mantiene, el contenido no: si no, la tarea 2 encuentra el fix hecho."""
+        import tempfile
+
+        fixture = bench.load_fixture(FIXTURES / "fixture-a.json")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        destino = Path(tmp.name) / "trabajo"
+        primero = Path(bench.prepare_workdir(fixture, destino))
+        (primero / "state").mkdir(exist_ok=True)
+        (primero / "state" / "t1.fixed").write_text("listo", encoding="utf-8")
+        segundo = Path(bench.prepare_workdir(fixture, destino))
+        self.assertEqual(primero, segundo, "misma ruta")
+        self.assertFalse((segundo / "state" / "t1.fixed").exists(), "contenido reseteado")
+
+    def test_el_fingerprint_del_repo_no_depende_de_la_ruta(self):
+        """Sin remote, el fingerprint sale de la ruta y dos repeticiones son dos repos."""
+        import tempfile
+
+        from nightshift import context
+
+        fixture = bench.load_fixture(ROOT / "bench" / "fixtures" / "familia-a" /
+                                     "fixture.json")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        uno = bench.prepare_workdir(fixture, Path(tmp.name) / "S1-c1")
+        dos = bench.prepare_workdir(fixture, Path(tmp.name) / "S1-c2")
+        self.assertEqual(context.repo_fingerprint(uno), context.repo_fingerprint(dos))
+        self.assertIsNotNone(context.base_commit(uno),
+                             "sin commit no hay base_commit, y sin eso no hay verify")
+
+    def prereg_congelado(self):
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "prereg.md"
+        path.write_text(CONGELADO, encoding="utf-8")
+        return path
+
     def test_report_sin_corridas_lo_dice(self):
         code, _, err = self.run_cli(["bench", "report"])
         self.assertEqual(code, 1)

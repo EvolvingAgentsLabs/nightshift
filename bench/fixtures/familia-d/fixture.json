@@ -44,5 +44,6 @@
         "sembrar.py"
       ]
     }
-  ]
+  ],
+  "repo_url": "https://example.invalid/servicio-fixture.git"
 }
