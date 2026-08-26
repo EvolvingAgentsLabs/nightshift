@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS runs (
     candidates INTEGER,
     superseded INTEGER,
     rejected INTEGER,
+    cost_usd REAL,
     note TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at);
@@ -89,7 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_traj_task ON trajectories(task_type, status);
 CREATE INDEX IF NOT EXISTS idx_inj_session ON injections(session_id);
 """
 
-SCHEMA_REVISION = "1"
+SCHEMA_REVISION = "2"
 
 
 def now() -> str:
@@ -101,6 +102,30 @@ def now() -> str:
     SQLite devuelve la que quiera. Lo encontró un test que abría dos seguidas.
     """
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# Columnas agregadas después de la primera versión del esquema. `CREATE TABLE IF NOT
+# EXISTS` no toca una tabla que ya existe, así que un store viejo se queda sin ellas para
+# siempre y falla al escribir. Migrar es agregar lo que falte, y nada más: nunca se borra
+# ni se reescribe una columna con datos.
+COLUMNAS_AGREGADAS = {
+    "runs": [("cost_usd", "REAL")],
+}
+
+
+def migrate(conn):
+    """Agrega las columnas que le falten a un store viejo. Idempotente."""
+    agregadas = []
+    for tabla, columnas in COLUMNAS_AGREGADAS.items():
+        existentes = {fila["name"] for fila in
+                      conn.execute("PRAGMA table_info(%s)" % tabla).fetchall()}
+        for nombre, tipo in columnas:
+            if nombre not in existentes:
+                conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (tabla, nombre, tipo))
+                agregadas.append("%s.%s" % (tabla, nombre))
+    if agregadas:
+        conn.commit()
+    return agregadas
 
 
 def hours_ago(hours: float) -> str:
@@ -121,6 +146,7 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(SCHEMA_SQL)
+    migrate(conn)
     conn.execute(
         "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_revision', ?)",
         (SCHEMA_REVISION,),
@@ -236,7 +262,8 @@ def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None
 
 # --------------------------------------------------------------- corridas (M3-b)
 def record_run(conn, *, command, backend=None, started_at=None, exit_code=None,
-               trajectories=0, candidates=0, superseded=0, rejected=0, note=None):
+               trajectories=0, candidates=0, superseded=0, rejected=0, cost_usd=None,
+               note=None):
     """Registra una corrida de dream. Es lo que `schedule status` tiene para mostrar.
 
     Sin esto, un scheduler es una promesa: hay un timer, y nadie sabe si la última noche
@@ -245,10 +272,10 @@ def record_run(conn, *, command, backend=None, started_at=None, exit_code=None,
     """
     conn.execute(
         "INSERT INTO runs (started_at, finished_at, command, backend, exit_code,"
-        " trajectories, candidates, superseded, rejected, note)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        " trajectories, candidates, superseded, rejected, cost_usd, note)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (started_at or now(), now(), command, backend, exit_code, trajectories,
-         candidates, superseded, rejected, note))
+         candidates, superseded, rejected, cost_usd, note))
     conn.commit()
 
 
