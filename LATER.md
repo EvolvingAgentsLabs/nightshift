@@ -8,6 +8,37 @@ acá.
 
 ---
 
+## Deuda de proceso: se pasó de M0 sin cerrar su gate
+
+M0 tenía dos gates: `make check` (script) e **Ismael revisa ADR-001** (humano). El
+primero pasa. El segundo **nunca ocurrió**, y aun así se implementaron M1 y M2 a pedido
+explícito de Matías.
+
+Por qué importa y no es burocracia: ADR-001 es el documento que decide *contra qué no
+competimos*. Si la revisión encuentra que alguna de las cinco capacidades es "todavía no
+lo hicieron" y no "por diseño", esa capacidad sale del roadmap — y M1/M2 ya están
+construidos sobre las cinco. El costo de descubrirlo tarde es código escrito, no sólo
+tiempo de lectura.
+
+**Acción pendiente:** la revisión de ADR-001 sigue siendo el gate de M0. Si cambia
+alguna fila de la matriz, hay que revisar qué parte de la captura sobra.
+
+---
+
+## Diferido: el daemon
+
+La spec §3.1 describe un `nightshiftd`. M1+M2 escriben directo a SQLite (WAL) y no hay
+daemon.
+
+Motivo: el daemon existía para amortizar la carga del modelo local, y capturar no usa
+modelo. Meterlo ahora sería un proceso de fondo más que puede colgarse, en contra de
+§7.2 ("nightshift jamás debe bloquear una sesión"). Se reabre con M3, que sí carga Qwen.
+
+Costo asumido: cada hook paga el arranque de un intérprete Python. Si eso se nota en
+sesiones con muchas tool calls, el daemon deja de ser diferible. **Sin medir todavía.**
+
+---
+
 ## Deuda de procedencia
 
 **La spec v0.2 no está en el repositorio.** Este repo se creó en el commit de M0.
@@ -29,22 +60,29 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 | Ítem | Motivo |
 |---|---|
-| DDL de SQLite | El esquema JSON es normativo; el mapeo a tablas depende de cómo consulte el retrieval, y eso no se sabe hasta M2. Se define en M1 y se re-mira en M2. |
-| Formato del archivo de config de `deny_paths` | Debe existir **antes** del primer hook (spec §8.1), pero el formato concreto no es una decisión de M0. |
+| ~~DDL de SQLite~~ | **Hecho** en `nightshift/store.py`. El contrato público sigue siendo `export_trajectory()`, que valida contra el esquema de M0. |
+| ~~Formato de la config de `deny_paths`~~ | **Hecho**: `~/.nightshift/config.json`, creado por `nightshift init`. Sin él no se captura. |
 | Lista de reglas del redactor determinista | Se deriva de las fixtures de Histora, que no están en este repo. |
-| Fixtures de Histora para los tests del redactor | Material sensible. No entran a este repo: viven fuera y el test las toma por path configurable. |
-| Protocolo daemon ↔ hook (socket, timeouts) | Detalle de implementación. Lo único normativo hoy es §7.2: si el daemon no responde, el hook sale 0 y no bloquea. |
+| Fixtures de Histora para los tests del redactor | Material sensible. No entran a este repo: viven fuera y el test las toma por path configurable. **El redactor tiene tests con fixtures sintéticas, no con las de Histora.** El gate de M1 no está cerrado hasta que corra contra ellas. |
+| El gate de M1: 5 sesiones reales sin fuga | El código está; **la evidencia no**. Hace falta usar el plugin en 5 sesiones reales y correr el test automatizado sobre el dump. Hasta entonces M1 es "código listo", no "M1 pasado". |
+| Protocolo daemon ↔ hook (socket, timeouts) | Sin daemon todavía (ver arriba). Lo normativo se cumple: el hook sale 0 pase lo que pase. |
 | Re-verificación del formato de hooks | Los nombres se verificaron el 2026-08-26 contra `code.claude.com/docs/en/hooks`. Cambian entre versiones: M1 re-verifica y actualiza spec §5.4 con fecha. |
-| Vocabulario normalizado de tools | `read_file`/`edit_file`/`write_file`/`run_shell`/`search`/`fetch`/`other` es un primer corte. Se cierra con datos reales de captura, no por adivinanza. |
+| Vocabulario normalizado de tools | Implementado como primer corte en `context.TOOL_MAP`. **Todo lo que no está mapeado cae a `other`, incluidas todas las tools MCP.** Se cierra con datos reales de captura, no por adivinanza. |
+| Heurística de `task_type` | `context.TASK_TYPE_RULES` es un regex por clase, orden fijo, primera que matchea. Funciona en español e inglés y está testeada, pero es una adivinanza informada: hay que revisarla contra trayectorias reales. |
+| Heurística de señal decisiva | Hoy: todo `tool_failure` es decisivo, y un comando de test que pasa también. Es lo bastante bueno para M2 y probablemente demasiado generoso. |
+| `hypothesis` nunca se puebla | Extraerla exigiría guardar texto del prompt, que se decidió no persistir. Queda para dream (M3), que sí puede derivarla de la trayectoria. |
 
 ## Diferido hasta M2 (Retrieve)
 
 | Ítem | Motivo |
 |---|---|
-| Cómo se elige `N` (procedimientos inyectados por sesión) | Depende del presupuesto de contexto real, que se mide en M2. |
+| Cómo se elige `N` | Hoy `max_injected: 3` por config. El número sale de una intuición, no de medir presupuesto de contexto. |
+| Los pesos del ranking | `retrieve.W_*` son constantes elegidas a mano. Son deterministas y auditables (`why` los reimprime), pero nadie las calibró. M4 es quien puede decir si sirven. |
+| Retención y tamaño del store | Sin política. Una trayectoria por sesión y hasta 400 pasos cada una crece sin techo. |
 | Función de ranking y peso exacto de `candidate` vs `procedure` | Spec §6.3 fija el orden (candidate < procedure); el número sale de datos. |
-| Cómo se usa `MEMORY.md` como señal de retrieval | Está permitido leerlo (spec §1.3.4). Qué señal se extrae exactamente se decide con memoria nativa real delante. |
-| `/nightshift status|dream|why` como plugin vs slash commands sueltos | El formato de plugin de Claude Code cambia. Se elige en M2, no antes. |
+| Cómo se usa `MEMORY.md` como señal de retrieval | Hoy sólo se detecta **si existe**, y si existe el texto inyectado lo dice. No se lee el contenido. Qué señal extraer se decide con memoria nativa real delante. |
+| Transferencia cross-repo de verdad | `cross_repo` existe en la config y está **apagado**: sin `abstraction` (que produce dream) cruzar de repo transfiere detalle, no patrón. La capacidad C no está entregada. |
+| ~~Plugin vs slash commands sueltos~~ | **Resuelto**: plugin. Las skills quedan namespaced como `/nightshift:<skill>`, no `/nightshift <sub>` como suponía el plan. Spec §5.5 enmendada. |
 
 ## Diferido hasta M3 (Dream + scheduler)
 
@@ -90,5 +128,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 2. **Revisión de ADR-001 por Ismael.** Es el gate humano de M0. Las cuatro preguntas
    concretas están al final del ADR.
 3. **Deuda de procedencia de la v0.2** (arriba).
-4. **Visibilidad del repositorio.** Se creó privado. Pasar a público es una decisión de
-   Matías, no del agente.
+4. **Visibilidad del repositorio.** Pasar a público es una decisión de Matías, no del
+   agente.
+5. **Correr el gate real de M1.** Usar el plugin en 5 sesiones reales y correr el test
+   sobre el dump. Hasta que eso pase, M1 es código sin evidencia.

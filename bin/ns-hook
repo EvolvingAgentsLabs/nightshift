@@ -1,0 +1,7 @@
+#!/bin/sh
+# Entrypoint de los hooks. Sale 0 pase lo que pase: nightshift nunca bloquea una
+# sesión (spec §7.2). El JSON del evento llega por stdin.
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+  "${NIGHTSHIFT_PYTHON:-python3}" -m nightshift.hook "$@" 2>/dev/null
+exit 0
