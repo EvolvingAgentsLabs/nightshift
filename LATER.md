@@ -99,6 +99,10 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Una candidata por grupo y por corrida | Se promueve el representante del grupo; el resto queda `closed` y sigue siendo recuperable como cruda. Si el grupo tenía dos patrones distintos, el segundo se pierde hasta la próxima corrida. |
 | Peso de inyección de `candidate` (0.6) | Elegido a mano, como los pesos del ranking. Spec §6.3 fija el orden (`candidate` < `procedure`), no el número. |
 | `dream` no puebla `hypothesis` | Sigue vacía: el modelo produce `abstraction`, no hipótesis por trayectoria. Se puede derivar, no se hizo. |
+| Las tres noches del gate de M3 | El scheduler está y `schedule status` reporta las corridas. **La evidencia no está**: hay que instalar el timer en la Air y dejarlo correr tres noches. Lo hace una persona, no un agente. |
+| Ventana horaria fija (03:30) | Config, pero elegida a mano. No hay medición de cuánto tarda una consolidación real ni de si entra en la ventana de batería. |
+| `schedule status` no dice cuándo es la próxima corrida | `launchctl print` y `systemctl list-timers` lo saben; nightshift no los consulta todavía. Lo que sí muestra es lo que pasó, que es lo que el gate necesita. |
+| El backend `loop` no sobrevive a un reinicio | Es el backend de desarrollo, corre en primer plano y muere con la terminal. Documentado, no arreglado: para eso están los otros dos. |
 | Política de retención del store | No hay volumen real todavía. Decidir con datos, no con intuición. |
 
 ## Diferido hasta M4 (Benchmark)

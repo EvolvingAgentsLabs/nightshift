@@ -85,6 +85,7 @@ cuando cambiás `hooks/hooks.json`, una skill o el manifiesto.
 | `/nightshift:doctor` | Chequeo de invariantes en runtime más un replay end-to-end de los siete hooks |
 | `/nightshift:dev` | Estado de desarrollo del plugin, para las sesiones que lo modifican |
 | `/nightshift:dream` | Fase 1 (`consolidate`) sobre las trayectorias cerradas, con el modelo local |
+| `/nightshift:schedule` | La corrida nocturna: qué backend, qué hay instalado y cómo salieron las últimas |
 
 `/nightshift:dream --verify` no existe: la fase 2 es M5 y está bloqueada hasta el
 veredicto de M4. **Nada llega a `procedure`, así que nada de lo inyectado está
@@ -129,7 +130,7 @@ no se captura en absoluto — ni el path, ni el contenido, ni el hecho de que oc
 .claude-plugin/plugin.json     Manifiesto del plugin
 hooks/hooks.json               Los siete hooks que registra
 bin/                           ns-hook (entrypoint de hooks) y nightshift (CLI), van al PATH
-skills/                        /nightshift:status | why | doctor | dev | dream
+skills/                        /nightshift:status | why | doctor | dev | dream | schedule
 nightshift/                    La implementación. Sólo librería estándar
   config.py                      Rutas, deny_paths, el guard de escritura de Auto Memory
   redact.py                      Redactor determinista — corre antes de persistir
@@ -138,7 +139,8 @@ nightshift/                    La implementación. Sólo librería estándar
   hook.py                        Despacho de hooks. Nunca levanta, siempre sale 0
   retrieve.py                    Ranking estructural e inyección
   dream.py                       Dream fase 1: modelo local, agrupación estructural
-  cli.py                         init | status | why | export | audit | dream | doctor | selftest | dev
+  schedule.py                    Scheduler pluggable: launchd | systemd | loop
+  cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Tests unitarios y el round trip captura→export→validar
 tools/                         El gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Spec v0.3 (prosa normativa)
@@ -159,7 +161,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
-| M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable (`launchd`/`systemd`/`loop`) | `nightshift dream --selftest` pasa. El gate del milestone — 3 noches seguidas sin intervención — necesita el scheduler |
+| M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable ✅ | Los dos entregados: `nightshift dream --selftest` pasa y `nightshift schedule status` reporta las últimas corridas. El gate del milestone — **3 noches seguidas sin intervención** — lo corre Matías |
 | M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | Adapter de OpenCode, marketplace de plugins, Omarchy/Quattro | Ver [`LATER.md`](LATER.md) |
@@ -227,6 +229,29 @@ esquema.
 
 Una `candidate` **no** está verificada. Se inyecta con menos peso y marcada como no
 verificada, porque `verify` (M5) está bloqueado hasta el veredicto de M4.
+
+### Programar la corrida nocturna
+
+```sh
+nightshift schedule status              # backend, qué hay instalado y las últimas corridas
+nightshift schedule install --dry-run   # mostrar la unidad, sin escribir nada
+nightshift schedule install             # escribirla y cargarla
+nightshift schedule uninstall
+```
+
+Tres backends detrás de una interfaz: `launchd` (macOS, target primario), `systemd`
+(timer de **usuario**, nunca unidad de sistema) y `loop` (`nightshift schedule loop`, en
+primer plano, para desarrollo). El backend se autodetecta salvo que `scheduler_backend`
+diga otra cosa. En macOS el job corre bajo `caffeinate -s`: un equipo que se duerme a
+mitad de la consolidación no la termina.
+
+Escribir la unidad y cargarla son pasos distintos a propósito — `--dry-run` la muestra sin
+escribirla, `--no-activate` la escribe sin cargarla en el gestor del sistema.
+
+Cada corrida de dream queda registrada, y `schedule status` imprime las últimas con su
+código de salida. Ese es el punto: un scheduler sin corridas registradas es una promesa,
+no un hecho. El gate de M3 son tres noches seguidas sin intervención, lo corre una
+persona, y esto es lo que lo hace verificable.
 
 `make doctor` va aparte a propósito: chequea *tu* instalación (config presente, captura
 activa), que no es algo que CI tenga por qué afirmar.

@@ -86,6 +86,7 @@ change `hooks/hooks.json`, a skill, or the manifest.
 | `/nightshift:doctor` | Runtime invariant checks plus an end-to-end replay of all seven hooks |
 | `/nightshift:dev` | Development state of the plugin, for sessions that modify it |
 | `/nightshift:dream` | Phase 1 (`consolidate`) over closed trajectories, with the local model |
+| `/nightshift:schedule` | The nightly run: which backend, what is installed, and how the last runs went |
 
 `/nightshift:dream --verify` does not exist: phase 2 is M5, blocked until M4 returns a
 verdict. **Nothing reaches `procedure`, so nothing injected is verified.**
@@ -128,7 +129,7 @@ captured at all — not the path, not the content, not the fact that it happened
 .claude-plugin/plugin.json     Plugin manifest
 hooks/hooks.json               The seven hooks nightshift registers
 bin/                           ns-hook (hook entrypoint) and nightshift (CLI), added to PATH
-skills/                        /nightshift:status | why | doctor | dev | dream
+skills/                        /nightshift:status | why | doctor | dev | dream | schedule
 nightshift/                    The implementation. Standard library only
   config.py                      Paths, deny_paths, the Auto Memory write guard
   redact.py                      Deterministic redactor — runs before persisting
@@ -137,7 +138,8 @@ nightshift/                    The implementation. Standard library only
   hook.py                        Hook dispatch. Never raises, always exits 0
   retrieve.py                    Structural ranking and injection
   dream.py                       Dream phase 1: local model, structural grouping
-  cli.py                         init | status | why | export | audit | dream | doctor | selftest | dev
+  schedule.py                    Pluggable scheduler: launchd | systemd | loop
+  cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Unit tests plus the capture→export→validate round trip
 tools/                         The gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Specification v0.3 (normative prose)
@@ -158,7 +160,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, versioned schema, PREREG, README | `make check` passes ✅ · Ismael's review of ADR-001 **still pending** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
 | **M2** 🟡 | Retrieve: structural injection at `SessionStart`, and again at the first classified prompt | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
-| M3 🟡 | Dream `consolidate` ✅ + pluggable scheduler (`launchd`/`systemd`/`loop`) | `nightshift dream --selftest` passes. The milestone gate — 3 consecutive unattended nights — needs the scheduler |
+| M3 🟡 | Dream `consolidate` ✅ + pluggable scheduler ✅ | Both shipped: `nightshift dream --selftest` passes and `nightshift schedule status` reports the last runs. The milestone gate — **3 consecutive unattended nights** — is Matías's to run |
 | M4 | **Benchmark — go/no-go** | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0 |
 | M5 | Dream `verify` (ephemeral worktree + gate). **Only if M4 passes** | Precision of `procedure` > `candidate` on a benchmark re-run |
 | M6+ | OpenCode adapter, plugin marketplace, Omarchy/Quattro | See [`LATER.md`](LATER.md) |
@@ -225,6 +227,29 @@ model produces something that does not validate, the bug is in the prompt, not t
 
 A `candidate` is **not** verified. It is injected with less weight and labelled as
 unverified, because `verify` (M5) is blocked until M4 returns a verdict.
+
+### Scheduling the nightly run
+
+```sh
+nightshift schedule status              # backend, what is installed, and the last runs
+nightshift schedule install --dry-run   # show the unit, write nothing
+nightshift schedule install             # write it and load it
+nightshift schedule uninstall
+```
+
+Three backends behind one interface: `launchd` (macOS, the primary target), `systemd` (a
+**user** timer, never a system unit) and `loop` (`nightshift schedule loop`, foreground,
+for development). The backend is autodetected unless `scheduler_backend` says otherwise.
+On macOS the job runs under `caffeinate -s`: a machine that sleeps halfway through
+consolidation does not finish it.
+
+Writing the unit and loading it are separate steps on purpose — `--dry-run` shows it
+without writing, `--no-activate` writes it without loading it into the system manager.
+
+Every dream run is recorded, and `schedule status` prints the last ones with their exit
+codes. That is the point: a scheduler with no recorded runs is a promise, not a fact. The
+M3 gate is three consecutive unattended nights, and a person runs it; this is what makes
+it checkable.
 
 `make doctor` is separate on purpose: it checks *your* installation (config present,
 capture enabled), which CI has no business asserting.
