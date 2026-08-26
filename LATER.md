@@ -64,7 +64,9 @@ declarar la v0.3 como origen. **Decide Matías.**
 | ~~Formato de la config de `deny_paths`~~ | **Hecho**: `~/.nightshift/config.json`, creado por `nightshift init`. Sin él no se captura. |
 | Lista de reglas del redactor determinista | Se deriva de las fixtures de Histora, que no están en este repo. |
 | Fixtures de Histora para los tests del redactor | Material sensible. No entran a este repo: viven fuera y el test las toma por path configurable. **El redactor tiene tests con fixtures sintéticas, no con las de Histora.** El gate de M1 no está cerrado hasta que corra contra ellas. |
-| El gate de M1: 5 sesiones reales sin fuga | El código está; **la evidencia no**. Hace falta usar el plugin en 5 sesiones reales y correr el test automatizado sobre el dump. Hasta entonces M1 es "código listo", no "M1 pasado". |
+| El gate de M1: 5 sesiones reales sin fuga | **El comando está** (`nightshift audit --min-sessions 5`, T1) y sobre el store real **no encuentra ninguna fuga**. Lo que falta es uso: hay 3 sesiones distintas capturadas de las 5 que pide el gate. Se cierra usando el plugin, no escribiendo código. |
+| Fugas fuera del alcance de `audit` | `audit` afirma sobre lo **persistido**: rutas, secretos, home, árbol de Auto Memory, `abstraction.pattern`. No puede afirmar sobre lo que nunca se guardó ni sobre el *contenido* de un archivo negado que hubiera entrado sin su ruta. Que un `deny_path` no se capture lo defiende el redactor y sus tests, no el auditor. |
+| `audit` no distingue mención de ruta más allá del separador | Un token cuenta como ruta si tiene `/`; `.env` suelto en un comentario es una mención. La regla es explicable y está testeada en los dos sentidos, pero es una heurística: una fuga escrita sin barras (`env`, `id_rsa`) no la ve. |
 | Protocolo daemon ↔ hook (socket, timeouts) | Sin daemon todavía (ver arriba). Lo normativo se cumple: el hook sale 0 pase lo que pase. |
 | Re-verificación del formato de hooks | Los nombres se verificaron el 2026-08-26 contra `code.claude.com/docs/en/hooks`. Cambian entre versiones: M1 re-verifica y actualiza spec §5.4 con fecha. |
 | Vocabulario normalizado de tools | Implementado como primer corte en `context.TOOL_MAP`. **Todo lo que no está mapeado cae a `other`, incluidas todas las tools MCP.** Se cierra con datos reales de captura, no por adivinanza. |
@@ -130,5 +132,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 3. **Deuda de procedencia de la v0.2** (arriba).
 4. **Visibilidad del repositorio.** Pasar a público es una decisión de Matías, no del
    agente.
-5. **Correr el gate real de M1.** Usar el plugin en 5 sesiones reales y correr el test
-   sobre el dump. Hasta que eso pase, M1 es código sin evidencia.
+5. **Correr el gate real de M1.** El test sobre el dump ya existe y es
+   `nightshift audit --min-sessions 5`; hoy sale 1 sólo por el conteo de sesiones (3 de
+   5), sin ninguna fuga. Falta usar el plugin en dos sesiones reales más. Hasta que eso
+   pase, M1 es código sin evidencia suficiente.

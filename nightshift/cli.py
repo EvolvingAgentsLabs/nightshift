@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 from . import __version__, config, context, store
-from .redact import Redactor
+from .redact import SECRET_RULES, Redactor
 
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
 
@@ -134,6 +134,88 @@ def cmd_export(args) -> int:
         return 0
     finally:
         conn.close()
+
+
+# -------------------------------------------------------------------------- audit
+def cmd_audit(args) -> int:
+    """Gate de M1: afirmar sobre el store real que no se filtró nada.
+
+    Sale 1 si encuentra algo o si hay menos de `--min-sessions` sesiones distintas. El
+    reporte nombra trayectoria, paso, campo y regla; **nunca el valor** que disparó la
+    regla (`audit.py`).
+    """
+    from . import audit as audit_mod
+
+    if not config.config_path().is_file():
+        print("nightshift no está configurado: no hay `deny_paths` contra qué auditar.",
+              file=sys.stderr)
+        print("Corré `nightshift init` (spec §8.1).", file=sys.stderr)
+        return 1
+
+    cfg = config.load()
+    red = Redactor(deny_paths=cfg["deny_paths"], home_dir=str(Path.home()))
+    conn = store.connect()
+    try:
+        report = audit_mod.audit_store(conn, redactor=red, home_dir=str(Path.home()))
+    finally:
+        conn.close()
+
+    findings = report["findings"]
+    sessions_ok = report["sessions"] >= args.min_sessions
+    report["min_sessions"] = args.min_sessions
+    report["sessions_ok"] = sessions_ok
+    report["ok"] = sessions_ok and not findings
+
+    if args.json:
+        report["store"] = str(config.db_path())
+        json.dump(report, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0 if report["ok"] else 1
+
+    print("nightshift audit · %s" % __version__)
+    print("store: %s" % config.db_path())
+    print()
+    print("alcance:")
+    print("  %-13s %d%s" % ("sesiones", report["sessions"],
+                            "  (mínimo exigido: %d)" % args.min_sessions
+                            if args.min_sessions else ""))
+    for key, label in (("trajectories", "trayectorias"), ("steps", "pasos"),
+                       ("injections", "inyecciones")):
+        print("  %-13s %d" % (label, report[key]))
+    print("  %-13s %d revisados contra %d deny_paths + %d reglas de secreto" % (
+        "campos", report["fields_scanned"], report["deny_paths"], len(SECRET_RULES)))
+    print()
+    if findings:
+        print("hallazgos: %d — se dice dónde y qué regla, nunca el valor:" % len(findings))
+        for item in findings:
+            print("  %-16s trayectoria=%s paso=%-4s campo=%s  pos=%d len=%d" % (
+                item["rule"], (item["trajectory"] or "—")[:8],
+                "—" if item["step"] is None else item["step"],
+                item["field"], item["pos"], item["len"]))
+        print()
+        print("`nightshift why <trayectoria>` ubica el paso. El valor se mira en el store,")
+        print("no en este reporte.")
+    else:
+        print("hallazgos: ninguno")
+    if not sessions_ok:
+        print()
+        print("sesiones: %d < %d exigidas. El gate de M1 pide 5 sesiones reales capturadas;"
+              % (report["sessions"], args.min_sessions))
+        print("el código puede estar limpio y el gate seguir sin cerrarse por falta de uso.")
+    print()
+    if report["ok"]:
+        verdict = "OK"
+    else:
+        parts = []
+        if findings:
+            parts.append("%d hallazgo(s)" % len(findings))
+        else:
+            parts.append("sin fugas")
+        if not sessions_ok:
+            parts.append("%d de %d sesiones" % (report["sessions"], args.min_sessions))
+        verdict = ", ".join(parts)
+    print("audit: %s" % verdict)
+    return 0 if report["ok"] else 1
 
 
 # ------------------------------------------------------------------------- doctor
@@ -377,6 +459,12 @@ def main(argv=None) -> int:
     p = sub.add_parser("export", help="emitir la trayectoria como trajectory.v1 JSON")
     p.add_argument("trajectory_id")
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("audit", help="auditar el store persistido: fugas y cobertura (gate de M1)")
+    p.add_argument("--min-sessions", type=int, default=0,
+                   help="exigir al menos N sesiones distintas capturadas (el gate de M1 usa 5)")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_audit)
 
     p = sub.add_parser("doctor", help="auto-diagnóstico de invariantes")
     p.add_argument("--json", action="store_true")
