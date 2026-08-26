@@ -39,7 +39,7 @@ Arrancá con `nightshift dev`.
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 106 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 186 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -117,6 +117,27 @@ el mismo commit y dejá la fecha.
 | T3 — trayectorias huérfanas | ✅ #6 | `SessionStart` cierra las `open` de otras sesiones sin actividad hace más de `orphan_after_hours`. Corte por inactividad, nunca por antigüedad. Spec §5.8. |
 | T4 — M3-a dream `consolidate` | ✅ #7 | Agrupación determinista, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor. Gate: `make dream-selftest`. |
 | T5 — M3-b scheduler | ✅ | `launchd` / `systemd` (timer de usuario) / `loop`, con registro de corridas. Gate: `nightshift schedule status` reporta las últimas y sus resultados. |
+
+### Lo que se aprendió mirando el store con el propio plugin
+
+El 2026-08-26 se analizó una sesión real de 252 pasos con `status`, `doctor` y el
+auditor. Cuatro cosas que conviene no re-descubrir:
+
+1. **El modo de fallo de nightshift es el silencio.** Capturó 223 pasos vacíos durante
+   dos milestones sin que nada lo dijera, porque los hooks salen 0 pase lo que pase y eso
+   es correcto. Por eso `doctor` ahora **falla** si la última trayectoria con pasos de
+   tool no tiene ninguno con contenido, y `status` reporta calidad de captura. Si tocás
+   la captura, mirá esos dos números antes de dar nada por bueno.
+2. **Sondeá el payload, no lo supongas.** Los campos reales son `prompt`,
+   `tool_response` y `error` (spec §5.9). El replay del selftest usaba nombres inventados
+   y por eso pasaba en verde mientras la captura llegaba vacía. Si agregás un hook,
+   loguea las claves que llegan de verdad antes de escribir el handler.
+3. **Las heurísticas se miden contra trayectorias reales, no se estiman.** La de señal
+   decisiva marcaba el 41% de los pasos porque buscaba el comando de test como subcadena:
+   un título de PR que dijera `make check` contaba como test que pasa.
+4. **Lo que se guarda como resumen es lo que el agente va a leer.** Guardar el
+   `tool_response` crudo gastaba el presupuesto de caracteres en `isImage` y
+   `noOutputExpected`.
 
 ### Antes de nada: ensayá la máquina
 
