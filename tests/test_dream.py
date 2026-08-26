@@ -301,9 +301,11 @@ class DreamTest(IsolatedStoreTest):
                 code = cli.main(["dream"])
         finally:
             dream.detect_command = original
-        self.assertEqual(code, 2, "sin modelo local dream falla y lo dice")
-        self.assertIn("no hay modelo local", err.getvalue())
-        self.assertIn("no hay fallback remoto", err.getvalue())
+        self.assertEqual(code, 2, "sin backend dream falla y lo dice")
+        self.assertIn("no hay con qué consolidar", err.getvalue())
+        self.assertIn("claude-code", err.getvalue(), "y dice cuál es el backend elegido")
+        self.assertNotIn("Instalá ollama", err.getvalue(),
+                         "el mensaje viejo mandaba a instalar el backend que ya no es default")
         self.assertEqual(self.row(tid)["status"], "closed",
                          "sin modelo no se consolida por heurística")
 
