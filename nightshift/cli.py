@@ -42,7 +42,7 @@ def cmd_status(args) -> int:
     conn = store.connect()
     try:
         c = store.counts(conn)
-        print("nightshift %s · milestone M1+M2 (capture + retrieve)" % __version__)
+        print("nightshift %s · M3: captura, retrieval y dream fase 1" % __version__)
         print("store: %s" % config.db_path())
         print()
         print("trayectorias:")
@@ -1272,9 +1272,11 @@ def cmd_dev(args) -> int:
     print("git         : %s @ %s%s" % (branch or "?", head or "?",
                                        " (sucio)" if dirty else " (limpio)"))
     print()
-    print("milestone actual: M3-a — dream `consolidate`")
-    print("  hecho     : captura, redactor, store, retrieval, /why, audit, dream fase 1")
-    print("  falta     : M3-b scheduler, M4 benchmark (go/no-go), M5 verify")
+    print("milestone actual: M3 completo · M4 con runner y sin resultados")
+    print("  hecho     : captura, redactor, store, retrieval, /why, audit, dream fase 1,")
+    print("              scheduler, y el runner de M4 — que se niega a correr")
+    print("  falta     : congelar PREREG (19 TODO(Matias)) y correr M4; después, M5 verify")
+    print("  evidencia : el gate de M1 pide 2 sesiones más; el de M3, tres noches")
     print("  prohibido : empezar M5 antes del veredicto de M4; adapter de OpenCode;")
     print("              escribir en el árbol de Auto Memory; dependencias remotas")
     print()
