@@ -4,11 +4,14 @@
 
 *[Read this in English](README.md)*
 
-> **Estado: M1 + M2 — capture y retrieve, corriendo como plugin de Claude Code.**
-> Captura trayectorias de sesiones reales, las redacta de forma determinista e
-> inyecta las previas al arrancar. **Dream todavía no existe**, así que nada está
-> verificado y todo lo inyectado es evidencia débil — etiquetada como tal a propósito.
-> El benchmark go/no-go (M4) no se corrió. Ver [Milestones](#milestones).
+> **Estado: M3 — captura, retrieval y dream fase 1, como plugin de Claude Code.**
+> Captura trayectorias de sesiones reales, las redacta de forma determinista, inyecta las
+> previas, y las consolida de noche con el propio Claude Code
+> ([ADR-003](doc/adr/ADR-003-modelo-de-dream.md)). **`verify` no existe**, así que nada
+> llega a `procedure` y nada de lo inyectado está verificado — y está etiquetado como tal.
+> El benchmark go/no-go (M4) tiene su runner, sus tres repos fixture y su adaptador de
+> agente, y **no puede correr**: el pre-registro sigue en borrador. Ver
+> [Milestones](#milestones).
 
 Claude Code ya trae **Auto Memory** (notas declarativas por repositorio) y **Auto
 Dream** (consolidación en background). nightshift **no los reemplaza** y no compite en
@@ -33,6 +36,43 @@ no entra al roadmap.
 
 El razonamiento detrás de cada fila — en concreto *por qué lo nativo no puede hacerlo
 por diseño* — está en [ADR-001](doc/adr/ADR-001-no-competir-con-auto-dream.md).
+
+## Dónde se nota esto de verdad
+
+Dos casos, los dos ejecutables. Son demostraciones, no evidencia — y los números de abajo
+están tal como salieron, incluidos los que no favorecen al plugin.
+
+### El mismo bug con otra cara
+
+Diez bugs del repo fixture comparten una causa —una función decide qué significa "la misma
+clave" y no saca los caracteres invisibles— y no comparten síntoma. Uno levanta `KeyError`
+con una clave que está ahí; otro parte en dos los totales de un cliente, en silencio.
+
+Un hecho declarativo —*"el bug estaba en `texto.py`"*— no sirve para el segundo: otro
+archivo, otro síntoma. Un procedimiento —*"cuando dos claves idénticas a la vista no
+matchean, mirá los invisibles en el normalizador"*— sirve para los diez.
+
+[`experimentos/01`](experimentos/01-mismo-bug-otra-cara.sh) corre tres filas: sin memoria,
+con la trayectoria cruda inyectada, y con el patrón consolidado. La fila del medio es la
+trampa: inyectar el rastro crudo es gastar contexto en los pasos de otro problema.
+
+### Lo que se descartó no se pierde
+
+Auto Dream **borra** lo que se contradice. nightshift lo conserva, enlazado a lo que lo
+reemplazó, con la precondición bajo la que aplicaba.
+
+Tres semanas después alguien propone subir ese timeout otra vez. El hecho declarativo
+—*"el timeout está en 2000"*— es verdadero y no ayuda. La trayectoria dice: se probó,
+quién la contradijo, y con qué se resolvió en su lugar.
+
+[`experimentos/02`](experimentos/02-lo-descartado-no-se-pierde.sh) muestra la trayectoria
+descartada sobreviviendo como `superseded`, enlazada, y reconstruible con `why`.
+
+**Lo que los experimentos no muestran:** que nightshift sirva. Seis sesiones no son
+evidencia — la varianza entre corridas de la *misma* tarea sin memoria disponible fue 8,
+13 y 10 tool calls, más grande que cualquier diferencia entre filas. Por eso mismo el
+benchmark exige tres corridas por celda y umbrales congelados de antemano. Ver
+[`experimentos/`](experimentos/README.md).
 
 ## El proyecto se puede matar solo
 
@@ -154,6 +194,8 @@ schema/examples/               Fixtures válidas e inválidas
 bench/PREREG.md                Benchmark pre-registrado, umbrales congelados antes de M1
 bench/fixtures/familia-a|c|d/  Los repos fixture de M4 (falta congelar identificadores)
 bench/fixtures/selftest/       Fixtures sintéticos del gate del runner. NO son los de M4
+bench/agentes/                 El adaptador: cómo cada celda del benchmark lanza Claude Code
+experimentos/                  Demostraciones ejecutables de lo que habilita el plugin
 doc/HANDOFF.md                 Handoff de control: estado, reglas y la cola de trabajo
 LATER.md                       Todo lo diferido a propósito, con el motivo
 ```

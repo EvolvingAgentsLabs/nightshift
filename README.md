@@ -4,11 +4,13 @@
 
 *[Léeme en español](README.es.md)*
 
-> **Status: M1 + M2 — capture and retrieve, running as a Claude Code plugin.**
-> It captures trajectories from real sessions, redacts them deterministically, and
-> injects prior ones at session start. **Dream does not exist yet**, so nothing is
-> verified and everything injected is weak evidence — deliberately labelled as such.
-> The go/no-go benchmark (M4) has not been run. See [Milestones](#milestones).
+> **Status: M3 — capture, retrieval and dream phase 1, as a Claude Code plugin.**
+> It captures trajectories from real sessions, redacts them deterministically, injects
+> prior ones, and consolidates them nightly with Claude Code itself ([ADR-003](doc/adr/ADR-003-modelo-de-dream.md)).
+> **`verify` does not exist**, so nothing reaches `procedure` and nothing injected is
+> verified — deliberately labelled as such. The go/no-go benchmark (M4) has its runner,
+> its three fixture repos and its agent adapter, and **cannot run**: the pre-registration
+> is still a draft. See [Milestones](#milestones).
 
 Claude Code already ships **Auto Memory** (per-repo declarative notes) and **Auto
 Dream** (background consolidation). nightshift does **not** replace them and does not
@@ -33,6 +35,44 @@ does not go on the roadmap.
 
 The reasoning behind each row — specifically *why the native memory cannot do it by
 design* — is [ADR-001](doc/adr/ADR-001-no-competir-con-auto-dream.md).
+
+## Where this actually shows up
+
+Two cases, both runnable. They are demonstrations, not evidence — and the numbers below
+are printed exactly as they came out, including the ones that do not flatter the plugin.
+
+### The same bug wearing another face
+
+Ten bugs in the fixture repo share one cause — a function that decides what "the same
+key" means and does not strip invisible characters — and no two share a symptom. One
+raises `KeyError` on a key that is right there; another silently splits a customer's
+totals in two.
+
+A declarative fact — *"the bug was in `texto.py`"* — is useless for the second one: other
+file, other symptom. A procedure — *"when two keys that look identical fail to match,
+look for invisibles in the normaliser"* — works for all ten.
+
+[`experimentos/01`](experimentos/01-mismo-bug-otra-cara.sh) runs three rows: no memory,
+raw trajectory injected, and consolidated pattern injected. The middle row is the trap —
+injecting the raw trace spends context on another problem's steps.
+
+### What was discarded is not lost
+
+Auto Dream **deletes** what gets contradicted. nightshift keeps it, linked to whatever
+replaced it, with the precondition under which it applied.
+
+Three weeks later someone proposes raising that timeout again. The declarative fact
+—*"the timeout is 2000"*— is true and does not help. The trajectory says: it was tried,
+who contradicted it, and what solved it instead.
+
+[`experimentos/02`](experimentos/02-lo-descartado-no-se-pierde.sh) shows the discarded
+trajectory surviving as `superseded`, linked, and reconstructable with `why`.
+
+**What the experiments do not show:** that nightshift works. Six sessions are not
+evidence — run-to-run variance on the *same* task with no memory available was 8, 13 and
+10 tool calls, which is larger than any difference between rows. That is exactly why the
+benchmark demands three runs per cell and thresholds frozen in advance. See
+[`experimentos/`](experimentos/README.md).
 
 ## The project can kill itself
 
@@ -153,6 +193,8 @@ schema/examples/               Valid and invalid fixtures
 bench/PREREG.md                Pre-registered benchmark, thresholds frozen before M1
 bench/fixtures/familia-a|c|d/  The M4 fixture repos (identifiers still to be frozen)
 bench/fixtures/selftest/       Synthetic fixtures for the runner's gate. NOT the M4 fixtures
+bench/agentes/                 The agent adapter: how each benchmark cell launches Claude Code
+experimentos/                  Runnable demonstrations of what the plugin enables
 doc/HANDOFF.md                 Control handoff: state, rules, and the ordered work queue
 LATER.md                       Everything deliberately deferred, with the reason
 ```
