@@ -148,33 +148,52 @@ def active_trajectory(conn, session_id):
 def append_step(conn, trajectory_id, *, kind, tool=None, tool_native=None, tool_use_id=None,
                 args=None, result_summary=None, error_message=None, state_delta=None,
                 decisive=False, max_steps=400):
-    row = conn.execute("SELECT COALESCE(MAX(idx), -1) AS m FROM steps WHERE trajectory_id = ?",
-                       (trajectory_id,)).fetchone()
-    idx = int(row["m"]) + 1
-    if idx >= max_steps:
-        return None
-    conn.execute(
+    """Agrega un paso al final. El índice se calcula **dentro** del INSERT.
+
+    Antes eran dos sentencias: leer `MAX(idx)` y después insertar `idx + 1`. Con dos
+    hooks corriendo a la vez —que es lo que pasa en cuanto el agente lanza tool calls en
+    paralelo— los dos leían el mismo máximo, los dos intentaban el mismo índice, y el
+    segundo moría con `UNIQUE constraint failed`. El hook salía 0 igual, así que la
+    sesión no se enteraba: el paso simplemente no quedaba.
+
+    Con `INSERT ... SELECT`, el índice y la inserción son una sola sentencia y SQLite las
+    serializa. El tope de pasos viaja en el `HAVING` por el mismo motivo: si se comprueba
+    aparte, se comprueba sobre un número que ya cambió.
+    """
+    cursor = conn.execute(
         "INSERT INTO steps (trajectory_id, idx, at, kind, tool, tool_native, tool_use_id,"
         " args_json, result_summary, error_message, state_delta, decisive, contradicted)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)",
-        (trajectory_id, idx, now(), kind, tool, tool_native, tool_use_id,
+        " SELECT ?, COALESCE(MAX(idx), -1) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0"
+        " FROM steps WHERE trajectory_id = ? HAVING COUNT(*) < ?",
+        (trajectory_id, now(), kind, tool, tool_native, tool_use_id,
          json.dumps(args, ensure_ascii=False) if args is not None else None,
-         result_summary, error_message, state_delta, 1 if decisive else 0),
+         result_summary, error_message, state_delta, 1 if decisive else 0,
+         trajectory_id, max_steps),
     )
     conn.commit()
-    return idx
+    if not cursor.rowcount:
+        return None
+    row = conn.execute("SELECT idx FROM steps WHERE rowid = ?",
+                       (cursor.lastrowid,)).fetchone()
+    return int(row["idx"]) if row else None
 
 
 def mark_last_contradicted(conn, trajectory_id):
-    """Marca el paso anterior como contradicho (hook UserPromptSubmit)."""
-    row = conn.execute("SELECT MAX(idx) AS m FROM steps WHERE trajectory_id = ?",
-                       (trajectory_id,)).fetchone()
-    if row is None or row["m"] is None:
-        return None
-    conn.execute("UPDATE steps SET contradicted = 1 WHERE trajectory_id = ? AND idx = ?",
-                 (trajectory_id, row["m"]))
+    """Marca el paso anterior como contradicho (hook UserPromptSubmit).
+
+    Una sola sentencia, por el mismo motivo que `append_step`: entre leer cuál es el
+    último y marcarlo puede aparecer otro.
+    """
+    cursor = conn.execute(
+        "UPDATE steps SET contradicted = 1 WHERE trajectory_id = ?"
+        " AND idx = (SELECT MAX(idx) FROM steps WHERE trajectory_id = ?)",
+        (trajectory_id, trajectory_id))
     conn.commit()
-    return int(row["m"])
+    if not cursor.rowcount:
+        return None
+    row = conn.execute("SELECT MAX(idx) AS m FROM steps WHERE trajectory_id = ?"
+                       " AND contradicted = 1", (trajectory_id,)).fetchone()
+    return int(row["m"]) if row and row["m"] is not None else None
 
 
 def stale_open_trajectories(conn, *, cutoff, exclude_session=None, limit=50):

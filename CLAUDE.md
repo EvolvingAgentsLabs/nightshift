@@ -95,6 +95,14 @@ completar un `TODO(Matias)`.
 ## Verificación de la doc del harness
 
 Los nombres de hooks y el formato de salida de Claude Code **cambian entre versiones**.
-Se verificaron el **2026-08-26** contra `https://code.claude.com/docs/en/hooks`.
-Cualquier milestone que toque hooks los re-verifica primero y deja la fecha en
-`doc/00-spec.md` §5.4.
+Se verificaron el **2026-08-26** contra `https://code.claude.com/docs/en/hooks`, y los
+**nombres de campo del payload** se sondearon el mismo día ejecutando los hooks de verdad
+(spec §5.9). Cualquier milestone que toque hooks los re-verifica primero y deja la fecha
+en `doc/00-spec.md` §5.4.
+
+**Leer la doc no alcanza, y esto costó dos milestones:** M1 y M2 se implementaron leyendo
+`user_input`, `tool_output` y `error_message`, que no existen — los campos reales son
+`prompt`, `tool_response` y `error`. La captura guardó estructura vacía durante todo ese
+tiempo sin fallar nunca, porque los hooks salen 0 pase lo que pase. Si tocás la captura:
+sondeá el payload real, no confíes en el replay del selftest — que también estaba escrito
+con las claves inventadas y por eso pasaba en verde.

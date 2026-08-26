@@ -24,6 +24,23 @@ from .redact import Redactor
 EVENTS = ("SessionStart", "UserPromptSubmit", "PostToolUse", "PostToolUseFailure",
           "PreCompact", "Stop", "SessionEnd")
 
+# Nombres de campo del payload, verificados contra Claude Code el 2026-08-26 sondeando
+# los hooks de verdad (spec §5.9). Se leen con alternativa porque cambian entre
+# versiones, y la primera versión de esto leyó los que **no** eran: el prompt nunca
+# llegaba, así que el tipo de tarea nunca se clasificaba y ninguna corrección se
+# detectaba — en silencio, porque los hooks salen 0 pase lo que pase.
+CAMPO_PROMPT = ("prompt", "user_input")
+CAMPO_SALIDA = ("tool_response", "tool_output")
+CAMPO_ERROR = ("error", "error_message")
+
+
+def _primero(payload, claves, default=None):
+    """Primer campo presente de la lista. Los nombres cambian entre versiones."""
+    for clave in claves:
+        if payload.get(clave) is not None:
+            return payload[clave]
+    return default
+
 
 def _log(message: str) -> None:
     try:
@@ -167,7 +184,7 @@ def on_user_prompt_submit(payload, cfg, conn):
     tid = _ensure_trajectory(conn, payload, cfg)
     if not tid:
         return ""
-    prompt = payload.get("user_input") or ""
+    prompt = _primero(payload, CAMPO_PROMPT, "") or ""
 
     if context.CORRECTION_RE.search(prompt):
         idx = store.mark_last_contradicted(conn, tid)
@@ -218,9 +235,9 @@ def _append_tool_step(payload, cfg, conn, *, failed):
     limit = cfg.get("max_result_summary_chars", 400)
     if failed:
         summary = None
-        error = (red.text(str(payload.get("error_message") or "")) or "")[:limit]
+        error = (red.text(str(_primero(payload, CAMPO_ERROR, "") or "")) or "")[:limit]
     else:
-        raw = payload.get("tool_output")
+        raw = _primero(payload, CAMPO_SALIDA)
         if not isinstance(raw, str):
             raw = json.dumps(raw, ensure_ascii=False) if raw is not None else ""
         summary = (red.text(raw) or "")[:limit]
@@ -228,7 +245,11 @@ def _append_tool_step(payload, cfg, conn, *, failed):
 
     # Heurística determinista de señal decisiva: un fallo de tool, o un comando de test
     # que pasa. Documentada en spec §4.3.
-    decisive = bool(failed)
+    #
+    # Salvo una interrupción: `is_interrupt` significa que el usuario cortó, no que la
+    # herramienta falló. Tratarlo como señal decisiva sería aprender del momento en que
+    # alguien apretó Esc.
+    decisive = bool(failed) and not payload.get("is_interrupt")
     if not failed and tool == "run_shell":
         command = str((payload.get("tool_input") or {}).get("command", ""))
         if context.TEST_CMD_RE.search(command):

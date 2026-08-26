@@ -778,8 +778,12 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int
                 fixture, destino / "celdas" / ("%s-c%d-%s" % (celda["row"], celda["repeat"],
                                                              celda["task"])))
             entorno["NIGHTSHIFT_BENCH_WORKDIR"] = trabajo
-            registro = bench_mod.run_cell(celda, fixture, agent_command=agente,
-                                          timeout=args.timeout, env=entorno, cwd=trabajo)
+            entorno["NIGHTSHIFT_ROOT"] = str(PLUGIN_ROOT)
+            registro = bench_mod.run_cell(
+                celda, fixture, agent_command=agente, timeout=args.timeout, env=entorno,
+                cwd=trabajo,
+                placeholders={"{agentes}": str(PLUGIN_ROOT / "bench" / "agentes"),
+                              "{root}": str(PLUGIN_ROOT)})
             registros.append(registro)
             handle.write(json.dumps(registro, ensure_ascii=False) + "\n")
             handle.flush()
@@ -1291,18 +1295,21 @@ def cmd_doctor(args) -> int:
 
 
 # ----------------------------------------------------------------------- selftest
+# Payloads con la forma **real** de Claude Code, sondeada el 2026-08-26 (spec §5.9). Que
+# el selftest usara nombres de campo inventados es la razón por la que pasó en verde
+# durante todo M1 y M2 mientras la captura llegaba vacía en las sesiones de verdad.
 REPLAY = [
-    ("SessionStart", {"session_id": "selftest", "cwd": "."}),
+    ("SessionStart", {"session_id": "selftest", "cwd": ".", "source": "startup"}),
     ("UserPromptSubmit", {"session_id": "selftest", "cwd": ".",
-                          "user_input": "los tests fallan con UnicodeDecodeError"}),
+                          "prompt": "los tests fallan con UnicodeDecodeError"}),
     ("PostToolUse", {"session_id": "selftest", "cwd": ".", "tool_name": "Read",
                      "tool_use_id": "t1", "tool_input": {"file_path": "/tmp/x/parser.py"},
-                     "tool_output": "def parse(data): ..."}),
+                     "tool_response": {"type": "text", "file": "def parse(data): ..."}}),
     ("PostToolUseFailure", {"session_id": "selftest", "cwd": ".", "tool_name": "Bash",
-                            "tool_use_id": "t2",
+                            "tool_use_id": "t2", "is_interrupt": False,
                             "tool_input": {"command": "pytest -q",
                                            "env": {"API_TOKEN": "tok_live_selftest_999"}},
-                            "error_message": "UnicodeDecodeError: 'utf-8' codec can't decode"}),
+                            "error": "UnicodeDecodeError: 'utf-8' codec can't decode"}),
     ("PreCompact", {"session_id": "selftest", "cwd": ".", "compaction_reason": "auto"}),
     ("Stop", {"session_id": "selftest", "cwd": ".", "last_assistant_message": "listo"}),
     ("SessionEnd", {"session_id": "selftest", "cwd": "."}),
@@ -1349,6 +1356,14 @@ def cmd_selftest(args) -> int:
                             failures.append("falta un paso de tipo %s" % expected)
                     if not any(s["decisive"] for s in doc["steps"]):
                         failures.append("ningún paso quedó marcado como decisivo")
+                    # Un paso capturado sin contenido es una captura que no capturó. Pasó:
+                    # con los nombres de campo equivocados, todos los pasos quedaban vacíos
+                    # y el selftest seguía en verde porque sólo miraba la estructura.
+                    vacios = [s for s in doc["steps"] if s["kind"] in ("tool_use", "tool_failure")
+                              and not (s["result_summary"] or s["error_message"])]
+                    if vacios:
+                        failures.append("%d paso(s) de tool sin resumen ni error: la "
+                                        "captura llegó vacía" % len(vacios))
                     out = Path(args.dump) if args.dump else None
                     if out:
                         out.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
