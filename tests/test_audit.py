@@ -33,7 +33,7 @@ class AuditTest(IsolatedStoreTest):
     def redactor(self):
         return Redactor(deny_paths=config.load()["deny_paths"], home_dir="/home/matias")
 
-    def seed(self, conn, *, session_id="s1", **step):
+    def seed(self, conn, *, session_id="s1", **step):  # noqa: D401
         tid = store.open_trajectory(conn, session_id=session_id, repo_fingerprint="a" * 64,
                                     task_type="debug_test_failure", base_commit="abc1234",
                                     redaction={"redactor_version": "0.1.0"})
@@ -215,6 +215,60 @@ class AuditTest(IsolatedStoreTest):
                          ["field", "len", "pos", "rule", "step", "trajectory"])
 
     # -------------------------------------------------------------- min-sessions
+    def test_una_sesion_hueca_no_cuenta_para_el_gate(self):
+        """El gate de M1 pide sesiones reales sin fuga. Una hueca no prueba nada.
+
+        No se puede filtrar lo que nunca se guardó: auditar una sesión cuyos pasos están
+        vacíos da un verde vacío. Se descubrió contando mal — durante dos milestones la
+        captura guardó estructura sin contenido y el conteo no lo distinguía.
+        """
+        conn = store.connect()
+        try:
+            for i in range(4):
+                tid = store.open_trajectory(conn, session_id="hueca-%d" % i,
+                                            repo_fingerprint="f" * 64, task_type="general")
+                store.append_step(conn, tid, kind="tool_use", tool="run_shell")
+            self.seed(conn, session_id="con-contenido", result_summary="la suite pasa")
+            report = self.audit(conn)
+        finally:
+            conn.close()
+
+        self.assertEqual(report["sessions"], 5, "cinco sesiones distintas en el store")
+        self.assertEqual(report["sessions_with_content"], 1, "una sola capturó algo")
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(["audit", "--min-sessions", "5"])
+        self.assertEqual(code, 1, "cinco sesiones huecas no cierran el gate")
+        self.assertIn("4 hueca(s) no cuentan", out.getvalue())
+
+    def test_el_gate_se_cierra_con_sesiones_que_capturaron(self):
+        conn = store.connect()
+        try:
+            for i in range(5):
+                self.seed(conn, session_id="real-%d" % i,
+                          result_summary="salida real de la tarea %d" % i)
+        finally:
+            conn.close()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(["audit", "--min-sessions", "5"])
+        self.assertEqual(code, 0)
+        self.assertIn("con contenido 5", out.getvalue())
+
+    def test_un_paso_con_error_tambien_es_contenido(self):
+        """Un `tool_failure` con su mensaje capturado es señal, y de las buenas."""
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="con-error",
+                                        repo_fingerprint="f" * 64, task_type="general")
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="ImportError al arrancar", decisive=True)
+            report = self.audit(conn)
+        finally:
+            conn.close()
+        self.assertEqual(report["sessions_with_content"], 1)
+
     def test_min_sessions_decide_el_codigo_de_salida(self):
         conn = store.connect()
         try:

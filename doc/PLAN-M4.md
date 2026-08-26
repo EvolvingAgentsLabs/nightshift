@@ -22,7 +22,7 @@ decisiones humanas y evidencia de calendario.
 | M | Código | Evidencia / gate | Qué falta |
 |---|---|---|---|
 | M0 | ✅ docs, schema, ADRs | ❌ **revisión de ADR-001 por Ismael** | 4 preguntas escritas al final del ADR |
-| M1 | ✅ captura, redactor, `audit` | ⚠️ 0 de 5 sesiones **desde el fix** | usar el plugin |
+| M1 | ✅ captura, redactor, `audit` | ⚠️ **1 de 5** sesiones con contenido capturado | usar el plugin |
 | M2 | ✅ retrieval en dos pasadas, `why` | ✅ `why` reconstruye el origen | — |
 | M3 | ✅ dream fase 1, scheduler | ⚠️ 0 de 3 noches | el timer ya corre solo |
 | M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 19 `TODO(Matias)`** | congelarlo y correr |
@@ -90,9 +90,12 @@ Corre en paralelo con la fase 0. No hace falta esperar nada para empezar.
 nightshift audit --min-sessions 5
 ```
 
-**El conteo arranca de cero hoy.** Las sesiones anteriores al 2026-08-26 se capturaron
-con los campos del payload equivocados (spec §5.9): son cascarón, y `status` reporta que
-el 82% del store no tiene contenido. Contarlas sería contar evidencia que no existe.
+**El gate cuenta sesiones que capturaron contenido, no sesiones a secas.** Una sesión
+cuyos pasos están vacíos no prueba ausencia de fuga: no se puede filtrar lo que nunca se
+guardó, y auditarla da un verde vacío. `audit` lo reporta separado y las huecas no suman.
+
+Hoy van **1 de 5**: la sesión que construyó todo esto, que capturó 65 pasos con contenido
+después del fix del 2026-08-26 (spec §5.9). Las dos anteriores son cascarón.
 
 Mientras tanto, dos números a mirar en cada sesión:
 

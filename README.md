@@ -202,7 +202,7 @@ sessions than `--min-sessions`.
 
 ```sh
 nightshift audit                    # leak checks only
-nightshift audit --min-sessions 5   # the M1 gate: leaks AND five real sessions
+nightshift audit --min-sessions 5   # the M1 gate: leaks AND five sessions that captured
 nightshift audit --json             # same report, machine-readable
 ```
 

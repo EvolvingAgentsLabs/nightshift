@@ -219,6 +219,20 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
     sessions = conn.execute(
         "SELECT COUNT(DISTINCT session_id) AS c FROM trajectories"
         " WHERE session_id IS NOT NULL AND session_id != ''").fetchone()["c"]
+
+    # Sesiones que además **capturaron algo**. El gate de M1 pide 5 sesiones reales sin
+    # fuga de `deny_paths`, y una sesión cuyos pasos están vacíos no es evidencia de eso:
+    # no se puede filtrar lo que nunca se guardó. Auditar cáscaras da un verde vacío.
+    #
+    # Se descubrió contando mal: durante dos milestones la captura guardó estructura sin
+    # contenido (spec §5.9), y el conteo de sesiones no lo distinguía.
+    with_content = conn.execute(
+        "SELECT COUNT(DISTINCT t.session_id) AS c FROM trajectories t"
+        " WHERE t.session_id IS NOT NULL AND t.session_id != '' AND EXISTS ("
+        "   SELECT 1 FROM steps s WHERE s.trajectory_id = t.id"
+        "   AND s.kind IN ('tool_use','tool_failure')"
+        "   AND (COALESCE(s.result_summary,'') != '' OR COALESCE(s.error_message,'') != '')"
+        ")").fetchone()["c"]
     trajectories = conn.execute("SELECT COUNT(*) AS c FROM trajectories").fetchone()["c"]
     steps = conn.execute("SELECT COUNT(*) AS c FROM steps").fetchone()["c"]
     injections = conn.execute("SELECT COUNT(*) AS c FROM injections").fetchone()["c"]
@@ -226,6 +240,7 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
 
     return {
         "sessions": int(sessions),
+        "sessions_with_content": int(with_content),
         "trajectories": int(trajectories),
         "steps": int(steps),
         "injections": int(injections),

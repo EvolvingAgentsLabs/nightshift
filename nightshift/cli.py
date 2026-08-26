@@ -214,7 +214,9 @@ def cmd_audit(args) -> int:
         conn.close()
 
     findings = report["findings"]
-    sessions_ok = report["sessions"] >= args.min_sessions
+    # El mínimo se mide contra las sesiones que **capturaron contenido**: el gate de M1
+    # pide sesiones reales sin fuga, y una sesión hueca no prueba ausencia de fuga.
+    sessions_ok = report["sessions_with_content"] >= args.min_sessions
     report["min_sessions"] = args.min_sessions
     report["sessions_ok"] = sessions_ok
     report["ok"] = sessions_ok and not findings
@@ -229,9 +231,12 @@ def cmd_audit(args) -> int:
     print("store: %s" % config.db_path())
     print()
     print("alcance:")
-    print("  %-13s %d%s" % ("sesiones", report["sessions"],
-                            "  (mínimo exigido: %d)" % args.min_sessions
-                            if args.min_sessions else ""))
+    print("  %-13s %d" % ("sesiones", report["sessions"]))
+    huecas = report["sessions"] - report["sessions_with_content"]
+    print("  %-13s %d%s%s" % (
+        "con contenido", report["sessions_with_content"],
+        "  (mínimo exigido: %d)" % args.min_sessions if args.min_sessions else "",
+        "  · %d hueca(s) no cuentan" % huecas if huecas else ""))
     for key, label in (("trajectories", "trayectorias"), ("steps", "pasos"),
                        ("injections", "inyecciones")):
         print("  %-13s %d" % (label, report[key]))
@@ -252,9 +257,13 @@ def cmd_audit(args) -> int:
         print("hallazgos: ninguno")
     if not sessions_ok:
         print()
-        print("sesiones: %d < %d exigidas. El gate de M1 pide 5 sesiones reales capturadas;"
-              % (report["sessions"], args.min_sessions))
-        print("el código puede estar limpio y el gate seguir sin cerrarse por falta de uso.")
+        print("sesiones con contenido: %d < %d exigidas. El gate de M1 pide sesiones"
+              % (report["sessions_with_content"], args.min_sessions))
+        print("reales capturadas, y una sesión cuyos pasos están vacíos no prueba ausencia")
+        print("de fuga: no se puede filtrar lo que nunca se guardó.")
+        if huecas:
+            print("Hay %d sesión(es) hueca(s) en el store que no cuentan (ver LATER.md)."
+                  % huecas)
     print()
     if report["ok"]:
         verdict = "OK"
@@ -265,7 +274,8 @@ def cmd_audit(args) -> int:
         else:
             parts.append("sin fugas")
         if not sessions_ok:
-            parts.append("%d de %d sesiones" % (report["sessions"], args.min_sessions))
+            parts.append("%d de %d sesiones con contenido"
+                         % (report["sessions_with_content"], args.min_sessions))
         verdict = ", ".join(parts)
     print("audit: %s" % verdict)
     return 0 if report["ok"] else 1

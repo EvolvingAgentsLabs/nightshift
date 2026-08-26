@@ -203,7 +203,7 @@ Sale 1 ante cualquier hallazgo, o con menos sesiones que `--min-sessions`.
 
 ```sh
 nightshift audit                    # sólo los chequeos de fuga
-nightshift audit --min-sessions 5   # el gate de M1: fugas Y cinco sesiones reales
+nightshift audit --min-sessions 5   # el gate de M1: fugas Y cinco sesiones que capturaron
 nightshift audit --json             # el mismo reporte, legible por máquina
 ```
 
