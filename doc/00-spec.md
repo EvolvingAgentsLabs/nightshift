@@ -221,7 +221,7 @@ Nombres verificados contra la doc vigente de Claude Code
 
 | Hook | Acción nightshift |
 |---|---|
-| `SessionStart` | Retrieve por estructura (tipo de tarea + señales del repo). Inyectar ≤ N procedimientos verificados vía `hookSpecificOutput.additionalContext`. Loguear qué se inyectó, con `procedure_id`, para que `/nightshift why` pueda resolverlo. |
+| `SessionStart` | Cerrar las trayectorias huérfanas de sesiones muertas (§5.8). Retrieve por estructura (tipo de tarea + señales del repo). Inyectar ≤ N procedimientos verificados vía `hookSpecificOutput.additionalContext`. Loguear qué se inyectó, con `procedure_id`, para que `/nightshift why` pueda resolverlo. |
 | `PostToolUse` | Capturar (`tool_name`, `tool_input` redactado, resumen de `tool_output`, Δ estado) → append a la trayectoria activa. |
 | `PostToolUseFailure` | **Añadido en v0.3.** Igual que `PostToolUse` pero con `error_message`. Ver §5.2. |
 | `PreCompact` | Snapshot de la trayectoria activa completa antes de que muera el contexto. Ver §5.3. |
@@ -311,6 +311,30 @@ Dos invariantes que la segunda pasada tiene que respetar, y que están testeadas
   evidencia, es más contexto gastado.
 - **La segunda pasada ocurre una sola vez.** Se dispara en la transición de `general` a
   un tipo, no en cada prompt.
+
+### 5.8 Trayectorias huérfanas
+
+**Añadido en 0.3.2.**
+
+`SessionEnd` es quien cierra la trayectoria (§5.6). Si la sesión muere sin él — un
+`Ctrl-C` duro, un crash, un cierre de terminal — la trayectoria queda `open` para
+siempre. Y como el retrieval sólo mira `closed`, `candidate` y `procedure`, una
+trayectoria `open` para siempre **nunca va a ser recuperable**: se pierde entera, con
+todos sus pasos.
+
+`SessionStart` barre esas huérfanas antes de rankear: cierra las trayectorias `open` de
+**otras** sesiones sin actividad desde hace más de `orphan_after_hours` (config, 12 por
+defecto), infiriendo el `outcome` como siempre. Una huérfana con pasos vale más cerrada
+que perdida; una sin pasos queda `discarded`.
+
+Dos condiciones, las dos testeadas, y las dos son sobre lo que el barrido **no** puede
+hacer:
+
+- **Nunca toca la sesión en curso.** Cerrarle la trayectoria a la sesión que está
+  corriendo la partiría en dos, que es lo que §5.6 evita al no cerrar en `Stop`.
+- **El corte es por inactividad, no por antigüedad.** Se mira el último paso, no la
+  fecha de apertura. Dos sesiones simultáneas son normales, y una sesión de doce horas
+  que sigue apendeando pasos está viva.
 
 ### 5.5 Comandos
 
@@ -528,3 +552,4 @@ la spec y el benchmark negativo son publicables.
 |---|---|---|
 | 5.1, 5.7 | El retrieval se rehace en el primer `UserPromptSubmit` con tipo de tarea, sin re-inyectar lo ya dicho | `SessionStart` corre antes del primer prompt: ahí el tipo es siempre `general` y el ranking por tipo no puede ocurrir |
 | 5.7 | `general` deja de puntuar como coincidencia de tipo de tarea | Emparejaba dos trayectorias sin clasificar y reportaba `same_task_type`: el `why` afirmaba un ranking que no había pasado |
+| 5.1, 5.8 | `SessionStart` cierra las trayectorias huérfanas de sesiones muertas | Una trayectoria `open` para siempre no la ve el retrieval: se pierde entera |

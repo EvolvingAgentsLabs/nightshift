@@ -73,6 +73,34 @@ def _ensure_trajectory(conn, payload, cfg):
     )
 
 
+# ------------------------------------------------------------------- huérfanas
+def _close_orphans(conn, cfg, session_id):
+    """Cierra las trayectorias `open` que quedaron de sesiones muertas.
+
+    Si una sesión muere sin `SessionEnd` — un `Ctrl-C` duro, un crash — su trayectoria
+    queda `open` para siempre, y el retrieval sólo mira `closed`/`candidate`/`procedure`:
+    se pierde entera. Una huérfana con pasos vale más cerrada que perdida.
+
+    El corte es por **falta de actividad**, nunca por antigüedad, y nunca toca la sesión
+    en curso: dos sesiones simultáneas son normales, y cerrarle la trayectoria a la que
+    sigue viva la partiría en dos.
+    """
+    hours = float(cfg.get("orphan_after_hours") or 0)
+    if hours <= 0:
+        return []
+    rows = store.stale_open_trajectories(conn, cutoff=store.hours_ago(hours),
+                                         exclude_session=session_id)
+    closed = []
+    for row in rows:
+        result, evidence = _infer_outcome(conn, row["id"])
+        note = "huérfana: sin actividad en más de %gh, cerrada por otra sesión" % hours
+        store.close_trajectory(conn, row["id"], result=result,
+                               evidence=("%s · %s" % (note, evidence)) if evidence else note)
+        _log("huérfana %s cerrada como %s" % (row["id"], result))
+        closed.append((row["id"], result))
+    return closed
+
+
 # ---------------------------------------------------------- retrieval e inyección
 def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
     """Rankea, renderiza y registra. Lo comparten `SessionStart` y `UserPromptSubmit`.
@@ -105,6 +133,9 @@ def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
 # ------------------------------------------------------------------- SessionStart
 def on_session_start(payload, cfg, conn):
     cwd = payload.get("cwd") or "."
+    # Antes de abrir la de esta sesión y antes de rankear: una huérfana recién cerrada es
+    # material recuperable en esta misma sesión.
+    orphans = _close_orphans(conn, cfg, payload.get("session_id"))
     tid = _ensure_trajectory(conn, payload, cfg)
     row = store.get_trajectory(conn, tid) if tid else None
     # Acá el tipo de tarea es siempre `general`: SessionStart corre antes de que el
@@ -120,6 +151,8 @@ def on_session_start(payload, cfg, conn):
                    "/nightshift:status" % len(chosen))
     else:
         message = "nightshift: capturando · sin memoria previa para este tipo de tarea"
+    if orphans:
+        message += " · %d huérfana(s) cerrada(s)" % len(orphans)
     return text, message
 
 
