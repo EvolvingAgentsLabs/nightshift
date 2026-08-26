@@ -356,8 +356,22 @@ def cmd_dream(args) -> int:
         code, note = 0, "nada que consolidar en el período"
         print("\nnada que consolidar en el período." if not args.json else "",
               file=sys.stderr)
+    elif report["rejected"]:
+        # El modelo produjo algo y no se pudo persistir: eso sí es que dream no consolidó.
+        code, note = 1, "el modelo no produjo nada persistible en %d grupo(s)" % len(
+            report["rejected"])
+        print("\ndream no consolidó: %d grupo(s) descartado(s)." % len(report["rejected"]),
+              file=sys.stderr)
+    elif report["skipped"]:
+        # "Estas trayectorias no comparten patrón" es una respuesta legítima del modelo,
+        # no un fallo. Salir 1 acá haría que una noche normal figure como corrida fallida
+        # en `schedule status`, y el gate de M3 —tres noches sin intervención— dejaría de
+        # poder distinguir una noche tranquila de una que hay que ir a mirar.
+        code, note = 0, "sin patrón común en %d grupo(s): noche tranquila" % len(
+            report["skipped"])
+        print("\nel modelo no encontró patrón común en %d grupo(s)." % len(report["skipped"]),
+              file=sys.stderr)
     else:
-        # Había material y no salió ninguna candidata: dream no consolidó. Lo dice.
         code, note = 1, "había material y no salió ninguna candidata"
         print("\ndream no consolidó nada de %d trayectoria(s)." % report["trajectories"],
               file=sys.stderr)
@@ -511,6 +525,72 @@ def _dream_selftest(args) -> int:
         return 1
     print("dream --selftest: OK — ≥1 candidate, sin fuga del repo fixture, sin rutas en")
     print("el patrón, contradicción enlazada y ninguna trayectoria borrada.")
+    return 0
+
+
+# ----------------------------------------------------------------------- simulate
+def cmd_simulate(args) -> int:
+    """Ensayo end-to-end sobre un store desechable.
+
+    **No cierra el gate de M1 ni el de M3.** Ésos piden sesiones reales y noches reales;
+    esto ejercita la máquina, que es otra cosa. La distinción está en `simulate.py` y se
+    repite en la salida a propósito: un ensayo que se reporta como gate es evidencia
+    fabricada.
+    """
+    from . import simulate as sim
+
+    print("nightshift simulate · ensayo end-to-end · %s" % __version__)
+    print("store: temporal — el store real no se toca")
+    print()
+    reporte = sim.run(cwd=os.getcwd(), con_modelo=not args.no_model, noches=args.nights,
+                      log=print)
+
+    print()
+    print("resultado del ensayo:")
+    a = reporte["auditoria"]
+    print("  captura      : %d sesiones distintas, %d trayectorias, %d pasos"
+          % (a["sessions"], a["trajectories"], a["steps"]))
+    print("  deny_paths   : %d intento(s) bloqueado(s), 0 capturados"
+          % reporte.get("deny_path_hits", 0))
+    print("  auditoría    : %d campos revisados, %d hallazgo(s)"
+          % (a["fields_scanned"], len(a["findings"])))
+    print("  huérfana     : quedó `%s`" % reporte.get("huerfana", "?"))
+    inyecciones = reporte.get("inyecciones_sesion_nueva", [])
+    print("  retrieval    : %d inyección(es) en la sesión nueva · %s"
+          % (len(inyecciones), ", ".join(sorted({i["reason"] for i in inyecciones})) or "—"))
+    if "dream" in reporte:
+        d = reporte["dream"]
+        print("  dream        : %d candidata(s), %d contradicción(es) enlazada(s), "
+              "%d descartada(s)" % (len(d["candidates"]), len(d["superseded"]),
+                                    len(d["rejected"])))
+        print("                 estados: %s" % ", ".join(
+            "%s=%s" % (k, v) for k, v in sorted(d["estados"].items())))
+    corridas = reporte.get("corridas", [])
+    print("  scheduler    : %d corrida(s) registrada(s) · %s"
+          % (len(corridas), ", ".join("exit=%s" % r["exit_code"] for r in corridas)))
+    final = reporte.get("auditoria_final", {})
+    print("  auditoría 2  : %d campos, %d hallazgo(s), %d corrida(s) en el store"
+          % (final.get("fields_scanned", 0), len(final.get("findings", [])),
+             final.get("runs", 0)))
+
+    if args.dump:
+        Path(args.dump).write_text(json.dumps(reporte, indent=2, ensure_ascii=False) + "\n",
+                                   encoding="utf-8")
+        print("  dump         : %s" % args.dump)
+
+    print()
+    fallas = reporte["fallas"]
+    if fallas:
+        for item in fallas:
+            print("  FALLA  %s" % item)
+        print("simulate: %d fallo(s)" % len(fallas))
+        return 1
+    print("simulate: OK — la máquina completa funciona de punta a punta.")
+    print()
+    print("Lo que esto NO es: el gate de M1 pide 5 sesiones **reales** y el de M3, tres")
+    print("noches **reales** sin intervención. Un ensayo no las reemplaza — no hay")
+    print("suspensión, ni batería, ni un launchd que se olvidó de disparar, que es")
+    print("justamente lo que esos gates miden. Ese conteo sigue donde estaba.")
     return 0
 
 
@@ -1353,6 +1433,14 @@ def main(argv=None) -> int:
     p.add_argument("--limit", type=int, default=24)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_bench)
+
+    p = sub.add_parser("simulate",
+                       help="ensayo end-to-end con sesiones sintéticas (no cierra gates)")
+    p.add_argument("--nights", type=int, default=3, help="corridas nocturnas simuladas")
+    p.add_argument("--no-model", action="store_true",
+                   help="saltar dream: para máquinas sin modelo local")
+    p.add_argument("--dump", help="escribir el reporte completo a este archivo JSON")
+    p.set_defaults(func=cmd_simulate)
 
     p = sub.add_parser("doctor", help="auto-diagnóstico de invariantes")
     p.add_argument("--json", action="store_true")

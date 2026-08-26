@@ -141,6 +141,7 @@ nightshift/                    La implementación. Sólo librería estándar
   dream.py                       Dream fase 1: modelo local, agrupación estructural
   schedule.py                    Scheduler pluggable: launchd | systemd | loop
   bench.py                       Runner de M4: lee los umbrales, nunca los fija
+  simulate.py                    Ensayo end-to-end. Nunca toca el store real
   cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Tests unitarios y el round trip captura→export→validar
 tools/                         El gate: lint-docs, lint-code, validate-schema
@@ -183,6 +184,7 @@ make selftest         # replay de los siete hooks contra un store desechable
 make dream-selftest   # el gate de M3-a. Necesita modelo local, por eso NO está en check
 make bench-selftest   # el gate del runner de M4 (fixtures sintéticos, no el benchmark)
 make bench-check      # qué le falta al pre-registro para poder correr M4
+make simulate         # el ensayo end-to-end (no cierra ningún gate — ver arriba)
 ```
 
 `make check` es el gate. No necesita dependencias más allá de
@@ -256,6 +258,25 @@ Cada corrida de dream queda registrada, y `schedule status` imprime las últimas
 código de salida. Ese es el punto: un scheduler sin corridas registradas es una promesa,
 no un hecho. El gate de M3 son tres noches seguidas sin intervención, lo corre una
 persona, y esto es lo que lo hace verificable.
+
+### Ensayar todo junto
+
+```sh
+nightshift simulate              # sesiones sintéticas por los hooks reales
+nightshift simulate --no-model   # saltar dream, para máquinas sin modelo local
+```
+
+Corre siete sesiones sintéticas por los siete hooks —incluida una que muere sin
+`SessionEnd`, una que toca un `deny_path` y otra que lleva un secreto—, después audita el
+store, verifica que la huérfana quedó cerrada, que el retrieval corrió en las dos pasadas,
+consolida con el modelo local, instala el scheduler en un `HOME` temporal, corre tres
+noches simuladas y vuelve a auditar. Todo en un store desechable.
+
+**No es evidencia para el gate de M1 ni para el de M3.** M1 pide cinco sesiones *reales*;
+M3, tres *noches sin intervención*. Una sesión sintética no es una sesión real y tres
+corridas en un bucle no son tres noches: no hay suspensión, ni batería, ni un launchd que
+se olvidó de disparar, que es justamente lo que esos gates miden. Por eso el ensayo nunca
+escribe en el store real: un gate de sesiones reales no se cierra inventando sesiones.
 
 ### El runner del benchmark de M4
 

@@ -96,7 +96,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Modelo Qwen concreto y tamaño | **Sin medir.** La autodetección toma el qwen más chico ya descargado (acá `qwen3.5:4b`) porque el target es una Air de noche. Con 4b los patrones salen genéricos: sirven para el gate estructural, no está probado que sirvan para el benchmark. Qué modelo usar en M4 se decide midiendo. |
 | Calidad del prompt de `consolidate` | El prompt de `dream.PROMPT` es una primera versión. Los gates que lo rodean (esquema, redactor, auditor) están testeados; que lo que produce sea *útil* no lo prueba ningún test — lo prueba M4. |
 | Agrupación fina | Hoy se agrupa por tipo de tarea y nada más, porque agrupar por firma de herramientas dejaba grupos de uno. Con volumen real habrá que agrupar mejor: un `debug_test_failure` de decodificación y uno de import circular no comparten patrón, y hoy caen en el mismo grupo. |
-| Una candidata por grupo y por corrida | Se promueve el representante del grupo; el resto queda `closed` y sigue siendo recuperable como cruda. Si el grupo tenía dos patrones distintos, el segundo se pierde hasta la próxima corrida. |
+| Una candidata por grupo y por corrida | Se promueve el representante del grupo; el resto queda `closed`. **Visto en el ensayo end-to-end:** las corridas siguientes vuelven a agarrar los que quedaron y los promueven también, así que con el tiempo casi todo termina en `candidate` y la etiqueta pierde poder de discriminar. Se corta solo por `dream_lookback_days`, no por diseño. Hay que decidir con volumen real si el criterio de promoción tiene que ser más exigente. |
 | Peso de inyección de `candidate` (0.6) | Elegido a mano, como los pesos del ranking. Spec §6.3 fija el orden (`candidate` < `procedure`), no el número. |
 | `dream` no puebla `hypothesis` | Sigue vacía: el modelo produce `abstraction`, no hipótesis por trayectoria. Se puede derivar, no se hizo. |
 | Las tres noches del gate de M3 | El scheduler está y `schedule status` reporta las corridas. **La evidencia no está**: hay que instalar el timer en la Air y dejarlo correr tres noches. Lo hace una persona, no un agente. |
@@ -136,6 +136,22 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Publicación en el marketplace de plugins de Claude Code | Distribuir antes de tener el veredicto de M4 es vender algo que quizá se congele. |
 | Omarchy / Quattro | Fuera de alcance de v0.3. |
 | Sincronización remota / multi-máquina / multi-usuario | Contradice "sin dependencias de API remota" y multiplica la superficie de privacidad. |
+
+---
+
+## Sobre el ensayo end-to-end
+
+`nightshift simulate` corre la máquina entera con sesiones sintéticas y tres noches
+simuladas, y **no cierra ningún gate**. Está acá para que quede escrito por qué:
+
+| Gate | Qué pide | Por qué el ensayo no alcanza |
+|---|---|---|
+| M1 | 5 sesiones **reales** sin fuga | Las sesiones sintéticas las escribe nightshift: probar el redactor contra material que uno mismo eligió no es lo mismo que contra una sesión de trabajo real. Y el ensayo corre en un store desechable a propósito — el conteo del gate no se puede inflar. |
+| M3 | 3 **noches** seguidas sin intervención | Tres corridas en un bucle no tienen suspensión, ni batería, ni un `launchd` que se olvidó de disparar. El gate mide el sistema operativo tanto como el código. |
+
+Lo que el ensayo sí sirve: encontrar que la máquina se rompió, hoy, sin esperar semanas.
+Encontró dos cosas reales — los códigos de salida de la corrida nocturna y el crecimiento
+de `candidate` de arriba.
 
 ---
 
