@@ -1,0 +1,13 @@
+# nightshift local state — nunca se commitea
+*.sqlite
+*.sqlite3
+*.db
+/var/
+/.nightshift/
+/bench/runs/
+
+# entorno
+.venv/
+__pycache__/
+.DS_Store
+node_modules/

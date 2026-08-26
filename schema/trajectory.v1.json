@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EvolvingAgentsLabs/nightshift/schema/trajectory.v1.json",
+  "title": "nightshift Trajectory",
+  "description": "Una trayectoria causal capturada de una sesión de agente. Esquema normativo: ante discrepancia con doc/00-spec.md §4, gana este archivo. Versionado: los cambios incompatibles crean trajectory.v2.json, no editan este.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "status",
+    "harness",
+    "repo_fingerprint",
+    "task_type",
+    "steps",
+    "redaction"
+  ],
+  "properties": {
+    "schema_version": {
+      "description": "Identificador del esquema. Constante para v1.",
+      "const": "trajectory.v1"
+    },
+    "id": {
+      "description": "Identificador estable de la trayectoria.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "description": "Instante de apertura de la trayectoria (UTC, RFC 3339).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "closed_at": {
+      "description": "Instante en que el hook Stop la cerró. Ausente o null mientras status = open.",
+      "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }]
+    },
+    "status": {
+      "description": "Ciclo de vida. Ver doc/00-spec.md §4.1.",
+      "type": "string",
+      "enum": ["open", "closed", "candidate", "procedure", "superseded", "discarded"]
+    },
+    "harness": {
+      "description": "Agente del que se capturó. La abstracción es cross-harness por diseño (spec §4.4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "enum": ["claude-code", "opencode", "other"] },
+        "version": { "type": "string" },
+        "session_id": { "type": "string" }
+      }
+    },
+    "repo_fingerprint": {
+      "description": "SHA-256 de un identificador estable del repo. Nunca el nombre en claro: el nombre del repo es material redactable (spec §8.2).",
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "task_type": {
+      "description": "Clase estructural de tarea. Es la clave primaria del retrieval en SessionStart.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "hypothesis": {
+      "description": "Hipótesis inicial declarada o inferida. Primer eslabón de la cadena causal.",
+      "type": ["string", "null"]
+    },
+    "base_commit": {
+      "description": "Commit sobre el que se abrió la trayectoria. Requerido de hecho para poder verificar (ADR-002 §2).",
+      "anyOf": [{ "type": "string", "pattern": "^[a-f0-9]{7,40}$" }, { "type": "null" }]
+    },
+    "steps": {
+      "description": "La trayectoria causal. Orden por index ascendente.",
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "outcome": {
+      "description": "Resultado con el que Stop cerró la trayectoria. Null mientras está abierta.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["result"],
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": ["tests_passed", "user_corrected", "abandoned", "unknown"]
+        },
+        "gate_id": { "type": ["string", "null"] },
+        "evidence": { "type": ["string", "null"] }
+      }
+    },
+    "abstraction": {
+      "description": "Patrón estructural portable. Sin paths, sin nombres de repo, sin identificadores del proyecto. Es lo único que puede cruzar de repo A a repo B (capacidad C).",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["pattern"],
+      "properties": {
+        "pattern": {
+          "description": "Forma del problema y de la solución, en términos que no mencionan el repo.",
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "description": "Última red contra fuga de paths. No sustituye al redactor determinista (spec §8.2).",
+            "pattern": "(~/|\\.\\./|/[A-Za-z0-9_.\\-]+/)"
+          }
+        },
+        "signals": {
+          "description": "Señales observables que indican que este patrón aplica.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "decisive_signal": {
+          "description": "La observación que volvió concluyente el diagnóstico.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "valid_when": {
+      "description": "Precondiciones bajo las que el procedimiento aplica. Sin esto, una alternativa descartada es ruido (capacidad B).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["condition"],
+        "properties": {
+          "condition": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "enum": ["observed", "user_stated", "inferred"] }
+        }
+      }
+    },
+    "superseded_by": {
+      "description": "Trayectoria que la reemplazó. Auto Dream borra lo contradicho; nosotros lo conservamos enlazado (capacidad B).",
+      "anyOf": [{ "type": "string", "format": "uuid" }, { "type": "null" }]
+    },
+    "verified": {
+      "description": "Prueba de reproducción contra un gate. Los tres campos son obligatorios si el objeto existe: sin run_id no hay auditoría (ADR-002 §5).",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["gate_id", "passed_at", "run_id"],
+      "properties": {
+        "gate_id": { "type": "string", "minLength": 1 },
+        "passed_at": { "type": "string", "format": "date-time" },
+        "run_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "redaction": {
+      "description": "Metadatos del redactor determinista. Obligatorio: el store nunca contiene material sin redactar (spec §8.2).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["redactor_version"],
+      "properties": {
+        "redactor_version": { "type": "string", "minLength": 1 },
+        "rules_applied": { "type": "array", "items": { "type": "string" } },
+        "deny_path_hits": {
+          "description": "Cuántos elementos se descartaron por deny_paths. El contenido descartado no se registra en ninguna forma (spec §8.1).",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "injection_weight": {
+      "description": "Peso de inyección. procedure = 1.0; candidate < 1.0 (spec §6.3).",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "Invariante spec §4.1: procedure exige verified completo.",
+      "if": { "properties": { "status": { "const": "procedure" } }, "required": ["status"] },
+      "then": { "properties": { "verified": { "type": "object" } }, "required": ["verified"] }
+    },
+    {
+      "$comment": "Invariante capacidad B: superseded exige el enlace a la sucesora.",
+      "if": { "properties": { "status": { "const": "superseded" } }, "required": ["status"] },
+      "then": { "properties": { "superseded_by": { "type": "string" } }, "required": ["superseded_by"] }
+    },
+    {
+      "$comment": "Invariante ADR-002 §2: sin base_commit no hay worktree reproducible, luego no puede haber verified.",
+      "if": { "required": ["verified"], "properties": { "verified": { "type": "object" } } },
+      "then": { "properties": { "base_commit": { "type": "string" } }, "required": ["base_commit"] }
+    }
+  ],
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "at", "kind"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "at": { "type": "string", "format": "date-time" },
+        "kind": {
+          "description": "tool_failure existe porque PostToolUse no dispara en fallos (spec §5.2).",
+          "type": "string",
+          "enum": [
+            "tool_use",
+            "tool_failure",
+            "observation",
+            "hypothesis",
+            "correction",
+            "compact_snapshot"
+          ]
+        },
+        "tool": {
+          "description": "Nombre normalizado al vocabulario de nightshift. Habilita cross-harness (spec §4.4).",
+          "type": ["string", "null"],
+          "enum": ["read_file", "edit_file", "write_file", "run_shell", "search", "fetch", "other", null]
+        },
+        "tool_native": {
+          "description": "Nombre del tool tal como lo reportó el harness.",
+          "type": ["string", "null"]
+        },
+        "tool_use_id": { "type": ["string", "null"] },
+        "args_redacted": {
+          "description": "Argumentos tras pasar por el redactor determinista.",
+          "type": ["object", "null"]
+        },
+        "result_summary": { "type": ["string", "null"] },
+        "error_message": {
+          "description": "Presente en kind = tool_failure. Llega por PostToolUseFailure.",
+          "type": ["string", "null"]
+        },
+        "state_delta": { "type": ["string", "null"] },
+        "decisive": {
+          "description": "Este paso es donde la señal se volvió concluyente. Es lo que dream busca al consolidar.",
+          "type": "boolean",
+          "default": false
+        },
+        "contradicted": {
+          "description": "Marcado por UserPromptSubmit cuando el usuario corrige el paso anterior.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+nightshift
+Copyright 2026 Evolving Agents Lab
+
+This product includes software developed at Evolving Agents Lab, licensed under
+the Apache License, Version 2.0 (see LICENSE).
+
+nightshift runs alongside Claude Code's native Auto Memory and Auto Dream. It is
+not affiliated with, endorsed by, or supported by Anthropic. "Claude Code",
+"Claude" and "Anthropic" are the marks of their owner, used here only to name the
+harness nightshift integrates with.

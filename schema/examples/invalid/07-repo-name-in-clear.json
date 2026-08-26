@@ -1,0 +1,11 @@
+{
+  "schema_version": "trajectory.v1",
+  "id": "ac68ed1e-70bb-43f6-9499-3b7c5d6e8a2a",
+  "created_at": "2026-08-26T10:00:00Z",
+  "status": "open",
+  "harness": { "name": "claude-code" },
+  "repo_fingerprint": "histora",
+  "task_type": "debug_test_failure",
+  "steps": [],
+  "redaction": { "redactor_version": "0.1.0" }
+}

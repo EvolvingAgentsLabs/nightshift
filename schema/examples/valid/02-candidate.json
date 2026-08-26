@@ -1,0 +1,47 @@
+{
+  "schema_version": "trajectory.v1",
+  "id": "1b8e4c22-9d47-4f13-8a6b-2c9e7f014d38",
+  "created_at": "2026-08-24T02:31:00Z",
+  "closed_at": "2026-08-24T03:04:41Z",
+  "status": "candidate",
+  "harness": { "name": "claude-code", "version": "2.1.4" },
+  "repo_fingerprint": "351fd6257aec4d4e1eb66c2a91150162c6f0fad3eb086851e1c7ca1f2e0527f9",
+  "task_type": "debug_test_failure",
+  "hypothesis": "Doble decodificación en el borde del pipeline.",
+  "base_commit": "4c1f9ab",
+  "steps": [
+    {
+      "index": 0,
+      "at": "2026-08-24T02:33:10Z",
+      "kind": "hypothesis",
+      "tool": null,
+      "result_summary": "Sospecha de doble decodificación",
+      "decisive": false,
+      "contradicted": false
+    },
+    {
+      "index": 1,
+      "at": "2026-08-24T02:41:55Z",
+      "kind": "observation",
+      "tool": "read_file",
+      "tool_native": "Read",
+      "result_summary": "El borde ya recibe str, no bytes",
+      "decisive": true,
+      "contradicted": false
+    }
+  ],
+  "outcome": { "result": "tests_passed", "gate_id": "unit-parser", "evidence": "3 tests en verde tras el fix" },
+  "abstraction": {
+    "pattern": "Una transformación de borde aplica una conversión que una capa anterior ya aplicó. El síntoma aparece lejos del borde, en la primera operación que asume el tipo original.",
+    "signals": ["excepción de tipo o encoding en una capa interna", "el input cambió de origen recientemente"],
+    "decisive_signal": "inspeccionar el tipo real en el borde, no el declarado"
+  },
+  "valid_when": [
+    { "condition": "el pipeline tiene más de una capa que puede convertir", "source": "observed" },
+    { "condition": "la conversión no es idempotente", "source": "inferred" }
+  ],
+  "superseded_by": null,
+  "verified": null,
+  "injection_weight": 0.4,
+  "redaction": { "redactor_version": "0.1.0", "rules_applied": ["repo_identifiers", "abs_paths"], "deny_path_hits": 2 }
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": "trajectory.v1",
+  "id": "2d5a71f0-3e88-4c05-b1a9-6f8d4e2c0937",
+  "created_at": "2026-08-20T01:12:00Z",
+  "closed_at": "2026-08-20T01:58:30Z",
+  "status": "procedure",
+  "harness": { "name": "claude-code", "version": "2.1.4" },
+  "repo_fingerprint": "6ba09b99e2643447485b26458abc2a2c838f6c3bb810603e6b07842c3b528dab",
+  "task_type": "debug_pipeline_transform",
+  "hypothesis": "Transformación opaca que descarta metadatos aguas arriba.",
+  "base_commit": "9e30b7c4d1a2",
+  "steps": [
+    {
+      "index": 0,
+      "at": "2026-08-20T01:13:44Z",
+      "kind": "tool_use",
+      "tool": "search",
+      "tool_native": "Grep",
+      "result_summary": "Tres transformaciones candidatas en el pipeline",
+      "decisive": false,
+      "contradicted": false
+    },
+    {
+      "index": 1,
+      "at": "2026-08-20T01:29:02Z",
+      "kind": "observation",
+      "tool": "run_shell",
+      "tool_native": "Bash",
+      "result_summary": "Los metadatos existen antes de la segunda etapa y no después",
+      "decisive": true,
+      "contradicted": false
+    },
+    {
+      "index": 2,
+      "at": "2026-08-20T01:41:19Z",
+      "kind": "compact_snapshot",
+      "tool": null,
+      "result_summary": "Sellado por PreCompact (auto)",
+      "decisive": false,
+      "contradicted": false
+    }
+  ],
+  "outcome": { "result": "tests_passed", "gate_id": "make-check", "evidence": "exit 0" },
+  "abstraction": {
+    "pattern": "Bisecar el pipeline por presencia del dato, no por lectura del código: comprobar en qué etapa deja de existir y tratar esa etapa como la única sospechosa.",
+    "signals": ["el dato existe en la entrada y falta en la salida", "ninguna etapa declara descartarlo"],
+    "decisive_signal": "primera etapa en la que la aserción de presencia falla"
+  },
+  "valid_when": [
+    { "condition": "el pipeline es observable entre etapas", "source": "observed" },
+    { "condition": "las etapas son deterministas para el mismo input", "source": "observed" }
+  ],
+  "superseded_by": null,
+  "verified": { "gate_id": "make-check", "passed_at": "2026-08-25T04:02:11Z", "run_id": "run_2026-08-25_0401_7f3a" },
+  "injection_weight": 1.0,
+  "redaction": { "redactor_version": "0.1.0", "rules_applied": ["repo_identifiers", "abs_paths", "remotes"], "deny_path_hits": 0 }
+}

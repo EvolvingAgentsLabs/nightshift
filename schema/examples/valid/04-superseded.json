@@ -1,0 +1,46 @@
+{
+  "schema_version": "trajectory.v1",
+  "id": "3a91c604-5b2d-4e77-9c18-0d6b3f5a8e42",
+  "created_at": "2026-07-30T22:05:00Z",
+  "closed_at": "2026-07-30T22:44:12Z",
+  "status": "superseded",
+  "harness": { "name": "claude-code", "version": "2.0.9" },
+  "repo_fingerprint": "351fd6257aec4d4e1eb66c2a91150162c6f0fad3eb086851e1c7ca1f2e0527f9",
+  "task_type": "debug_test_failure",
+  "hypothesis": "El fallo viene de la caché del test runner.",
+  "base_commit": "1a2b3c4",
+  "steps": [
+    {
+      "index": 0,
+      "at": "2026-07-30T22:06:30Z",
+      "kind": "tool_use",
+      "tool": "run_shell",
+      "tool_native": "Bash",
+      "result_summary": "Limpiar caché hace pasar los tests",
+      "decisive": false,
+      "contradicted": true
+    },
+    {
+      "index": 1,
+      "at": "2026-07-30T22:40:02Z",
+      "kind": "correction",
+      "tool": null,
+      "result_summary": "El usuario corrige: vuelve a fallar en frío",
+      "decisive": true,
+      "contradicted": false
+    }
+  ],
+  "outcome": { "result": "user_corrected", "gate_id": null, "evidence": "reaparece tras reinstalar dependencias" },
+  "abstraction": {
+    "pattern": "Limpiar la caché del runner enmascara un fallo de doble conversión: el verde tras limpiar no distingue caché sucia de estado residual.",
+    "signals": ["pasa tras limpiar caché", "vuelve a fallar en entorno frío"],
+    "decisive_signal": "reproducir en entorno frío antes de aceptar la caché como causa"
+  },
+  "valid_when": [
+    { "condition": "el runner cachea resultados entre corridas", "source": "observed" }
+  ],
+  "superseded_by": "1b8e4c22-9d47-4f13-8a6b-2c9e7f014d38",
+  "verified": null,
+  "injection_weight": 0.1,
+  "redaction": { "redactor_version": "0.1.0", "rules_applied": ["repo_identifiers"], "deny_path_hits": 1 }
+}

@@ -1,0 +1,19 @@
+name: gate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  m0:
+    name: M0 gate (lint-docs + validate-schema)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install check-jsonschema
+        run: pipx install check-jsonschema==0.33.0
+
+      - name: make check
+        run: make check
