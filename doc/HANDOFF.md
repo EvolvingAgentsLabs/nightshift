@@ -153,6 +153,13 @@ sesión real.
 
 **No cierra ningún gate**, y el motivo está en `LATER.md` §"Sobre el ensayo end-to-end".
 
+### El plan hasta el veredicto
+
+[`PLAN-M4.md`](PLAN-M4.md) tiene el detalle: el camino crítico y su orden (por qué la
+revisión de ADR-001 va **antes** de congelar el pre-registro), los 19 `TODO(Matias)`
+agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (102 celdas,
+~1,1 h medidas), los riesgos con su evidencia, y qué pasa con cada veredicto posible.
+
 ### Lo que falta, y de quién es
 
 **Ninguna de estas tres es código pendiente. Son decisiones o evidencia.**
