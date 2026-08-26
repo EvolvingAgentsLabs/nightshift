@@ -45,10 +45,25 @@ M4 es un **go/no-go**. Si no pasa, el proyecto se congela como spec (spec §11).
 S0 es el baseline real: comparar contra un agente sin memoria sería comparar contra un
 rival que ya no existe (ADR-001).
 
-**Constantes en todas las celdas:** mismo modelo, mismo seed de tareas, 3 corridas por
-celda, mismo límite de tool calls, misma máquina.
+**Constantes en todas las celdas:** los mismos dos modelos, mismo seed de tareas, 3
+corridas por celda, mismo límite de tool calls, misma máquina.
 
-- Modelo exacto y versión: `TODO(Matias)`
+Son **dos** modelos y no uno, y conviene no confundirlos porque intervienen en momentos
+distintos del experimento:
+
+- El **modelo del agente** resuelve las tareas. Interviene en las dos filas: es el mismo
+  en `S0` y en `S1`, porque lo que se compara es la memoria, no el agente.
+- El **modelo de consolidación** corre dream y produce las `candidate`. Interviene
+  **sólo en `S1`**: en `S0` no hay nightshift. Si cambia, cambia la calidad de lo que se
+  inyecta, que es exactamente lo que la fila S1 aporta.
+
+Dejarlos como una sola constante era un agujero: se podía congelar el pre-registro
+fijando uno y dejando el otro suelto, y una corrida con otra consolidación no sería
+comparable con la anterior. Ver ADR-003, que es lo que hizo visible la distinción.
+
+- Modelo del **agente** — exacto y versión: `TODO(Matias)`
+- Modelo de **consolidación** — backend (`claude-code` o `local`), modelo exacto y
+  versión: `TODO(Matias)`
 - Seed del set de tareas: `TODO(Matias)`
 - Límite de tool calls por tarea: `TODO(Matias)`
 - Presupuesto de wall-clock por tarea: `TODO(Matias)`

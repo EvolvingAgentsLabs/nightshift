@@ -185,12 +185,12 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 ### Bloqueado — no empieces
 
 - **M4.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
-  correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)`. **Los tres repos
+  correr**: `bench/PREREG.md` sigue en borrador con 20 `TODO(Matias)`. **Los tres repos
   fixture también están construidos** (`bench/fixtures/familia-{a,c,d}/`, verificados con
   `make bench-fixtures`). Lo que falta no es código: son los umbrales, el modelo, el seed,
   el protocolo de reset entre corridas, y congelar los identificadores de los fixtures.
   Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
-  `nightshift bench check` lista los 19 con sección y línea.
+  `nightshift bench check` lista los 20 con sección y línea.
 
   El adaptador que lanza el agente en cada celda también está
   (`bench/agentes/correr-agente.py`) y se niega a correr sin el modelo, el límite de tool

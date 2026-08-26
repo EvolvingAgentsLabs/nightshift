@@ -165,7 +165,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
 | **M2** 🟡 | Retrieve: structural injection at `SessionStart`, and again at the first classified prompt | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
 | M3 🟡 | Dream `consolidate` ✅ + pluggable scheduler ✅ | Both shipped: `nightshift dream --selftest` passes and `nightshift schedule status` reports the last runs. The milestone gate — **3 consecutive unattended nights** — is Matías's to run |
-| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0. The runner is built and **refuses to run**: `bench/PREREG.md` is still a draft with 19 `TODO(Matias)` |
+| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0. The runner is built and **refuses to run**: `bench/PREREG.md` is still a draft with 20 `TODO(Matias)` |
 | M5 | Dream `verify` (ephemeral worktree + gate). **Only if M4 passes** | Precision of `procedure` > `candidate` on a benchmark re-run |
 | M6+ | OpenCode adapter, plugin marketplace, Omarchy/Quattro | See [`LATER.md`](LATER.md) |
 
@@ -307,7 +307,7 @@ The agent adapter that launches each cell lives in `bench/agentes/` and **refuse
 for the same reason the runner does**: without the model, the tool-call limit and the
 reset protocol — all three `TODO(Matias)` — it does not pick values on its own.
 
-`bench/PREREG.md` says **BORRADOR — no congelado** and holds 19 `TODO(Matias)`. Until a
+`bench/PREREG.md` says **BORRADOR — no congelado** and holds 20 `TODO(Matias)`. Until a
 person freezes it, `bench run` refuses and lists what is missing, by section and line. A
 threshold that gets adjusted after seeing the result is not a threshold, and a runner
 that runs with the pre-registration still open is the most comfortable way to adjust one
