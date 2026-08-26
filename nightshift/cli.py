@@ -289,6 +289,8 @@ def cmd_dream(args) -> int:
         print("dream: %s" % exc, file=sys.stderr)
         return 2
 
+    started = store.now()
+    red = Redactor(deny_paths=cfg["deny_paths"], home_dir=str(Path.home()))
     conn = store.connect()
     try:
         report = dream_mod.consolidate(
@@ -300,9 +302,11 @@ def cmd_dream(args) -> int:
     except dream_mod.ModelUnavailable as exc:
         # No hay modelo: es lo mismo que no haberlo detectado nunca, y se distingue de
         # "el modelo corrió y no sirvió" en el código de salida.
+        _record_run(conn, args, started, 2, note=red.text(str(exc)))
         print("dream: %s" % exc, file=sys.stderr)
         return 2
     except dream_mod.DreamError as exc:
+        _record_run(conn, args, started, 1, note=red.text(str(exc)))
         print("dream: %s" % exc, file=sys.stderr)
         return 1
     finally:
@@ -317,16 +321,37 @@ def cmd_dream(args) -> int:
         _print_dream_report(report)
 
     if report["candidates"]:
-        return 0
-    if report["trajectories"] == 0:
+        code, note = 0, None
+    elif report["trajectories"] == 0:
         # No había nada que consolidar. Eso no es un fallo: es una noche tranquila.
+        code, note = 0, "nada que consolidar en el período"
         print("\nnada que consolidar en el período." if not args.json else "",
               file=sys.stderr)
-        return 0
-    # Había material y no salió ninguna candidata: dream no consolidó. Lo dice.
-    print("\ndream no consolidó nada de %d trayectoria(s)." % report["trajectories"],
-          file=sys.stderr)
-    return 1
+    else:
+        # Había material y no salió ninguna candidata: dream no consolidó. Lo dice.
+        code, note = 1, "había material y no salió ninguna candidata"
+        print("\ndream no consolidó nada de %d trayectoria(s)." % report["trajectories"],
+              file=sys.stderr)
+
+    if not args.dry_run:
+        conn = store.connect()
+        try:
+            _record_run(conn, args, started, code, report=report, note=note)
+        finally:
+            conn.close()
+    return code
+
+
+def _record_run(conn, args, started, exit_code, report=None, note=None):
+    """Deja la corrida en el store. Es lo único que `schedule status` tiene para mostrar."""
+    report = report or {}
+    store.record_run(conn, command="dream", backend=getattr(args, "backend", None) or "manual",
+                     started_at=started, exit_code=exit_code,
+                     trajectories=report.get("trajectories", 0),
+                     candidates=len(report.get("candidates", [])),
+                     superseded=len(report.get("superseded", [])),
+                     rejected=len(report.get("rejected", [])),
+                     note=(note or "")[:200] or None)
 
 
 FIXTURE = [
@@ -458,6 +483,139 @@ def _dream_selftest(args) -> int:
     print("dream --selftest: OK — ≥1 candidate, sin fuga del repo fixture, sin rutas en")
     print("el patrón, contradicción enlazada y ninguna trayectoria borrada.")
     return 0
+
+
+# ----------------------------------------------------------------------- schedule
+def _schedule_state(cfg, requested=None):
+    from . import schedule as sched
+
+    chosen = sched.resolve(requested, cfg)
+    instalados = []
+    for name in sched.BACKENDS:
+        other = sched.backend(name, cfg)
+        if other.installed():
+            instalados.append(other)
+    return chosen, instalados
+
+
+def cmd_schedule(args) -> int:
+    from . import schedule as sched
+
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+    cfg = config.load()
+    try:
+        chosen, instalados = _schedule_state(cfg, args.backend)
+    except ValueError as exc:
+        print("schedule: %s" % exc, file=sys.stderr)
+        return 2
+
+    if args.action == "install":
+        result = chosen.install(dry_run=args.dry_run, activate=not args.no_activate)
+        if args.dry_run:
+            print("backend: %s (dry-run, no se escribió nada)" % chosen.name)
+            print("unidad que se escribiría en %s:" % result["path"])
+            print()
+            print(result["unit"])
+            if "service" in result:
+                print(result["service"])
+            return 0
+        print("backend   : %s" % chosen.name)
+        print("unidad    : %s" % result["path"])
+        print("corrida   : %s · %s" % (chosen.describe(), " ".join(chosen.command())))
+        print("activada  : %s (%s)" % ("sí" if result["activated"] else "no",
+                                       result.get("detail", "")))
+        if chosen.name == "loop":
+            print()
+            print("`loop` no instala nada en el sistema: corré `nightshift schedule loop`")
+            print("en primer plano, o dejalo en un tmux. Es el backend de desarrollo.")
+        return 0 if (result["activated"] or args.no_activate or chosen.name == "loop") else 1
+
+    if args.action == "uninstall":
+        borrado = False
+        for other in instalados or [chosen]:
+            result = other.uninstall()
+            borrado = borrado or result["removed"]
+            print("%-9s %s (%s)" % (other.name,
+                                    "desinstalado" if result["removed"] else "no estaba",
+                                    result.get("detail", "")))
+        return 0 if borrado else 1
+
+    if args.action == "loop":
+        return _schedule_loop(args, cfg, chosen)
+
+    return _schedule_status(args, cfg, chosen, instalados, sched)
+
+
+def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
+    conn = store.connect()
+    try:
+        runs = store.recent_runs(conn, args.limit)
+    finally:
+        conn.close()
+
+    if args.json:
+        json.dump({
+            "backend_elegido": chosen.name,
+            "instalados": [{"backend": b.name, "unit": str(b.unit_path)} for b in instalados],
+            "entorno": sched.environment(),
+            "corridas": [dict(row) for row in runs],
+        }, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0 if instalados else 1
+
+    print("nightshift schedule · %s" % __version__)
+    entorno = sched.environment()
+    print("plataforma : %s%s" % (entorno["platform"],
+                                 " · caffeinate" if entorno["caffeinate"] else ""))
+    print("backend    : %s%s" % (chosen.name,
+                                 " (autodetectado)" if cfg.get("scheduler_backend", "auto")
+                                 == "auto" else " (fijado en la config)"))
+    print("corrida    : %s" % chosen.describe())
+    print("comando    : %s" % " ".join(chosen.command()))
+    if instalados:
+        for item in instalados:
+            print("instalado  : %s → %s" % (item.name, item.unit_path))
+    else:
+        print("instalado  : no. `nightshift schedule install` lo deja programado.")
+    print()
+    if runs:
+        print("últimas corridas:")
+        for row in runs:
+            veredicto = {0: "ok", 1: "no consolidó", 2: "sin modelo local"}.get(
+                row["exit_code"], "exit=%s" % row["exit_code"])
+            print("  %s  %-8s %-9s %-16s cand=%d sup=%d desc=%d  %s" % (
+                row["started_at"], row["command"], row["backend"] or "—", veredicto,
+                row["candidates"] or 0, row["superseded"] or 0, row["rejected"] or 0,
+                (row["note"] or "")[:60]))
+    else:
+        print("últimas corridas: ninguna todavía.")
+        print("Un scheduler sin corridas registradas es una promesa, no un hecho.")
+    print()
+    print("el gate de M3 no es este comando: son tres noches seguidas sin intervención.")
+    print("Esto las hace verificables.")
+    return 0 if instalados else 1
+
+
+def _schedule_loop(args, cfg, chosen) -> int:
+    """Backend `loop`: dream cada N minutos, en primer plano. Ctrl-C para salir."""
+    import time
+
+    intervalo = (args.interval_minutes or int(cfg.get("loop_interval_minutes", 360))) * 60
+    print("nightshift schedule loop · cada %d minuto(s) · Ctrl-C para salir"
+          % (intervalo // 60))
+    while True:
+        print("\n--- %s: dream" % store.now())
+        code = main(["dream", "--backend", "loop"])
+        print("--- dream salió %d" % code)
+        if args.once:
+            return code
+        try:
+            time.sleep(intervalo)
+        except KeyboardInterrupt:
+            print("\nloop interrumpido.")
+            return 0
 
 
 # ------------------------------------------------------------------------- doctor
@@ -714,10 +872,26 @@ def main(argv=None) -> int:
     p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
     p.add_argument("--dry-run", action="store_true", help="no escribir: mostrar qué haría")
     p.add_argument("--verbose", action="store_true")
+    p.add_argument("--backend", default=None,
+                   help="quién disparó esta corrida: queda en el registro de `schedule status`")
     p.add_argument("--selftest", action="store_true",
                    help="gate de M3-a: correr sobre un set fixture en un store desechable")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_dream)
+
+    p = sub.add_parser("schedule", help="programar la corrida nocturna (M3-b)")
+    p.add_argument("action", nargs="?", default="status",
+                   choices=("status", "install", "uninstall", "loop"))
+    p.add_argument("--backend", default=None, choices=("auto", "launchd", "systemd", "loop"))
+    p.add_argument("--dry-run", action="store_true",
+                   help="mostrar la unidad sin escribirla")
+    p.add_argument("--no-activate", action="store_true",
+                   help="escribir la unidad sin cargarla en el gestor del sistema")
+    p.add_argument("--interval-minutes", type=int, default=None, help="sólo para `loop`")
+    p.add_argument("--once", action="store_true", help="sólo para `loop`: una vuelta y salir")
+    p.add_argument("--limit", type=int, default=10)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_schedule)
 
     p = sub.add_parser("doctor", help="auto-diagnóstico de invariantes")
     p.add_argument("--json", action="store_true")

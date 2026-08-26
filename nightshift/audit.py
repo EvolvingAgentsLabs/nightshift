@@ -204,6 +204,14 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
             item.update({"trajectory": row["source_trajectory"], "step": None})
         findings.extend(found)
 
+    for row in conn.execute("SELECT * FROM runs ORDER BY id"):
+        found, count = _scan_row(row, prefix="run[%d]" % row["id"], redactor=redactor,
+                                 home_dir=home_dir, skip=("id",))
+        scanned += count
+        for item in found:
+            item.update({"trajectory": None, "step": None})
+        findings.extend(found)
+
     # Determinista: mismo store, mismo orden de hallazgos.
     findings.sort(key=lambda f: (f["trajectory"] or "", f["step"] if f["step"] is not None else -1,
                                  f["field"], f["rule"], f["pos"]))
@@ -214,12 +222,14 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
     trajectories = conn.execute("SELECT COUNT(*) AS c FROM trajectories").fetchone()["c"]
     steps = conn.execute("SELECT COUNT(*) AS c FROM steps").fetchone()["c"]
     injections = conn.execute("SELECT COUNT(*) AS c FROM injections").fetchone()["c"]
+    runs = conn.execute("SELECT COUNT(*) AS c FROM runs").fetchone()["c"]
 
     return {
         "sessions": int(sessions),
         "trajectories": int(trajectories),
         "steps": int(steps),
         "injections": int(injections),
+        "runs": int(runs),
         "fields_scanned": scanned,
         "deny_paths": len(redactor.deny_paths),
         "findings": findings,

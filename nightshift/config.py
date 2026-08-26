@@ -56,6 +56,12 @@ DEFAULTS = {
     "model_command": None,
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
+    # Scheduler (M3-b). `auto` detecta: launchd en macOS, systemd de usuario en Linux,
+    # `loop` en cualquier otra cosa. La ventana nocturna asume portátil enchufado.
+    "scheduler_backend": "auto",
+    "dream_hour": 3,
+    "dream_minute": 30,
+    "loop_interval_minutes": 360,
     # Transferencia cross-repo real necesita `abstraction`, que la produce dream (M3).
     # Hasta entonces esto inyecta trayectorias crudas de otro repo: apagado por defecto.
     "cross_repo": False,

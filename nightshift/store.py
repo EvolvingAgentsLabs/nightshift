@@ -70,6 +70,20 @@ CREATE TABLE IF NOT EXISTS injections (
     score REAL NOT NULL,
     reason TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    command TEXT NOT NULL,
+    backend TEXT,
+    exit_code INTEGER,
+    trajectories INTEGER,
+    candidates INTEGER,
+    superseded INTEGER,
+    rejected INTEGER,
+    note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at);
 CREATE INDEX IF NOT EXISTS idx_traj_session ON trajectories(session_id);
 CREATE INDEX IF NOT EXISTS idx_traj_task ON trajectories(task_type, status);
 CREATE INDEX IF NOT EXISTS idx_inj_session ON injections(session_id);
@@ -192,6 +206,29 @@ def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None
     conn.execute(sql, fields)
     conn.commit()
     return status
+
+
+# --------------------------------------------------------------- corridas (M3-b)
+def record_run(conn, *, command, backend=None, started_at=None, exit_code=None,
+               trajectories=0, candidates=0, superseded=0, rejected=0, note=None):
+    """Registra una corrida de dream. Es lo que `schedule status` tiene para mostrar.
+
+    Sin esto, un scheduler es una promesa: hay un timer, y nadie sabe si la última noche
+    hizo algo. `note` viene redactado desde quien llama — un mensaje de error del modelo
+    es texto no controlado como cualquier otro.
+    """
+    conn.execute(
+        "INSERT INTO runs (started_at, finished_at, command, backend, exit_code,"
+        " trajectories, candidates, superseded, rejected, note)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (started_at or now(), now(), command, backend, exit_code, trajectories,
+         candidates, superseded, rejected, note))
+    conn.commit()
+
+
+def recent_runs(conn, limit=10):
+    return conn.execute("SELECT * FROM runs ORDER BY started_at DESC, id DESC LIMIT ?",
+                        (limit,)).fetchall()
 
 
 # ------------------------------------------------------------------- dream (M3)

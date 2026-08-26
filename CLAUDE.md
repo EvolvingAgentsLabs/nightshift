@@ -33,7 +33,7 @@ ADRs → `LATER.md`.
   texto del proyecto (ADR-001).
 - Añadir features que no estén en el plan. Si parece buena idea, va a `LATER.md`.
 
-## Milestone actual: M1 + M2 — capture y retrieve
+## Milestone actual: M3 — dream `consolidate` + scheduler
 
 **Este repositorio es el plugin.** Si la sesión se abrió con `claude --plugin-dir .`, los
 hooks que están capturando esta misma sesión son el código de este working tree. Editar
@@ -74,9 +74,10 @@ Al describir el proyecto — en el README, en un commit, en una demo — esto es
 corresponde decir:
 
 - **Hecho:** captura (7 hooks), redactor determinista, store SQLite, retrieval
-  estructural e inyección, `why`, doctor, selftest, `audit` (el gate de M1) y **dream
-  fase 1 (`consolidate`)** con modelo local.
-- **No construido:** dream fase 2 (`verify`), scheduler, benchmark. Hay `candidate`, pero
+  estructural e inyección, `why`, doctor, selftest, `audit` (el gate de M1), **dream
+  fase 1 (`consolidate`)** con modelo local y el **scheduler** (launchd/systemd/loop) con
+  registro de corridas.
+- **No construido:** dream fase 2 (`verify`), benchmark. Hay `candidate`, pero
   **nada llega a `procedure`**: ninguna memoria inyectada está verificada. Una
   `candidate` la abstrajo un modelo local y nadie la reprodujo contra un gate. No la
   describas como si lo estuviera.

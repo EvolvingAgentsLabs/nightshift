@@ -346,6 +346,10 @@ Las skills de un plugin llevan el namespace del plugin, así que los nombres rea
 - `/nightshift:why <id>` — muestra la trayectoria origen completa. La auditabilidad es
   feature, no debug: es la condición de éxito 3 (§1.3).
 - `/nightshift:doctor` — auto-diagnóstico de invariantes y replay end-to-end de los hooks.
+- `/nightshift:audit` — auditoría del store persistido: fugas y cobertura. Es el gate de
+  M1 hecho script. **No tiene skill**: se corre como `nightshift audit`.
+- `/nightshift:schedule` — la corrida nocturna: backend, qué hay instalado y cómo
+  salieron las últimas corridas.
 - `/nightshift:dev` — estado de desarrollo del propio plugin, para las sesiones que lo
   modifican.
 - `/nightshift:dream` — **fase 1 (`consolidate`), desde M3-a.** `--verify` no existe:
@@ -435,6 +439,22 @@ Requisito de M3. Tres backends detrás de una interfaz:
 
 El backend se selecciona por config, con autodetección por defecto. El gate de M3 es
 operativo, no unitario: **tres noches seguidas sin intervención** en la Air.
+
+**Implementado en M3-b, con dos decisiones:**
+
+- **Escribir la unidad y cargarla son pasos distintos.** Escribir es reversible y se
+  puede leer; cargar en el gestor de arranque del usuario, no. `--dry-run` muestra la
+  unidad sin escribirla; `--no-activate` la escribe sin cargarla. Los tests usan el
+  segundo: un test que llama a `launchctl` de verdad deja un job instalado en la máquina
+  de quien lo corre.
+- **Un scheduler sin registro de corridas es una promesa.** Hay un timer y nadie sabe si
+  anoche hizo algo. Cada corrida de dream queda en el store — cuándo, qué backend la
+  disparó, con qué código salió y cuántas candidatas produjo — y `nightshift schedule
+  status` las muestra. Ese es el gate automatizable de M3-b; el operativo lo corre una
+  persona y esto es lo que lo hace verificable.
+
+En macOS la corrida va bajo `caffeinate -s` cuando existe: la ventana nocturna asume
+portátil enchufado, y un equipo que se duerme a mitad de la consolidación no la termina.
 
 ### 7.2 Degradación
 
@@ -577,3 +597,4 @@ la spec y el benchmark negativo son publicables.
 | 5.1, 5.8 | `SessionStart` cierra las trayectorias huérfanas de sesiones muertas | Una trayectoria `open` para siempre no la ve el retrieval: se pierde entera |
 | 6.1 | Dream fase 1 implementado: agrupación determinista por tipo de tarea, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor | Agrupar con un LLM es irreproducible; y una abstracción que no valida es una fuga cross-repo esperando |
 | 6.3 | El texto inyectado dice de cada trayectoria si es cruda, `candidate` o verificada | "El agente debe poder distinguir 'esto se probó' de 'esto pareció funcionar una vez'" exige que el texto lo diga |
+| 7.1 | Scheduler implementado; instalar y activar son pasos separados, y cada corrida queda registrada | Cargar una unidad en el gestor de arranque no es reversible desde un test; y un timer sin corridas registradas no es verificable |

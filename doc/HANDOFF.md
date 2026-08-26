@@ -34,14 +34,19 @@ Arrancá con `nightshift dev`.
 | Redactor determinista | `nightshift/redact.py` |
 | Store SQLite + export `trajectory.v1` | `nightshift/store.py` |
 | Retrieval estructural e inyección | `nightshift/retrieve.py` |
+| Auditoría del store (gate de M1) | `nightshift/audit.py` |
+| Dream fase 1 — `consolidate` | `nightshift/dream.py` |
+| Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 42 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 106 tests, selftest |
+| Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
 
-Dream (`consolidate` y `verify`), el scheduler, el benchmark. **Hoy nada llega a
-`candidate` ni a `procedure`**, así que ninguna memoria inyectada está verificada.
-No lo describas como si lo estuviera, ni en el README, ni en un commit, ni en una demo.
+Dream fase 2 (`verify`) y el benchmark. Hay `candidate`, pero **nada llega a
+`procedure`**: ninguna memoria inyectada está verificada. Una `candidate` la abstrajo un
+modelo local y nadie la reprodujo contra un gate. No lo describas como si lo estuviera,
+ni en el README, ni en un commit, ni en una demo.
 
 ### Bloqueado por una persona, no por vos
 
@@ -101,132 +106,61 @@ el mismo commit y dejá la fecha.
 
 ## 4. Cola de trabajo
 
-En orden. Cada tarea es una rama, y cada una trae su gate — un comando que sale 0 o no.
-No pases a la siguiente sin que la anterior esté en `main`.
+**T1 a T5 están hechas y en `main`.** Lo que sigue es qué las cerró y qué quedó abierto.
 
-### T1 — `nightshift audit` · desbloquea el gate de M1
+| Tarea | Estado | Qué la cerró |
+|---|---|---|
+| T1 — `nightshift audit` | ✅ #4 | `audit` recorre todo lo persistido y afirma que no hay fugas. Sobre el store real: **cero hallazgos**. `--min-sessions 5` sigue saliendo 1 por conteo de sesiones (ver abajo). |
+| T2 — retrieval por tipo de tarea | ✅ #5 | `general` dejó de puntuar como coincidencia de tipo, y el retrieval se rehace en el primer `UserPromptSubmit` clasificado, sin re-inyectar lo ya dicho. Spec §5.7. |
+| T3 — trayectorias huérfanas | ✅ #6 | `SessionStart` cierra las `open` de otras sesiones sin actividad hace más de `orphan_after_hours`. Corte por inactividad, nunca por antigüedad. Spec §5.8. |
+| T4 — M3-a dream `consolidate` | ✅ #7 | Agrupación determinista, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor. Gate: `make dream-selftest`. |
+| T5 — M3-b scheduler | ✅ | `launchd` / `systemd` (timer de usuario) / `loop`, con registro de corridas. Gate: `nightshift schedule status` reporta las últimas y sus resultados. |
 
-**Por qué primero.** El gate de M1 es "5 sesiones reales capturadas sin fuga de
-`deny_paths`, test automatizado sobre el dump". Ese comando **no existe**, así que hoy
-M1 no se puede cerrar aunque el plugin se use cien veces. Es la pieza que falta entre
-"código listo" y "M1 pasado".
+### Lo que falta, y de quién es
 
-**Qué construir.** `nightshift audit [--min-sessions N] [--json]` que abre el store
-real y afirma, sobre todo lo persistido:
+**Ninguna de estas tres es código pendiente. Son decisiones o evidencia.**
 
-- ninguna cadena matchea un patrón de `deny_paths`;
-- ningún patrón de `redact.SECRET_RULES` matchea nada (si el redactor dejó pasar un
-  secreto, acá se ve);
-- no hay rutas absolutas del home del usuario;
-- `abstraction.pattern` no contiene secuencias tipo path;
-- reporta cuántas sesiones distintas, trayectorias y pasos hay.
+1. **El gate de M1: dos sesiones más.** `nightshift audit` no encuentra ninguna fuga en
+   el store real, pero hay 3 sesiones distintas capturadas de las 5 que pide el gate.
+   Se cierra usando el plugin, no escribiendo código.
+   ```sh
+   nightshift audit --min-sessions 5
+   ```
 
-Sale 1 si encuentra algo, o si hay menos de `--min-sessions` sesiones.
+2. **El gate de M3: tres noches.** El scheduler está y las corridas quedan registradas.
+   Falta instalar el timer en la Air y dejarlo correr tres noches seguidas sin
+   intervención. Lo hace una persona.
+   ```sh
+   nightshift schedule install     # toca el gestor de arranque: no lo corre un agente solo
+   nightshift schedule status      # a la mañana siguiente
+   ```
 
-**Cuidado:** el reporte no puede imprimir el material que encontró en claro. Decí
-*dónde* (trayectoria, paso, campo) y *qué regla* saltó, nunca el valor.
-
-**Gate:** `nightshift audit --min-sessions 5` sale 0 sobre el store real de Matías, más
-un test que siembra una fuga a mano en un store desechable y verifica que `audit` la
-encuentra. Un auditor que nunca falla no es un auditor.
-
----
-
-### T2 — retrieval por tipo de tarea · el bug real de M2
-
-**El problema.** `SessionStart` corre **antes** de que el usuario escriba nada, así que
-el `task_type` de la trayectoria nueva todavía es `general`. El ranking termina
-emparejando `general` con `general`: parece que matchea por tipo de tarea, y no lo hace.
-La frase de la spec "retrieve por estructura (tipo de tarea)" hoy no se cumple.
-
-Se ve en la práctica: una inyección real reportó
-`score 0.90 · same_task_type,same_repo` cuando ambas trayectorias eran `general`.
-
-**Qué construir.** Re-hacer el retrieval en el **primer `UserPromptSubmit`** de la
-sesión, cuando ya hay prompt y por lo tanto `task_type`. Ese hook también admite
-`additionalContext`.
-
-Dos cosas que hay que resolver bien:
-
-- **No duplicar.** Si algo ya se inyectó en `SessionStart`, no se re-inyecta. La tabla
-  `injections` tiene `session_id`; usala.
-- **No inyectar en cada prompt.** Sólo la primera vez que el `task_type` deja de ser
-  `general`.
-
-**Gate:** un test que siembra una trayectoria `debug_test_failure`, dispara
-`SessionStart` (que no matchea por tipo), después `UserPromptSubmit` con un prompt de
-debugging, y afirma que la segunda inyección trae `same_task_type` y que ninguna
-trayectoria se inyectó dos veces en la misma sesión.
-
----
-
-### T3 — trayectorias huérfanas
-
-**El problema.** Si la sesión muere sin `SessionEnd` (un `Ctrl-C` duro, un crash), la
-trayectoria queda `open` para siempre. Nunca se cierra sola, y como el retrieval sólo
-mira `closed`/`candidate`/`procedure`, **nunca va a ser recuperable**. Se pierde entera.
-
-**Qué construir.** Al arrancar `SessionStart`, cerrar las trayectorias `open` de otras
-sesiones con más de N horas (config, default razonable) infiriendo el outcome como
-siempre. Una huérfana con pasos vale más cerrada que perdida.
-
-**Gate:** test que crea una trayectoria `open` vieja, dispara `SessionStart` de otra
-sesión, y verifica que quedó cerrada y que la de la sesión en curso **no** se tocó.
-
----
-
-### T4 — M3-a: dream `consolidate`
-
-Recién acá empieza M3. Rama nueva.
-
-**Qué construir.** Lo que dice spec §6.1, sobre las trayectorias `closed` del período:
-agrupar por similitud estructural, extraer el patrón (hipótesis → señal decisiva → fix),
-producir `abstraction` y `valid_when`, enlazar contradicciones poniendo la vieja en
-`superseded` con `superseded_by` apuntando a la nueva — **sin borrarla** — y dejar el
-resultado en `candidate`.
-
-**El modelo corre local.** Qwen por `subprocess`. Si no hay modelo local disponible,
-`dream` **falla y lo dice**; no cae a una API remota, ni a una heurística que finja ser
-consolidación. Un `consolidate` que no consolidó tiene que salir distinto de 0.
-
-**El gate más lindo que tenemos.** Toda trayectoria consolidada tiene que seguir
-validando contra `schema/trajectory.v1.json`, y el esquema **rechaza paths en
-`abstraction.pattern`**. O sea: el esquema que congeló M0 es la red que atrapa al modelo
-si filtra rutas del repo al abstraer. No la desactives ni la relajes — si el modelo
-produce algo que no valida, el bug es del prompt, no del esquema.
-
-**Gate:** `nightshift dream` sobre un set fixture de trayectorias produce ≥1
-`candidate`, todas validan contra el esquema, y ninguna `abstraction.pattern` contiene
-el nombre del repo fixture ni una ruta. Más un test de que una contradicción produce
-`superseded_by` y **no** un borrado.
-
----
-
-### T5 — M3-b: scheduler pluggable
-
-**Qué construir.** `launchd` (macOS, target primario), `systemd` (timer de usuario, no
-unidad de sistema), `loop` (foreground, para desarrollo). Backend por config con
-autodetección. Algo tipo
-`nightshift schedule install|status|uninstall [--backend auto|launchd|systemd|loop]`.
-
-**Gate del script:** `nightshift schedule status` reporta las últimas corridas y sus
-resultados. **Gate real de M3, que no es tuyo:** tres noches seguidas sin intervención
-en la Air. Eso lo corre Matías; vos dejás el comando que lo hace verificable.
-
----
+3. **El gate humano de M0.** La revisión de ADR-001 por Ismael sigue pendiente, y ahora
+   hay más código construido sobre las cinco capacidades que ese ADR decide.
 
 ### Bloqueado — no empieces
 
-- **M4.** Podés construir el runner del benchmark (las tres familias, las filas S0/S1,
-  el reporte). **No** podés fijar umbrales ni decidir criterios de éxito: eso es
-  `bench/PREREG.md` y es de Matías. Y el pre-registro se congela **antes** de correr
-  nada.
-- **M5.** Prohibido hasta que M4 dé veredicto.
-- **Adapter de OpenCode.** Prohibido. La abstracción ya es cross-harness por diseño
-  (spec §4.4) justamente para que el adapter no requiera migrar datos, pero el adapter
-  no se toca.
+- **M4.** Podés construir el runner del benchmark (las tres familias, las filas S0/S1, el
+  reporte). **No** podés fijar umbrales ni criterios de éxito: eso es `bench/PREREG.md`,
+  tiene 19 `TODO(Matias)`, y el pre-registro se congela **antes** de correr nada.
+  Completar un `TODO(Matias)` es una violación, no una ayuda.
+- **M5 (`verify`).** Prohibido hasta que M4 dé veredicto. Hoy nada llega a `procedure`, y
+  eso es correcto: ninguna memoria inyectada está verificada.
+- **Adapter de OpenCode.** Prohibido.
 
----
+### Si vas a tocar dream
+
+Dos cosas que cuestan tiempo si se redescubren:
+
+- `ollama` re-acomoda las palabras al ancho de la terminal aunque stdout sea un pipe:
+  vuelve el cursor con `ESC[nD` y reescribe. Borrar los escapes a secas deja fragmentos
+  duplicados y saltos de línea **dentro de strings JSON**. Se usa `--nowordwrap`, y
+  `dream.undo_wrapping()` es la red para versiones que no lo tengan.
+- `--think false` baja una llamada de 56s a 6s con el mismo modelo.
+
+La agrupación es por tipo de tarea y nada más. Agrupar por firma de herramientas dejaba
+grupos de uno, y un grupo de uno no puede tener contradicciones. Agrupar mejor necesita
+volumen real, no otra intuición: está en `LATER.md`.
 
 ## 5. Cómo se entrega cada tarea
 
@@ -261,9 +195,14 @@ Para pegar en la sesión que toma el control:
 ```
 Leé doc/HANDOFF.md entero, después CLAUDE.md y doc/00-spec.md.
 
-Tu tarea es T1 de la cola: implementar `nightshift audit`, que es lo que
-desbloquea el gate de M1. Rama propia, gate en verde, PR.
+T1 a T5 están en main. Lo que falta de M1 y M3 es evidencia, no código: dos
+sesiones reales más para `nightshift audit --min-sessions 5`, y tres noches con
+el timer instalado para `nightshift schedule status`. Las dos las corre una
+persona.
 
-No toques T2 en adelante hasta que T1 esté en main. No completes ningún
-TODO(Matias). No empieces M5. Terminá con un resumen de qué quedó en LATER.md.
+Si vas a construir algo, es el runner del benchmark de M4 — las tres familias,
+las filas S0/S1, el reporte — y **sin fijar un solo umbral**: los 19
+TODO(Matias) de bench/PREREG.md los resuelve Matías, y completar uno es una
+violación. No empieces M5 antes del veredicto de M4. Rama propia, gate en
+verde, PR, y un resumen de qué quedó en LATER.md.
 ```
