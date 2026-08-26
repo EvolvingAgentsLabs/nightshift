@@ -25,7 +25,7 @@ decisiones humanas y evidencia de calendario.
 | M1 | ✅ captura, redactor, `audit` | ⚠️ **1 de 5** sesiones con contenido capturado | usar el plugin |
 | M2 | ✅ retrieval en dos pasadas, `why` | ✅ `why` reconstruye el origen | — |
 | M3 | ✅ dream fase 1, scheduler | ⚠️ 0 de 3 noches | el timer ya corre solo |
-| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 19 `TODO(Matias)`** | congelarlo y correr |
+| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 20 `TODO(Matias)`** | congelarlo y correr |
 | M5 | — | 🚫 bloqueado hasta el veredicto de M4 | — |
 
 Los 186 tests, `make check`, `make bench-fixtures`, `make dream-selftest`,
@@ -63,12 +63,12 @@ roadmap ahora, no en M4.
 
 ### 0.2 Congelar `bench/PREREG.md`
 
-`nightshift bench check` lista los 19 con sección y línea. Agrupados por lo que
+`nightshift bench check` lista los 20 con sección y línea. Agrupados por lo que
 desbloquean:
 
 | Bloque | Líneas de PREREG | Qué bloquea | Datos que ya existen para decidir |
 |---|---|---|---|
-| Constantes de corrida | 51–54: modelo, seed, límite de tool calls, wall-clock | el adaptador se niega a correr sin las tres primeras | el smoke real midió **10–15 tool calls** y **27–52 s** por tarea |
+| Constantes de corrida | 64–69: los **dos** modelos (agente y consolidación), seed, límite de tool calls, wall-clock | el adaptador se niega a correr sin el del agente, el límite y el reset | el smoke real midió **10–15 tool calls** y **27–52 s** por tarea |
 | Umbrales por familia | 71, 72, 89, 90, 109 | el veredicto: sin ellos es *indecidible*, y eso nunca es go | — |
 | Tolerancia de regresión | 35 | la mitad "cero regresión" de la regla de §1, que hoy no se evalúa | — |
 | Fase de aprendizaje de A | 62 | cuántas de las 10 tareas enseñan y cuántas miden | el fixture propone 4 |
@@ -202,7 +202,7 @@ baseline. Eso convierte un resultado en una anécdota.
 | Riesgo | Evidencia | Mitigación |
 |---|---|---|
 | **Las amenazas de PREREG §5 están incompletas** | corriendo el benchmark aparecieron dos que no estaban: store por celda (medía cero transferencia por construcción) y ruta por tarea (le daba ventaja a nightshift por construcción) | releer §5 antes de congelar, sabiendo que la lista se demostró incompleta |
-| **El benchmark ahora tiene dos modelos** | ADR-003: dream consolida con Claude Code, no con Qwen local. El del agente y el de consolidación son constantes distintas del experimento | desdoblar el `TODO(Matias)` de "modelo exacto" en PREREG §2 antes de congelar |
+| ~~El benchmark tiene dos modelos y PREREG uno~~ | ADR-003: dream consolida con Claude Code, no con Qwen local | **resuelto**: PREREG §2 los pide por separado, y los dos siguen sin fijar. El de consolidación interviene sólo en S1 |
 | **Lo redactado sale de la máquina** | consecuencia directa de ADR-003 | el backend `local` sigue a una línea de config para repos cuyo material no puede salir |
 | **El store viejo es 82% cascarón** | `nightshift status` lo reporta | contar M1 desde el fix; correr dream con ventana corta |
 | **El límite de tool calls no se puede imponer** | el CLI no expone `--max-turns` (verificado 2026-08-26) | PREREG tiene que decir qué se hace con una celda que lo excede: el adaptador la marca, no la corta |

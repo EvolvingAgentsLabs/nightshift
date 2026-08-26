@@ -166,7 +166,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable ✅ | Los dos entregados: `nightshift dream --selftest` pasa y `nightshift schedule status` reporta las últimas corridas. El gate del milestone — **3 noches seguidas sin intervención** — lo corre Matías |
-| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0. El runner está y **se niega a correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)` |
+| M4 🟡 | **Benchmark — go/no-go**. Runner ✅ | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0. El runner está y **se niega a correr**: `bench/PREREG.md` sigue en borrador con 20 `TODO(Matias)` |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | Adapter de OpenCode, marketplace de plugins, Omarchy/Quattro | Ver [`LATER.md`](LATER.md) |
 
@@ -309,7 +309,7 @@ El adaptador que lanza el agente en cada celda vive en `bench/agentes/` y **se n
 correr por el mismo motivo que el runner**: sin el modelo, el límite de tool calls y el
 protocolo de reset —los tres `TODO(Matias)`— no elige valores por su cuenta.
 
-`bench/PREREG.md` dice **BORRADOR — no congelado** y tiene 19 `TODO(Matias)`. Hasta que
+`bench/PREREG.md` dice **BORRADOR — no congelado** y tiene 20 `TODO(Matias)`. Hasta que
 una persona lo congele, `bench run` se niega y lista qué falta, con sección y línea. Un
 umbral que se ajusta después de ver el resultado no es un umbral, y un runner que corre
 con el pre-registro abierto es la forma más cómoda de ajustarlo sin darse cuenta.

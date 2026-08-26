@@ -55,7 +55,7 @@ class PreregTest(unittest.TestCase):
         """Si esto falla, alguien completó decisiones que no son suyas."""
         prereg = bench.read_prereg(PREREG)
         self.assertFalse(prereg["frozen"], "el pre-registro real no está congelado")
-        self.assertGreaterEqual(len(prereg["todos"]), 19)
+        self.assertGreaterEqual(len(prereg["todos"]), 20)
         self.assertEqual({t["owner"] for t in prereg["todos"]}, {"Matias"})
         for familia in bench.FAMILIES:
             fila = bench.primary_threshold(prereg, familia)
@@ -68,6 +68,26 @@ class PreregTest(unittest.TestCase):
         self.assertFalse(estado["ready"])
         self.assertTrue(any("no está congelado" in b for b in estado["blockers"]))
         self.assertTrue(any("TODO" in b for b in estado["blockers"]))
+
+    def test_los_dos_modelos_del_experimento_se_piden_por_separado(self):
+        """Uno resuelve las tareas y otro consolida. Intervienen en momentos distintos.
+
+        Con una sola constante se podía congelar el pre-registro fijando uno y dejando el
+        otro suelto, y una corrida con otra consolidación no sería comparable con la
+        anterior. Lo hizo visible ADR-003.
+        """
+        texto = PREREG.read_text(encoding="utf-8")
+        seccion = texto.split("## 3. Familias")[0]
+        self.assertIn("Modelo del **agente**", seccion)
+        self.assertIn("Modelo de **consolidación**", seccion)
+        # Y los dos siguen sin fijar: son de Matías.
+        for linea in seccion.splitlines():
+            if "Modelo del" in linea or "Modelo de **consolidación**" in linea:
+                continue
+        pendientes = [t for t in bench.read_prereg(PREREG)["todos"]
+                      if "Modelo" in t["text"] or "versión" in t["text"]]
+        self.assertGreaterEqual(len(pendientes), 2,
+                                "los dos modelos siguen siendo TODO(Matias)")
 
     def test_gramatica_de_umbrales(self):
         casos = {
