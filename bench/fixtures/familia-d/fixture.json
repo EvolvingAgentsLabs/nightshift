@@ -1,0 +1,48 @@
+{
+  "name": "familia-d",
+  "family": "D",
+  "learning_tasks": 0,
+  "gate": [
+    "/bin/sh",
+    "gate.sh"
+  ],
+  "classify": [
+    "python3",
+    "clasificar.py"
+  ],
+  "reference_fix": {
+    "apply": [
+      ".referencia/red-arreglada.py",
+      "servicio/red.py"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "test_consulta",
+      "symptom": "las consultas cortan al segundo aunque los ajustes digan 2000 ms",
+      "prompt": "En este repo, las consultas cortan al segundo aunque los ajustes digan 2000 ms. Encontralo y arreglalo.",
+      "setup": [
+        "python3",
+        "sembrar.py"
+      ]
+    },
+    {
+      "id": "test_escritura",
+      "symptom": "las escrituras cortan al segundo aunque los ajustes digan 4000 ms",
+      "prompt": "En este repo, las escrituras cortan al segundo aunque los ajustes digan 4000 ms. Encontralo y arreglalo.",
+      "setup": [
+        "python3",
+        "sembrar.py"
+      ]
+    },
+    {
+      "id": "test_lote",
+      "symptom": "los lotes cortan a los 5 segundos aunque los ajustes digan 8000 ms",
+      "prompt": "En este repo, los lotes cortan a los 5 segundos aunque los ajustes digan 8000 ms. Encontralo y arreglalo.",
+      "setup": [
+        "python3",
+        "sembrar.py"
+      ]
+    }
+  ]
+}

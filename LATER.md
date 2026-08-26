@@ -114,7 +114,9 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Conteo de tool calls | Métrica secundaria de A y C. El runner la registra **sólo si el agente la imprime** (`NIGHTSHIFT_BENCH {"tool_calls": N}`); si no, queda en `null` y el reporte lo dice. Contarlas es cosa del harness: estimarlas sería inventar un dato. |
 | La mitad "cero regresión" de la regla de decisión | La tolerancia es un `TODO(Matias)`. El runner evalúa la mitad que puede (≥2 de 3 familias) y **dice explícitamente** que la otra mitad no se evaluó. |
 | Fixtures reales de A, C y D | Los sintéticos de `bench/fixtures/selftest/` prueban el runner, no nightshift. Los de verdad —dos repos, 10 bugs con causa compartida, ground truth de contradicciones— los define Matías con PREREG. |
-| Repos fixture de las familias A y C | Se construyen en M1; los identificadores se congelan en PREREG antes de M4. |
+| ~~Repos fixture de las familias A y C~~ | **Construidos** en `bench/fixtures/familia-{a,c,d}/`, con `nightshift bench fixtures` afirmando que cada tarea falla antes y la resuelve su fix de referencia. Falta que Matías **congele sus identificadores** en PREREG: eso sigue siendo `TODO(Matias)`. |
+| Cómo se enumeran las memorias inyectadas en la fila S0 (familia D) | El clasificador de la familia D sólo puede medir S1: en S0 nightshift no está, y las memorias de Auto Memory no son visibles — no hay API, y leerlas sería tocar el árbol nativo, que ADR-001 prohíbe. **Sin esto, la familia D es indecidible**, y el runner lo reporta así en vez de inventar un baseline. Es `TODO(Matias)`. |
+| Contaminación de los fixtures | Los repos fixture son código nuevo escrito para esto, no proyectos existentes: eso reduce la chance de que estén en los datos de entrenamiento, pero no la elimina ni la mide. La mitigación de PREREG §5 sigue siendo `TODO(Matias)`. |
 | Tratamiento estadístico con n=3 por celda | Hay que decidir y escribirlo antes de congelar, incluyendo reconocer el poder estadístico disponible. |
 | Protocolo de reset de Auto Dream entre corridas | Amenaza a la validez identificada, mitigación sin resolver (PREREG §5). |
 

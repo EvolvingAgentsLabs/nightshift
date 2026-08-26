@@ -652,6 +652,38 @@ def cmd_bench(args) -> int:
         print("Todo TODO(Matias) lo resuelve una persona (PREREG §regla 3).")
         return 0 if estado["ready"] else 1
 
+    if args.action == "fixtures":
+        # Los fixtures sintéticos del selftest quedan fuera a propósito: no tienen fix de
+        # referencia porque su "agente" siempre resuelve. Los valida `bench selftest`.
+        rutas = ([Path(args.fixture)] if args.fixture else
+                 sorted(ruta for ruta in
+                        (PLUGIN_ROOT / "bench" / "fixtures").glob("*/fixture*.json")
+                        if ruta.parent.name != "selftest"))
+        if not rutas:
+            print("no encontré ningún fixture", file=sys.stderr)
+            return 2
+        fallas = 0
+        for ruta in rutas:
+            try:
+                fixture = bench_mod.load_fixture(ruta)
+            except bench_mod.FixtureError as exc:
+                print("  %s: %s" % (ruta, exc), file=sys.stderr)
+                fallas += 1
+                continue
+            print("%s · familia %s · %d tarea(s)"
+                  % (fixture["name"], fixture["family"], len(fixture["tasks"])))
+            reporte = bench_mod.check_fixture(fixture, timeout=args.timeout, log=print)
+            if not reporte["ok"]:
+                fallas += 1
+            print()
+        if fallas:
+            print("bench fixtures: %d fixture(s) con problemas" % fallas)
+            print("Una tarea que ya pasa, o que no se puede resolver, no mide nada.")
+            return 1
+        print("bench fixtures: OK — cada tarea falla antes y la resuelve su fix de "
+              "referencia.")
+        return 0
+
     if args.action == "plan":
         try:
             fixture = bench_mod.load_fixture(args.fixture)
@@ -699,8 +731,7 @@ def cmd_bench(args) -> int:
     return 2
 
 
-def _bench_run(args, prereg, estado, *, cwd=None, quiet=False,
-               silent_report=False) -> int:
+def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int:
     if not args.agent:
         print("bench run: falta `--agent`, el comando que corre el agente en cada tarea.",
               file=sys.stderr)
@@ -737,8 +768,18 @@ def _bench_run(args, prereg, estado, *, cwd=None, quiet=False,
             entorno = dict(os.environ)
             entorno["NIGHTSHIFT_BENCH_TASK"] = celda["task"]
             entorno["NIGHTSHIFT_BENCH_ROW"] = celda["row"]
+            # Cada celda, su copia limpia. Compartir el árbol entre celdas hace que la
+            # segunda encuentre el trabajo de la primera ya hecho.
+            #
+            # La copia vive bajo el directorio de la corrida y **nunca** dentro del
+            # fixture: ponerla adentro hace que `copytree` se copie a sí mismo hasta que
+            # el sistema de archivos se queja del largo del nombre. Encontrado corriendo.
+            trabajo = bench_mod.prepare_workdir(
+                fixture, destino / "celdas" / ("%s-c%d-%s" % (celda["row"], celda["repeat"],
+                                                             celda["task"])))
+            entorno["NIGHTSHIFT_BENCH_WORKDIR"] = trabajo
             registro = bench_mod.run_cell(celda, fixture, agent_command=agente,
-                                          timeout=args.timeout, env=entorno, cwd=cwd)
+                                          timeout=args.timeout, env=entorno, cwd=trabajo)
             registros.append(registro)
             handle.write(json.dumps(registro, ensure_ascii=False) + "\n")
             handle.flush()
@@ -900,8 +941,7 @@ def _bench_selftest(args) -> int:
                     timeout = 60
                     json = False
                     run = None
-                _bench_run(_Args(), prereg, estado, cwd=str(trabajo), quiet=True,
-                           silent_report=True)
+                _bench_run(_Args(), prereg, estado, quiet=True, silent_report=True)
             for corrida in sorted((raiz / "home" / "bench").glob("*")):
                 registros.extend(json.loads(line) for line in
                                  (corrida / "results.jsonl").read_text(encoding="utf-8")
@@ -1420,7 +1460,7 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("bench", help="runner del benchmark de M4 (lee los umbrales, no los fija)")
     p.add_argument("action", nargs="?", default="check",
-                   choices=("check", "plan", "run", "report", "selftest"))
+                   choices=("check", "plan", "run", "report", "fixtures", "selftest"))
     p.add_argument("--fixture", default=None, help="ruta a un fixture.json")
     p.add_argument("--agent", default=None,
                    help="comando del agente por tarea; admite {prompt} {task} {row}")
