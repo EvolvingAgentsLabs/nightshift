@@ -296,6 +296,7 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
 
 {
   "pattern": "forma del problema y del fix, en 1-3 oraciones",
+  "hypothesis": "la hipótesis con la que arrancó el trabajo, en una oración",
   "signals": ["señal observable que indica que este patrón aplica"],
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
   "valid_when": ["precondición bajo la que este procedimiento aplica"]
@@ -308,6 +309,9 @@ Reglas duras. Una respuesta que las rompa se descarta:
   `../`. Si necesitás nombrar un archivo, decí "el módulo afectado".
 - Todo en español, sin markdown, sin backticks dentro de los strings.
 - `signals` y `valid_when`: como mucho 5 elementos cada uno, oraciones cortas.
+- `hypothesis` es **el primer eslabón de la cadena causal**: con qué se creyó que era el
+  problema al empezar, aunque después resultara equivocada. Si de los pasos no se puede
+  inferir ninguna, poné null en vez de escribir una obvia.
 - Si las trayectorias no comparten ningún patrón útil, devolvé
   {"pattern": null} en lugar de inventar uno.
 
@@ -345,16 +349,20 @@ def _leaks(text, field, redactor, home_dir):
 
 
 def validate(data, *, redactor, home_dir):
-    """Devuelve `(abstraction, valid_when, problemas)`. Con problemas, no se persiste nada."""
+    """Devuelve `(abstraction, valid_when, hypothesis, problemas)`.
+
+    Con problemas, no se persiste nada.
+    """
     problemas = []
     if not isinstance(data, dict):
-        return None, None, ["el modelo no devolvió un objeto"]
+        return None, None, None, ["el modelo no devolvió un objeto"]
 
     pattern = data.get("pattern")
     if pattern is None:
-        return None, None, [SIN_PATRON]
+        return None, None, None, [SIN_PATRON]
     if not isinstance(pattern, str) or len(pattern.strip()) < 20:
-        return None, None, ["`pattern` tiene que ser un texto de al menos 20 caracteres"]
+        return None, None, None, ["`pattern` tiene que ser un texto de al menos 20 "
+                                  "caracteres"]
     pattern = " ".join(pattern.split())
     problemas.extend(_leaks(pattern, "abstraction.pattern", redactor, home_dir))
 
@@ -380,15 +388,24 @@ def validate(data, *, redactor, home_dir):
             problemas.extend(_leaks(condition, "valid_when[].condition", redactor, home_dir))
             valid_when.append({"condition": condition, "source": "inferred"})
 
+    # La hipótesis es de la trayectoria, no de la abstracción, pero pasa por los mismos
+    # gates: es texto del modelo y se persiste igual que el resto.
+    hypothesis = data.get("hypothesis")
+    if isinstance(hypothesis, str) and hypothesis.strip():
+        hypothesis = " ".join(hypothesis.split())
+        problemas.extend(_leaks(hypothesis, "hypothesis", redactor, home_dir))
+    else:
+        hypothesis = None
+
     if problemas:
-        return None, None, problemas
+        return None, None, None, problemas
 
     abstraction = {"pattern": pattern}
     if signals:
         abstraction["signals"] = signals
     if decisive:
         abstraction["decisive_signal"] = decisive
-    return abstraction, valid_when, []
+    return abstraction, valid_when, hypothesis, []
 
 
 # ------------------------------------------------------------------ consolidar
@@ -414,7 +431,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             % (len(group), winner["id"][:8], winner["task_type"]))
 
         prompt = build_prompt(conn, group)
-        abstraction = valid_when = None
+        abstraction = valid_when = hypothesis = None
         problemas = []
         for intento in range(1 + REINTENTOS):
             try:
@@ -427,11 +444,12 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             except DreamError as exc:
                 # Un grupo que el modelo arruinó no puede llevarse puesta la corrida
                 # entera: se anota y se sigue con el siguiente.
-                abstraction, valid_when, problemas = None, None, [str(exc)]
+                abstraction, valid_when, hypothesis = None, None, None
+                problemas = [str(exc)]
                 say("  intento %d falló: %s" % (intento + 1, exc))
                 continue
-            abstraction, valid_when, problemas = validate(data, redactor=redactor,
-                                                          home_dir=home_dir)
+            abstraction, valid_when, hypothesis, problemas = validate(
+                data, redactor=redactor, home_dir=home_dir)
             if not problemas:
                 break
             if problemas == [SIN_PATRON]:
@@ -451,6 +469,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         if not dry_run:
             estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
                                                 valid_when=valid_when,
+                                                hypothesis=hypothesis,
                                                 weight=CANDIDATE_WEIGHT)
             if estado != "candidate":
                 # La promoción exige `closed`. Si la trayectoria cambió de estado entre
@@ -465,6 +484,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         reporte["candidates"].append({"trajectory": winner["id"],
                                       "task_type": winner["task_type"],
                                       "pattern": abstraction["pattern"],
+                                      "hypothesis": hypothesis,
                                       "valid_when": len(valid_when)})
 
         for old in contradicted_by(conn, group, winner):

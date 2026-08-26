@@ -258,17 +258,23 @@ def recent_runs(conn, limit=10):
 
 
 # ------------------------------------------------------------------- dream (M3)
-def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, weight=0.6):
+def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypothesis=None,
+                         weight=0.6):
     """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
 
     No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
     inyección baja a propósito respecto de un procedimiento verificado (spec §6.3).
     """
+    # `hypothesis` sólo se escribe si dream infirió una y la trayectoria no tenía: la
+    # captura nunca la pobló (no se persiste texto del prompt), así que éste es el único
+    # momento en que puede aparecer, y no puede pisar algo declarado antes.
     conn.execute(
         "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
-        " valid_when_json = ?, injection_weight = ? WHERE id = ? AND status = 'closed'",
+        " valid_when_json = ?, injection_weight = ?,"
+        " hypothesis = COALESCE(hypothesis, ?) WHERE id = ? AND status = 'closed'",
         (json.dumps(abstraction, ensure_ascii=False),
-         json.dumps(valid_when or [], ensure_ascii=False), weight, trajectory_id))
+         json.dumps(valid_when or [], ensure_ascii=False), weight, hypothesis,
+         trajectory_id))
     conn.commit()
     return conn.execute("SELECT status FROM trajectories WHERE id = ?",
                         (trajectory_id,)).fetchone()["status"]
