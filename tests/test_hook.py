@@ -122,6 +122,38 @@ class ResumenDeSalidaTest(unittest.TestCase):
                                           "numLines": 1}}
         self.assertEqual(hook.resumir_salida(real), "def f(): pass")
 
+    def test_las_siete_formas_sondeadas_el_2026_08_26(self):
+        """No son formas inventadas: salieron de correr las tools de verdad.
+
+        La lección de spec §5.9 aplicada al resumen: escribir el test contra la forma que
+        uno imagina prueba que uno es consistente consigo mismo, y nada más.
+        """
+        formas = {
+            "Read": ({"type": "text",
+                      "file": {"filePath": "/x/datos.txt", "content": "alfa\nbeta\n"}},
+                     "alfa\nbeta\n"),
+            "Bash": ({"interrupted": False, "isImage": False, "noOutputExpected": False,
+                      "stderr": "", "stdout": "       3 datos.txt"},
+                     "       3 datos.txt"),
+            "Write": ({"content": "hola\n", "filePath": "/x/nuevo.txt", "originalFile": "",
+                       "structuredPatch": [], "type": "create", "userModified": False},
+                      "hola\n"),
+            "ToolSearch": ({"matches": [], "query": "select:Glob",
+                            "total_deferred_tools": 40}, "select:Glob"),
+        }
+        for tool, (forma, esperado) in formas.items():
+            with self.subTest(tool=tool):
+                self.assertEqual(hook.resumir_salida(forma), esperado)
+
+    def test_una_edicion_resume_el_cambio_y_no_el_texto_borrado(self):
+        """`Edit` devolvía `oldString` y el resumen decía que la edición produjo lo que borró."""
+        real = {"filePath": "/x/datos.txt", "newString": "ALFA", "oldString": "alfa",
+                "originalFile": "alfa\nbeta\n", "replaceAll": False,
+                "structuredPatch": [{"lines": ["-alfa", "+ALFA"]}], "userModified": False}
+        resumen = hook.resumir_salida(real)
+        self.assertEqual(resumen, "reemplazó «alfa» por «ALFA»")
+        self.assertNotEqual(resumen, "alfa", "el texto viejo solo es una memoria que miente")
+
     def test_una_forma_desconocida_no_se_pierde(self):
         self.assertEqual(hook.resumir_salida({"raro": {"anidado": "valor útil"}}),
                          "valor útil")

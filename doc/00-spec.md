@@ -386,6 +386,15 @@ También se verificaron, y ahora se usan:
 - `SessionEnd` trae `reason`, `PostToolUse` trae `duration_ms`, y `SessionStart` trae
   `source`. Todavía no se usan.
 
+El `tool_response` cambia de forma según la tool, y se sondearon siete el mismo día:
+`Bash` devuelve `{stdout, stderr, interrupted, isImage, noOutputExpected}`, `Read`
+`{type, file:{filePath, content}}`, `Write` `{content, filePath, structuredPatch, …}`,
+`Edit` `{oldString, newString, structuredPatch, …}` y `ToolSearch` `{matches, query, …}`.
+La extracción del resumen es determinista y por forma; la de `Edit` es la que más importó
+descubrir, porque devolver `oldString` hacía que el resumen dijera que la edición había
+producido el texto que **borró**. Las tools de MCP no se sondearon: para ésas hay un
+fallback que busca el primer valor con texto.
+
 ### 5.5 Comandos
 
 Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
