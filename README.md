@@ -223,10 +223,16 @@ nightshift dream --dry-run    # show what it would do, write nothing
 nightshift dream --selftest   # the M3-a gate, on a throwaway fixture store
 ```
 
-The model runs local — Qwen through `subprocess`, autodetected from ollama, smallest one
-already downloaded, never pulled for you. **If there is no local model, dream fails and
-says so** (exit 2): there is no remote fallback and no heuristic pretending to be
-consolidation. Exit 1 means there was material and nothing came out of it.
+The model runs through `subprocess`, and there are two backends (**ADR-003**): Claude
+Code by default — the agent that is already installed and authenticated, invoked
+non-interactively — or Qwen through ollama with `model_backend: "local"`. **If neither is
+available, dream fails and says so** (exit 2): no heuristic pretending to be
+consolidation. Exit 1 means the model produced something that could not be persisted.
+
+The cost of the default is written down and not hidden: **redacted trajectories leave the
+machine**. For a repository whose material cannot leave, the local backend is one line of
+config. There is still no new API key, and no module of `nightshift/` speaks over the
+network — `make lint-code` checks that.
 
 Everything the model produces goes through the same gates as capture: the schema rejects
 paths in `abstraction.pattern`, the redactor rejects repo identifiers, and the M1 auditor

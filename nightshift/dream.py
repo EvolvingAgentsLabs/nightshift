@@ -25,8 +25,10 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import shutil
 import subprocess
+import tempfile
 
 from . import audit, config, context, store
 from .redact import Redactor
@@ -69,18 +71,55 @@ class ModelUnavailable(DreamError):
 
 
 # ------------------------------------------------------------------- el modelo
-def detect_command(cfg) -> list[str] | None:
-    """Comando del modelo local. `model_command` en la config, o autodetección.
+BACKENDS = ("claude-code", "local")
 
-    Autodetectar significa: ollama en el PATH y un modelo qwen ya descargado. Se elige
-    el más chico, porque el target es una Air corriendo de noche, no una workstation.
-    Nunca se descarga nada: un `dream` que se baja 7 GB en la primera corrida no es
-    autodetección, es una sorpresa.
+
+def detect_command(cfg) -> list[str] | None:
+    """Comando del modelo que consolida. Ver ADR-003.
+
+    Dos backends, y el default es `claude-code`: el mismo agente que ya está instalado y
+    autenticado, invocado por `subprocess` en modo no interactivo. El backend `local`
+    (Qwen por ollama) sigue disponible y es el que hay que elegir cuando las trayectorias
+    no pueden salir de la máquina.
+
+    `model_command` en la config gana sobre todo: es la puerta para cualquier otro
+    ejecutable que lea un prompt por stdin y escriba texto por stdout.
     """
     configured = cfg.get("model_command")
     if configured:
         return [str(part) for part in configured]
 
+    backend = cfg.get("model_backend", "claude-code")
+    if backend == "claude-code":
+        return _claude_command(cfg)
+    if backend == "auto":
+        return _claude_command(cfg) or _ollama_command()
+    return _ollama_command()
+
+
+def _claude_command(cfg):
+    """El agente que ya está instalado, en modo no interactivo.
+
+    `--output-format json` devuelve un envoltorio con la respuesta en `result`; de
+    desenvolverlo se encarga `extract_json`. El modelo concreto se deja sin fijar salvo
+    que la config lo diga: elegirlo por su cuenta sería fijar una constante del
+    experimento (PREREG §2).
+    """
+    claude = shutil.which("claude")
+    if not claude:
+        return None
+    comando = [claude, "-p", "--output-format", "json"]
+    if cfg.get("model_name"):
+        comando += ["--model", str(cfg["model_name"])]
+    return comando
+
+
+def _ollama_command():
+    """Qwen por ollama: el más chico ya descargado. Nunca baja nada solo.
+
+    Un `dream` que se descarga 7 GB en la primera corrida no es autodetección, es una
+    sorpresa.
+    """
     ollama = shutil.which("ollama")
     if not ollama:
         return None
@@ -119,9 +158,17 @@ class LocalModel:
         return " ".join(self.command)
 
     def _run(self, command, prompt):
+        # El hijo corre con un `NIGHTSHIFT_HOME` desechable. Si el ejecutable resulta ser
+        # un agente con los hooks de nightshift cargados —que es exactamente el caso del
+        # backend `claude-code`— sin esto la consolidación capturaría su propia sesión en
+        # el store que está consolidando. Sin config en ese directorio, la captura ni
+        # siquiera arranca (spec §8.1), así que el guard es el propio invariante.
+        entorno = dict(os.environ)
         try:
-            return subprocess.run(command, input=prompt, capture_output=True, text=True,
-                                  timeout=self.timeout)
+            with tempfile.TemporaryDirectory(prefix="nightshift-model-") as tmp:
+                entorno["NIGHTSHIFT_HOME"] = tmp
+                return subprocess.run(command, input=prompt, capture_output=True, text=True,
+                                      timeout=self.timeout, env=entorno)
         except subprocess.TimeoutExpired:
             raise DreamError("el modelo local no respondió en %ds: %s"
                              % (self.timeout, self.name))
@@ -176,8 +223,14 @@ def undo_wrapping(text: str) -> str:
     return "".join(out)
 
 
-def extract_json(text: str):
-    """Primer objeto JSON balanceado del texto. `None` si no hay ninguno."""
+def extract_json(text: str, _profundidad=0):
+    """Primer objeto JSON balanceado del texto. `None` si no hay ninguno.
+
+    Un agente en modo no interactivo devuelve un **envoltorio** —`{"result": "...",
+    "num_turns": 1, ...}`— con la respuesta adentro, en texto. Si el objeto que sale es
+    ese envoltorio, se vuelve a buscar dentro de `result`: quedarse con el envoltorio
+    sería leer la factura en vez de la respuesta.
+    """
     if not text:
         return None
     text = undo_wrapping(text)
@@ -208,9 +261,16 @@ def extract_json(text: str):
                 depth -= 1
                 if depth == 0:
                     try:
-                        return json.loads(text[start:i + 1])
+                        dato = json.loads(text[start:i + 1])
                     except ValueError:
                         break
+                    if (isinstance(dato, dict) and _profundidad < 3
+                            and "pattern" not in dato
+                            and isinstance(dato.get("result"), str)):
+                        adentro = extract_json(dato["result"], _profundidad + 1)
+                        if adentro is not None:
+                            return adentro
+                    return dato
         start = text.find("{", start + 1)
     return None
 

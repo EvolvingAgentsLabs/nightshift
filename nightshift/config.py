@@ -51,9 +51,15 @@ DEFAULTS = {
     # retrieval sólo mira `closed`/`candidate`/`procedure`: se pierde entera. Se cierra
     # por falta de actividad, no por antigüedad — una sesión larga sigue viva.
     "orphan_after_hours": 12,
-    # Dream (M3). `model_command` en null significa autodetectar: ollama en el PATH y un
-    # modelo qwen ya descargado, el más chico. Nunca se descarga nada solo.
+    # Dream (M3). Dos backends, ver ADR-003:
+    #   "claude-code" — el agente que ya está instalado, por `subprocess`. Default.
+    #   "local"       — Qwen por ollama. El que hay que elegir cuando las trayectorias
+    #                   no pueden salir de la máquina.
+    # `model_command` gana sobre los dos: cualquier ejecutable que lea stdin y escriba
+    # stdout sirve. `model_name` fija el modelo dentro del backend, si hace falta.
+    "model_backend": "claude-code",
     "model_command": None,
+    "model_name": None,
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
     # Scheduler (M3-b). `auto` detecta: launchd en macOS, systemd de usuario en Linux,

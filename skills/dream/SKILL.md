@@ -20,7 +20,7 @@ Argumentos útiles, si el usuario los pide:
 
 - `--dry-run` — muestra qué haría sin escribir nada.
 - `--lookback-days N` — período a consolidar (7 por defecto).
-- `--model "<comando>"` — modelo local explícito, en vez de la autodetección.
+- `--model "<comando>"` — ejecutable explícito, en vez del backend configurado.
 - `--selftest` — el gate de M3-a: corre sobre un set fixture en un store desechable.
 
 Después resumí en dos o tres líneas:
@@ -36,6 +36,6 @@ Códigos de salida, porque distinguen tres cosas distintas:
   trayectorias del período no comparten patrón. Las tres son noches normales.
 - `1` — el modelo produjo algo que no se pudo persistir (fuga, ruta en el patrón, JSON
   roto). Eso sí es que dream no consolidó, y hay que ir a mirar.
-- `2` — no hay modelo local. dream **no** cae a una API remota ni a una heurística.
-  Si pasa esto, decíselo al usuario tal cual: falta un modelo Qwen local (ollama), no es
-  un bug de nightshift.
+- `2` — no hay modelo disponible. Por defecto dream consolida con Claude Code
+  (ADR-003) y con `model_backend: "local"` usa Qwen por ollama. Si sale 2, falta el
+  ejecutable del backend elegido; no es un bug de nightshift.

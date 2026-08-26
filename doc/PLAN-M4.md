@@ -202,7 +202,8 @@ baseline. Eso convierte un resultado en una anécdota.
 | Riesgo | Evidencia | Mitigación |
 |---|---|---|
 | **Las amenazas de PREREG §5 están incompletas** | corriendo el benchmark aparecieron dos que no estaban: store por celda (medía cero transferencia por construcción) y ruta por tarea (le daba ventaja a nightshift por construcción) | releer §5 antes de congelar, sabiendo que la lista se demostró incompleta |
-| **La calidad de la abstracción del modelo no está medida** | dream corre con `qwen3.5:4b` y produce patrones genéricos; que sirvan lo dice M4 y nada más | fijar el modelo en PREREG; `qwen3.5:9b` está disponible local y no se probó |
+| **El benchmark ahora tiene dos modelos** | ADR-003: dream consolida con Claude Code, no con Qwen local. El del agente y el de consolidación son constantes distintas del experimento | desdoblar el `TODO(Matias)` de "modelo exacto" en PREREG §2 antes de congelar |
+| **Lo redactado sale de la máquina** | consecuencia directa de ADR-003 | el backend `local` sigue a una línea de config para repos cuyo material no puede salir |
 | **El store viejo es 82% cascarón** | `nightshift status` lo reporta | contar M1 desde el fix; correr dream con ventana corta |
 | **El límite de tool calls no se puede imponer** | el CLI no expone `--max-turns` (verificado 2026-08-26) | PREREG tiene que decir qué se hace con una celda que lo excede: el adaptador la marca, no la corta |
 | **Costo en dólares sin medir** | el adaptador emite `cost_usd` y ahora el runner lo guarda | **resuelto**: el reporte suma costo por celda y total. Falta la corrida real para tener el número |
