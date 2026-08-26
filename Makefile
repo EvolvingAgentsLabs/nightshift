@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 SHELL := /usr/bin/env bash
 
-.PHONY: check lint lint-docs lint-code validate-schema test selftest doctor init clean help
+.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest doctor init clean help
 
 ## check: el gate completo. Un gate es un script, no un juicio.
 check: lint validate-schema test selftest
@@ -30,6 +30,10 @@ test:
 ## selftest: replay end-to-end de los 7 hooks contra un store desechable
 selftest:
 	@./bin/nightshift selftest
+
+## dream-selftest: gate de M3-a. Necesita un modelo local, por eso no está en `check`
+dream-selftest:
+	@./bin/nightshift dream --selftest
 
 ## doctor: auto-diagnóstico de invariantes en runtime
 doctor:

@@ -74,10 +74,12 @@ Al describir el proyecto — en el README, en un commit, en una demo — esto es
 corresponde decir:
 
 - **Hecho:** captura (7 hooks), redactor determinista, store SQLite, retrieval
-  estructural e inyección, `why`, doctor y selftest.
-- **No construido:** dream (`consolidate` y `verify`), scheduler, benchmark. Hoy nada
-  llega a `candidate` ni a `procedure`, así que **ninguna memoria inyectada está
-  verificada.** No la describas como si lo estuviera.
+  estructural e inyección, `why`, doctor, selftest, `audit` (el gate de M1) y **dream
+  fase 1 (`consolidate`)** con modelo local.
+- **No construido:** dream fase 2 (`verify`), scheduler, benchmark. Hay `candidate`, pero
+  **nada llega a `procedure`**: ninguna memoria inyectada está verificada. Una
+  `candidate` la abstrajo un modelo local y nadie la reprodujo contra un gate. No la
+  describas como si lo estuviera.
 - **No decidido:** todos los `TODO(Matias)` de `bench/PREREG.md`, y el gate humano de M0
   (la revisión de ADR-001 por Ismael), que sigue pendiente.
 

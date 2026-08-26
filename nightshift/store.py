@@ -194,6 +194,38 @@ def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None
     return status
 
 
+# ------------------------------------------------------------------- dream (M3)
+def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, weight=0.6):
+    """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
+
+    No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
+    inyección baja a propósito respecto de un procedimiento verificado (spec §6.3).
+    """
+    conn.execute(
+        "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
+        " valid_when_json = ?, injection_weight = ? WHERE id = ? AND status = 'closed'",
+        (json.dumps(abstraction, ensure_ascii=False),
+         json.dumps(valid_when or [], ensure_ascii=False), weight, trajectory_id))
+    conn.commit()
+    return conn.execute("SELECT status FROM trajectories WHERE id = ?",
+                        (trajectory_id,)).fetchone()["status"]
+
+
+def mark_superseded(conn, old_id, new_id):
+    """La vieja sobrevive enlazada a la nueva. **Nunca se borra** (capacidad B).
+
+    Auto Dream borra lo contradicho; nosotros lo conservamos, porque una alternativa
+    descartada con su precondición es conocimiento y sin ella es ruido (spec §4.2).
+    """
+    if old_id == new_id:
+        return None
+    conn.execute(
+        "UPDATE trajectories SET status = 'superseded', superseded_by = ? WHERE id = ?",
+        (new_id, old_id))
+    conn.commit()
+    return new_id
+
+
 def record_injection(conn, *, session_id, source_trajectory, rank, score, reason,
                      into_trajectory=None):
     conn.execute(

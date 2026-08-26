@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -49,8 +50,9 @@ def cmd_status(args) -> int:
         print("  %-11s %d" % ("pasos", c["steps"]))
         print("  %-11s %d" % ("inyecciones", c["injections"]))
         print()
-        print("dream todavía no existe: nada llega a `candidate` ni a `procedure`.")
-        print("Lo que se inyecta son trayectorias crudas (M2).")
+        print("dream fase 1 (`consolidate`) existe: las `candidate` salieron de ahí.")
+        print("La fase 2 (`verify`) es M5 y no existe, así que **nada llega a")
+        print("`procedure`**: ninguna memoria inyectada está verificada.")
         rows = conn.execute(
             "SELECT * FROM trajectories ORDER BY created_at DESC LIMIT ?", (args.limit,)).fetchall()
         if rows:
@@ -216,6 +218,246 @@ def cmd_audit(args) -> int:
         verdict = ", ".join(parts)
     print("audit: %s" % verdict)
     return 0 if report["ok"] else 1
+
+
+# -------------------------------------------------------------------------- dream
+def _model_for(cfg, override=None, timeout=None):
+    from . import dream as dream_mod
+
+    command = shlex.split(override) if override else dream_mod.detect_command(cfg)
+    if not command:
+        raise dream_mod.ModelUnavailable(
+            "no hay modelo local disponible. dream corre con Qwen local por `subprocess`;\n"
+            "no hay fallback remoto (spec §2.2). Instalá ollama y bajá un modelo qwen,\n"
+            "o fijá `model_command` en %s." % config.config_path())
+    return dream_mod.LocalModel(command, timeout=timeout or cfg.get("dream_timeout_seconds", 180))
+
+
+def _print_dream_report(report):
+    print("modelo: %s" % report["model"])
+    print("período: últimos %d día(s)" % report["lookback_days"])
+    print("grupos: %d sobre %d trayectoria(s) cerrada(s)"
+          % (report["groups"], report["trajectories"]))
+    print()
+    if report["candidates"]:
+        print("candidatas (%d)%s:" % (len(report["candidates"]),
+                                      " — dry-run, no se escribió nada" if report["dry_run"]
+                                      else ""))
+        for item in report["candidates"]:
+            print("  %s  %-20s valid_when=%d" % (item["trajectory"][:8], item["task_type"],
+                                                 item["valid_when"]))
+            print("      %s" % item["pattern"][:150])
+    else:
+        print("candidatas: ninguna")
+    if report["superseded"]:
+        print()
+        print("contradicciones (%d) — la vieja queda `superseded`, no borrada:"
+              % len(report["superseded"]))
+        for item in report["superseded"]:
+            print("  %s  <- superseded_by %s" % (item["trajectory"][:8], item["by"][:8]))
+    if report["skipped"]:
+        print()
+        print("grupos sin patrón común (%d) — el modelo dijo que no comparten nada:"
+              % len(report["skipped"]))
+        for item in report["skipped"]:
+            print("  %s" % item["trajectory"][:8])
+    if report["rejected"]:
+        print()
+        print("grupos descartados (%d) — el modelo no produjo algo persistible:"
+              % len(report["rejected"]))
+        for item in report["rejected"]:
+            print("  %s  %s" % (item["trajectory"][:8], "; ".join(item["reasons"])[:160]))
+    print()
+    print("nada de esto está verificado: `verify` es M5 y no existe. Son `candidate`,")
+    print("se inyectan con menos peso y marcadas como no verificadas (spec §6.3).")
+
+
+def cmd_dream(args) -> int:
+    """Dream fase 1. Sale 2 sin modelo local, 1 si había material y no consolidó nada."""
+    from . import dream as dream_mod
+
+    if args.selftest:
+        return _dream_selftest(args)
+
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+    cfg = config.load()
+    try:
+        model = _model_for(cfg, args.model, args.timeout)
+    except dream_mod.ModelUnavailable as exc:
+        print("dream: %s" % exc, file=sys.stderr)
+        return 2
+
+    conn = store.connect()
+    try:
+        report = dream_mod.consolidate(
+            conn, model, cfg=cfg,
+            identifiers=dream_mod.redactor_identifiers(os.getcwd()),
+            lookback_days=args.lookback_days, dry_run=args.dry_run,
+            log=(lambda message: print("  %s" % message, file=sys.stderr))
+            if args.verbose else None)
+    except dream_mod.ModelUnavailable as exc:
+        # No hay modelo: es lo mismo que no haberlo detectado nunca, y se distingue de
+        # "el modelo corrió y no sirvió" en el código de salida.
+        print("dream: %s" % exc, file=sys.stderr)
+        return 2
+    except dream_mod.DreamError as exc:
+        print("dream: %s" % exc, file=sys.stderr)
+        return 1
+    finally:
+        conn.close()
+
+    if args.json:
+        json.dump(report, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+    else:
+        print("nightshift dream · consolidate (M3-a)")
+        print()
+        _print_dream_report(report)
+
+    if report["candidates"]:
+        return 0
+    if report["trajectories"] == 0:
+        # No había nada que consolidar. Eso no es un fallo: es una noche tranquila.
+        print("\nnada que consolidar en el período." if not args.json else "",
+              file=sys.stderr)
+        return 0
+    # Había material y no salió ninguna candidata: dream no consolidó. Lo dice.
+    print("\ndream no consolidó nada de %d trayectoria(s)." % report["trajectories"],
+          file=sys.stderr)
+    return 1
+
+
+FIXTURE = [
+    {"task_type": "debug_test_failure", "outcome": "user_corrected", "contradicted": True,
+     "steps": [("tool_use", "run_shell", "la suite falla en el borde de decodificación"),
+               ("tool_use", "edit_file", "se cambió el manejo de excepciones del lector"),
+               ("observation", "observation", "el fallo persiste: la corrección no era ahí")]},
+    {"task_type": "debug_test_failure", "outcome": "tests_passed", "contradicted": False,
+     "steps": [("tool_failure", "run_shell",
+                "UnicodeDecodeError al leer el archivo de entrada"),
+               ("tool_use", "read_file", "el lector abre en modo texto sin declarar encoding"),
+               ("tool_use", "edit_file", "se declara el encoding explícito al abrir"),
+               ("tool_use", "run_shell", "la suite pasa entera")]},
+    {"task_type": "refactor", "outcome": "tests_passed", "contradicted": False,
+     "steps": [("tool_use", "search", "la misma expresión aparece en tres módulos"),
+               ("tool_use", "edit_file", "se extrae a una función común"),
+               ("tool_use", "run_shell", "la suite pasa entera")]},
+]
+
+
+def _seed_fixture(conn, repo_name):
+    """Set fixture de trayectorias cerradas. El nombre del repo va adentro a propósito.
+
+    Si el modelo lo copia al abstraer, el gate tiene que verlo: `abstraction` es lo único
+    que puede cruzar de repo A a repo B (spec §4.2), así que un nombre de repo ahí es
+    una fuga, no un detalle.
+    """
+    ids = []
+    for i, item in enumerate(FIXTURE):
+        tid = store.open_trajectory(conn, session_id="fixture-%d" % i,
+                                    repo_fingerprint="f" * 64, task_type=item["task_type"],
+                                    base_commit="abc1234",
+                                    redaction={"redactor_version": "0.1.0"})
+        for kind, tool, summary in item["steps"]:
+            store.append_step(conn, tid, kind=kind, tool=tool,
+                              result_summary="en %s: %s" % (repo_name, summary),
+                              decisive=(kind == "tool_failure"))
+        if item["contradicted"]:
+            store.mark_last_contradicted(conn, tid)
+        store.close_trajectory(conn, tid, result=item["outcome"])
+        ids.append(tid)
+    return ids
+
+
+def _dream_selftest(args) -> int:
+    """Gate de M3-a. Corre el modelo local de verdad sobre un set fixture desechable."""
+    from . import dream as dream_mod
+
+    repo_name = "fixturerepo"
+    failures = []
+    with tempfile.TemporaryDirectory(prefix="nightshift-dream-") as tmp:
+        previous = os.environ.get("NIGHTSHIFT_HOME")
+        os.environ["NIGHTSHIFT_HOME"] = tmp
+        try:
+            config.init(force=True)
+            cfg = config.load()
+            try:
+                model = _model_for(cfg, args.model, args.timeout)
+            except dream_mod.ModelUnavailable as exc:
+                print("dream --selftest: %s" % exc, file=sys.stderr)
+                return 2
+            print("modelo: %s" % model.name)
+
+            conn = store.connect()
+            try:
+                sembradas = _seed_fixture(conn, repo_name)
+                try:
+                    report = dream_mod.consolidate(
+                        conn, model, cfg=cfg, identifiers=[repo_name], lookback_days=3650,
+                        log=lambda message: print("  %s" % message))
+                except dream_mod.DreamError as exc:
+                    print("  FALLA  el modelo local no entregó: %s" % exc)
+                    print("dream --selftest: 1 fallo(s)")
+                    return 1
+
+                if not report["candidates"]:
+                    failures.append("ninguna trayectoria llegó a `candidate`")
+                for item in report["candidates"]:
+                    doc = store.export_trajectory(conn, item["trajectory"])
+                    pattern = (doc.get("abstraction") or {}).get("pattern", "")
+                    if doc["status"] != "candidate":
+                        failures.append("%s quedó en %s" % (item["trajectory"][:8],
+                                                            doc["status"]))
+                    if not pattern:
+                        failures.append("%s es candidate sin `abstraction.pattern`"
+                                        % item["trajectory"][:8])
+                    # Se mira la abstracción, no la trayectoria entera: los pasos del
+                    # fixture nombran el repo a propósito. Lo que no puede nombrarlo es lo
+                    # único que cruza de repo A a repo B (spec §4.2).
+                    portable = json.dumps({"abstraction": doc.get("abstraction"),
+                                           "valid_when": doc.get("valid_when")},
+                                          ensure_ascii=False).lower()
+                    if repo_name in portable:
+                        failures.append("FUGA: el nombre del repo fixture sobrevivió en la"
+                                        " abstracción de %s" % item["trajectory"][:8])
+                    from .audit import ABSTRACTION_PATH_RE
+                    if ABSTRACTION_PATH_RE.search(pattern):
+                        failures.append("%s tiene una ruta en `abstraction.pattern`"
+                                        % item["trajectory"][:8])
+                    if doc["verified"] is not None:
+                        failures.append("%s dice estar verificada y `verify` no existe"
+                                        % item["trajectory"][:8])
+
+                supers = conn.execute(
+                    "SELECT * FROM trajectories WHERE status = 'superseded'").fetchall()
+                for row in supers:
+                    if not row["superseded_by"]:
+                        failures.append("%s es `superseded` sin enlace" % row["id"][:8])
+                vivas = conn.execute("SELECT COUNT(*) c FROM trajectories").fetchone()["c"]
+                if vivas != len(sembradas):
+                    failures.append("dream borró trayectorias: quedaron %d de %d"
+                                    % (vivas, len(sembradas)))
+                print()
+                _print_dream_report(report)
+            finally:
+                conn.close()
+        finally:
+            if previous is None:
+                os.environ.pop("NIGHTSHIFT_HOME", None)
+            else:
+                os.environ["NIGHTSHIFT_HOME"] = previous
+
+    print()
+    if failures:
+        for item in failures:
+            print("  FALLA  %s" % item)
+        print("dream --selftest: %d fallo(s)" % len(failures))
+        return 1
+    print("dream --selftest: OK — ≥1 candidate, sin fuga del repo fixture, sin rutas en")
+    print("el patrón, contradicción enlazada y ninguna trayectoria borrada.")
+    return 0
 
 
 # ------------------------------------------------------------------------- doctor
@@ -429,9 +671,9 @@ def cmd_dev(args) -> int:
     print("git         : %s @ %s%s" % (branch or "?", head or "?",
                                        " (sucio)" if dirty else " (limpio)"))
     print()
-    print("milestone actual: M1+M2 — capture + retrieve")
-    print("  hecho     : hooks de captura, redactor, store, retrieval, /why")
-    print("  falta     : M3 dream + scheduler, M4 benchmark (go/no-go), M5 verify")
+    print("milestone actual: M3-a — dream `consolidate`")
+    print("  hecho     : captura, redactor, store, retrieval, /why, audit, dream fase 1")
+    print("  falta     : M3-b scheduler, M4 benchmark (go/no-go), M5 verify")
     print("  prohibido : empezar M5 antes del veredicto de M4; adapter de OpenCode;")
     print("              escribir en el árbol de Auto Memory; dependencias remotas")
     print()
@@ -465,6 +707,17 @@ def main(argv=None) -> int:
                    help="exigir al menos N sesiones distintas capturadas (el gate de M1 usa 5)")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_audit)
+
+    p = sub.add_parser("dream", help="consolidar trayectorias cerradas con el modelo local (M3-a)")
+    p.add_argument("--lookback-days", type=int, default=None)
+    p.add_argument("--model", help="comando del modelo local (por defecto, autodetección)")
+    p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
+    p.add_argument("--dry-run", action="store_true", help="no escribir: mostrar qué haría")
+    p.add_argument("--verbose", action="store_true")
+    p.add_argument("--selftest", action="store_true",
+                   help="gate de M3-a: correr sobre un set fixture en un store desechable")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_dream)
 
     p = sub.add_parser("doctor", help="auto-diagnóstico de invariantes")
     p.add_argument("--json", action="store_true")

@@ -51,6 +51,11 @@ DEFAULTS = {
     # retrieval sólo mira `closed`/`candidate`/`procedure`: se pierde entera. Se cierra
     # por falta de actividad, no por antigüedad — una sesión larga sigue viva.
     "orphan_after_hours": 12,
+    # Dream (M3). `model_command` en null significa autodetectar: ollama en el PATH y un
+    # modelo qwen ya descargado, el más chico. Nunca se descarga nada solo.
+    "model_command": None,
+    "dream_lookback_days": 7,
+    "dream_timeout_seconds": 180,
     # Transferencia cross-repo real necesita `abstraction`, que la produce dream (M3).
     # Hasta entonces esto inyecta trayectorias crudas de otro repo: apagado por defecto.
     "cross_repo": False,
