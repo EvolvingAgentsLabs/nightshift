@@ -5,8 +5,9 @@ Fuente: `doc/PLAN-v0.3.md` §5.
 
 ## Antes de tocar nada
 
-Leé, en este orden: `doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec.md`
-(spec v0.3) → los dos ADRs → `LATER.md`.
+Leé, en este orden: **`doc/HANDOFF.md`** (estado real y cola de trabajo) →
+`doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec.md` (spec v0.3) → los dos
+ADRs → `LATER.md`.
 
 ## Reglas
 
@@ -49,7 +50,9 @@ nightshift dev      # o ./bin/nightshift dev
 1. Cambiás el código.
 2. `make check` — lint-docs, lint-code, esquema, tests y el replay end-to-end. Todo, no
    la parte que creés haber tocado.
-3. `/reload-plugins` en la sesión, si no seguís probando el código viejo.
+3. `/reload-plugins` **sólo si tocaste `hooks/hooks.json`, una skill o el manifiesto.**
+   Los cambios en `nightshift/*.py` aplican en el próximo evento de hook, porque cada
+   hook corre un proceso nuevo.
 4. `nightshift selftest` desde la sesión recargada.
 5. Commit. Si no hay nada que commitear, el motivo va a `LATER.md`.
 

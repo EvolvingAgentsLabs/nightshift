@@ -91,7 +91,15 @@ def on_session_start(payload, cfg, conn):
         store.record_injection(conn, session_id=payload.get("session_id"),
                                source_trajectory=source["id"], rank=rank, score=score,
                                reason=reasons, into_trajectory=tid)
-    return text
+
+    # `additionalContext` va al contexto del modelo y el usuario no lo ve. Sin una línea
+    # visible, un plugin que funciona y uno que no hace nada se ven exactamente igual.
+    if chosen:
+        message = ("nightshift: %d trayectoria(s) sin verificar inyectada(s) · "
+                   "/nightshift:status" % len(chosen))
+    else:
+        message = "nightshift: capturando · sin memoria previa para este tipo de tarea"
+    return text, message
 
 
 # -------------------------------------------------------------- UserPromptSubmit
@@ -277,21 +285,31 @@ HANDLERS = {
 }
 
 
-def dispatch(event: str, payload: dict) -> str:
+def dispatch(event: str, payload: dict):
+    """Devuelve `(additional_context, system_message)`.
+
+    Los dos van a lugares distintos: `additionalContext` al contexto del modelo,
+    `systemMessage` a la pantalla del usuario. Confundirlos es la razón por la que un
+    plugin que funciona puede parecer muerto.
+    """
     cfg = config.load()
     if not (cfg["configured"] and cfg["enabled"] and cfg["deny_paths"]):
         if event == "SessionStart":
             return ("nightshift está instalado pero **no configurado**: no captura nada "
                     "hasta que exista `deny_paths` (spec §8.1).\n\n"
                     "Falta `%s`. Corré `nightshift init` y después `/reload-plugins`."
-                    % config.config_path())
-        return ""
+                    % config.config_path(),
+                    "nightshift: NO configurado, no captura nada · corré `nightshift init`")
+        return "", ""
     handler = HANDLERS.get(event)
     if handler is None:
-        return ""
+        return "", ""
     conn = store.connect()
     try:
-        return handler(payload, cfg, conn) or ""
+        result = handler(payload, cfg, conn)
+        if isinstance(result, tuple):
+            return (result[0] or ""), (result[1] or "")
+        return (result or ""), ""
     finally:
         conn.close()
 
@@ -304,9 +322,9 @@ def main(argv=None) -> int:
         payload = json.loads(raw) if raw.strip() else {}
         if not isinstance(payload, dict):
             payload = {}
-        text = dispatch(event, payload)
-        if text:
-            _emit(event, additional_context=text)
+        text, message = dispatch(event, payload)
+        if text or message:
+            _emit(event, additional_context=text, system_message=message)
     except Exception:
         # Nunca bloquear la sesión. Nunca escribir a stdout algo que no sea JSON válido.
         _log("hook %s falló:\n%s" % (event, traceback.format_exc()))

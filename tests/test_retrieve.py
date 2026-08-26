@@ -63,7 +63,8 @@ class RetrieveTest(IsolatedStoreTest):
         original = context.repo_fingerprint
         context.repo_fingerprint = lambda cwd: FP
         try:
-            text = hook.dispatch("SessionStart", {"session_id": "nueva", "cwd": "."})
+            text, message = hook.dispatch("SessionStart",
+                                          {"session_id": "nueva", "cwd": "."})
         finally:
             context.repo_fingerprint = original
 
@@ -83,8 +84,10 @@ class RetrieveTest(IsolatedStoreTest):
             conn.close()
 
     def test_sin_historia_no_inyecta_nada(self):
-        text = hook.dispatch("SessionStart", {"session_id": "limpia", "cwd": "."})
+        text, message = hook.dispatch("SessionStart",
+                                      {"session_id": "limpia", "cwd": "."})
         self.assertEqual(text, "")
+        self.assertIn("sin memoria previa", message)
 
     def test_trayectoria_abandonada_no_se_inyecta(self):
         self.seed(result="abandoned")

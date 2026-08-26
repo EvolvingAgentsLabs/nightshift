@@ -68,8 +68,14 @@ claude --plugin-dir .        # load it for one session
 `init` is not optional ceremony: with no resolved `deny_paths`, capture stays off and
 `SessionStart` says so instead of capturing (spec §8.1).
 
-To iterate on the plugin itself, edit and then run `/reload-plugins` — hooks and
-`nightshift/*.py` changes do not take effect until you do.
+At session start nightshift prints a one-line status (`nightshift: capturing · …`).
+The injected memory itself is **not** printed: it goes to Claude's context via
+`additionalContext`, which the terminal never renders. `/nightshift:status` lists what
+was actually injected.
+
+To iterate on the plugin itself: changes to `nightshift/*.py` take effect on the next
+hook event, because every hook runs a fresh process. Run `/reload-plugins` when you
+change `hooks/hooks.json`, a skill, or the manifest.
 
 ### Skills
 
@@ -123,7 +129,7 @@ nightshift/                    The implementation. Standard library only
   context.py                     Repo fingerprint, task classification, tool normalisation
   hook.py                        Hook dispatch. Never raises, always exits 0
   retrieve.py                    Structural ranking and injection
-  cli.py                         init | status | why | export | doctor | selftest | dev
+  cli.py                         init | status | why | export | audit | doctor | selftest | dev
 tests/                         Unit tests plus the capture→export→validate round trip
 tools/                         The gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Specification v0.3 (normative prose)
@@ -133,6 +139,7 @@ doc/adr/ADR-002-verify-gate.md What counts as reproduction
 schema/trajectory.v1.json      Versioned Trajectory schema (normative data model)
 schema/examples/               Valid and invalid fixtures
 bench/PREREG.md                Pre-registered benchmark, thresholds frozen before M1
+doc/HANDOFF.md                 Control handoff: state, rules, and the ordered work queue
 LATER.md                       Everything deliberately deferred, with the reason
 ```
 
@@ -141,7 +148,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 | M | Deliverable | Gate |
 |---|---|---|
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, versioned schema, PREREG, README | `make check` passes ✅ · Ismael's review of ADR-001 **still pending** |
-| **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done. 5 real sessions captured with no `deny_paths` leak (automated test over the dump) |
+| **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
 | **M2** 🟡 | Retrieve: structural injection at `SessionStart` | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
 | M3 | Dream `consolidate` + pluggable scheduler (`launchd`/`systemd`/`loop`) | 3 consecutive unattended nights |
 | M4 | **Benchmark — go/no-go** | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0 |
@@ -165,6 +172,24 @@ make selftest         # replays all seven hooks against a throwaway store
 `make check` is the gate. It needs no dependencies except
 [`check-jsonschema`](https://github.com/python-jsonschema/check-jsonschema) for the schema
 step, and falls back to `uvx` or `pipx` if it is not on `PATH`.
+
+### Auditing what was actually stored
+
+`nightshift audit` is the M1 gate as a script. It walks every string persisted in the
+store and asserts that none matches a `deny_paths` pattern, none matches a secret rule
+from the redactor, no absolute home path survived, nothing from the Auto Memory tree got
+in, and no `abstraction.pattern` carries a path. It exits 1 on any finding, or with fewer
+sessions than `--min-sessions`.
+
+```sh
+nightshift audit                    # leak checks only
+nightshift audit --min-sessions 5   # the M1 gate: leaks AND five real sessions
+nightshift audit --json             # same report, machine-readable
+```
+
+The report says **where** (trajectory, step, field) and **which rule** fired — never the
+value. A report that quotes the leak spreads it to the terminal, the scrollback and
+whoever's pipe it lands in.
 
 `make doctor` is separate on purpose: it checks *your* installation (config present,
 capture enabled), which CI has no business asserting.

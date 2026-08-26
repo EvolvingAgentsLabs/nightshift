@@ -68,8 +68,13 @@ claude --plugin-dir .        # cargarlo por una sesión
 `init` no es ceremonia opcional: sin `deny_paths` resuelto la captura queda apagada y
 `SessionStart` lo dice en vez de capturar (spec §8.1).
 
-Para iterar sobre el plugin mismo, editá y corré `/reload-plugins` — los cambios en los
-hooks y en `nightshift/*.py` no tienen efecto hasta que lo hagas.
+Al arrancar, nightshift imprime una línea de estado (`nightshift: capturando · …`). La
+memoria inyectada **no** se imprime: va al contexto de Claude por `additionalContext`,
+que la terminal nunca muestra. `/nightshift:status` lista lo que se inyectó de verdad.
+
+Para iterar sobre el plugin: los cambios en `nightshift/*.py` aplican en el próximo
+evento de hook, porque cada hook corre un proceso nuevo. `/reload-plugins` hace falta
+cuando cambiás `hooks/hooks.json`, una skill o el manifiesto.
 
 ### Skills
 
@@ -123,7 +128,7 @@ nightshift/                    La implementación. Sólo librería estándar
   context.py                     Fingerprint del repo, clasificación de tarea, normalización
   hook.py                        Despacho de hooks. Nunca levanta, siempre sale 0
   retrieve.py                    Ranking estructural e inyección
-  cli.py                         init | status | why | export | doctor | selftest | dev
+  cli.py                         init | status | why | export | audit | doctor | selftest | dev
 tests/                         Tests unitarios y el round trip captura→export→validar
 tools/                         El gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Spec v0.3 (prosa normativa)
@@ -133,6 +138,7 @@ doc/adr/ADR-002-verify-gate.md Qué cuenta como reproducción
 schema/trajectory.v1.json      Esquema versionado de Trajectory (modelo de datos normativo)
 schema/examples/               Fixtures válidas e inválidas
 bench/PREREG.md                Benchmark pre-registrado, umbrales congelados antes de M1
+doc/HANDOFF.md                 Handoff de control: estado, reglas y la cola de trabajo
 LATER.md                       Todo lo diferido a propósito, con el motivo
 ```
 
@@ -141,7 +147,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 | M | Entrega | Gate |
 |---|---|---|
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
-| **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo. 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) |
+| **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart` | Code done. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 | Dream `consolidate` + scheduler pluggable (`launchd`/`systemd`/`loop`) | 3 noches seguidas sin intervención |
 | M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
@@ -165,6 +171,24 @@ make selftest         # replay de los siete hooks contra un store desechable
 `make check` es el gate. No necesita dependencias más allá de
 [`check-jsonschema`](https://github.com/python-jsonschema/check-jsonschema) para el paso
 del esquema, y cae a `uvx` o `pipx` si no está en el `PATH`.
+
+### Auditar lo que quedó guardado
+
+`nightshift audit` es el gate de M1 hecho script. Recorre cada cadena persistida en el
+store y afirma que ninguna matchea un patrón de `deny_paths`, que ninguna matchea una
+regla de secreto del redactor, que no sobrevivió ninguna ruta absoluta del home, que no
+entró nada del árbol de Auto Memory, y que ningún `abstraction.pattern` lleva una ruta.
+Sale 1 ante cualquier hallazgo, o con menos sesiones que `--min-sessions`.
+
+```sh
+nightshift audit                    # sólo los chequeos de fuga
+nightshift audit --min-sessions 5   # el gate de M1: fugas Y cinco sesiones reales
+nightshift audit --json             # el mismo reporte, legible por máquina
+```
+
+El reporte dice **dónde** (trayectoria, paso, campo) y **qué regla** saltó — nunca el
+valor. Un reporte que cita la fuga la propaga a la terminal, al scrollback y al pipe de
+quien lo corrió.
 
 `make doctor` va aparte a propósito: chequea *tu* instalación (config presente, captura
 activa), que no es algo que CI tenga por qué afirmar.

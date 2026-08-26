@@ -22,6 +22,7 @@ REQUIRED=(
   Makefile
   doc/00-spec.md
   doc/PLAN-v0.3.md
+  doc/HANDOFF.md
   doc/adr/ADR-001-no-competir-con-auto-dream.md
   doc/adr/ADR-002-verify-gate.md
   schema/trajectory.v1.json
