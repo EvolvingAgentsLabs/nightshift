@@ -32,6 +32,7 @@ BUENA = {"pattern": "El lector abre el archivo sin declarar codificación y la s
                     "en el primer byte no ASCII; el fix es declararla explícitamente.",
          "signals": ["la suite falla siempre en el mismo punto"],
          "decisive_signal": "el fallo desaparece al fijar la codificación",
+         "hypothesis": "se creyó que el archivo de entrada estaba corrupto",
          "valid_when": ["el archivo de entrada no es ASCII puro"]}
 
 
@@ -97,6 +98,61 @@ class DreamTest(IsolatedStoreTest):
         self.assertLess(row["injection_weight"], 1.0, "candidate pesa menos que procedure")
         self.assertIsNone(row["verified_json"], "verify es M5 y no existe")
         self.assertEqual(len(report["candidates"]), 1)
+
+    def test_dream_puebla_la_hipotesis_que_la_captura_no_puede(self):
+        """`hypothesis` nunca se poblaba: la captura no persiste texto del prompt.
+
+        Dream es el único momento en que puede aparecer, porque la deriva de los pasos.
+        Y pasa por los mismos gates que el resto: es texto del modelo.
+        """
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(BUENA))
+        row = self.row(tid)
+        self.assertEqual(row["hypothesis"], "se creyó que el archivo de entrada estaba corrupto")
+
+    def test_una_hipotesis_con_una_ruta_no_se_persiste(self):
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        malo = dict(BUENA, hypothesis="se creyó que el bug estaba en /src/parser.py")
+        report = self.run_dream(FakeModel(malo))
+        self.assertEqual(report["candidates"], [])
+        self.assertEqual(self.row(tid)["status"], "closed")
+        self.assertTrue(any("hypothesis" in r for r in report["rejected"][0]["reasons"]))
+
+    def test_sin_hipotesis_inferible_no_se_inventa(self):
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        sin = dict(BUENA)
+        sin.pop("hypothesis")
+        self.run_dream(FakeModel(sin))
+        row = self.row(tid)
+        self.assertEqual(row["status"], "candidate")
+        self.assertIsNone(row["hypothesis"])
+
+    def test_no_pisa_una_hipotesis_ya_declarada(self):
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="con-hipotesis",
+                                        repo_fingerprint="f" * 64,
+                                        task_type="debug_test_failure",
+                                        hypothesis="la declaró el usuario")
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="falla", decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(BUENA))
+        self.assertEqual(self.row(tid)["hypothesis"], "la declaró el usuario")
 
     def test_agrupa_por_tipo_de_tarea(self):
         """Partir por firma exacta de herramientas dejaba grupos de uno y no consolidaba."""

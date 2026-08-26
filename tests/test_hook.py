@@ -94,6 +94,81 @@ class SenalDecisivaTest(IsolatedStoreTest):
             conn.close()
 
 
+class ResumenDeSalidaTest(unittest.TestCase):
+    """Lo que se guarda como resumen es lo que el agente va a leer después.
+
+    Guardar el `tool_response` crudo gastaba el presupuesto de caracteres en andamiaje:
+    en una captura real el resumen arrancaba con `{"stdout": "…", "isImage": false,
+    "noOutputExpected": false}` y la salida verdadera quedaba cortada por el límite.
+    Las formas de acá son las que se observaron capturadas el 2026-08-26.
+    """
+
+    def test_bash_devuelve_su_stdout(self):
+        real = {"stdout": "42 passed", "stderr": "", "interrupted": False,
+                "isImage": False, "noOutputExpected": False}
+        self.assertEqual(hook.resumir_salida(real), "42 passed")
+
+    def test_si_no_hubo_stdout_sirve_el_stderr(self):
+        real = {"stdout": "", "stderr": "ls: no such file", "interrupted": False,
+                "isImage": False}
+        self.assertEqual(hook.resumir_salida(real), "ls: no such file")
+
+    def test_los_dos_juntos_cuando_los_hay(self):
+        real = {"stdout": "ok", "stderr": "warning: algo", "isImage": False}
+        self.assertEqual(hook.resumir_salida(real), "ok\nwarning: algo")
+
+    def test_read_devuelve_el_contenido_del_archivo(self):
+        real = {"type": "text", "file": {"filePath": "/x/a.py", "content": "def f(): pass",
+                                          "numLines": 1}}
+        self.assertEqual(hook.resumir_salida(real), "def f(): pass")
+
+    def test_una_forma_desconocida_no_se_pierde(self):
+        self.assertEqual(hook.resumir_salida({"raro": {"anidado": "valor útil"}}),
+                         "valor útil")
+        self.assertEqual(hook.resumir_salida("texto plano"), "texto plano")
+        self.assertEqual(hook.resumir_salida(None), "")
+
+    def test_el_andamiaje_no_llega_al_resumen(self):
+        real = {"stdout": "la suite pasa", "stderr": "", "interrupted": False,
+                "isImage": False, "noOutputExpected": False}
+        resumen = hook.resumir_salida(real)
+        for ruido in ("isImage", "noOutputExpected", "interrupted", "stdout"):
+            self.assertNotIn(ruido, resumen)
+
+
+class ResumenCapturadoTest(IsolatedStoreTest):
+    def test_el_paso_guarda_la_salida_y_no_el_json(self):
+        base = {"session_id": "resumen", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUse", dict(
+            base, tool_name="Bash", tool_input={"command": "make check"},
+            tool_response={"stdout": "gate: OK", "stderr": "", "interrupted": False,
+                           "isImage": False, "noOutputExpected": False}))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, "resumen")["id"]
+            paso = store.steps_of(conn, tid)[-1]
+        finally:
+            conn.close()
+        self.assertEqual(paso["result_summary"], "gate: OK")
+
+    def test_el_limite_de_caracteres_se_gasta_en_la_salida(self):
+        largo = "x" * 5000
+        base = {"session_id": "limite", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUse", dict(
+            base, tool_name="Bash", tool_input={"command": "cat grande.txt"},
+            tool_response={"stdout": largo, "stderr": "", "isImage": False}))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, "limite")["id"]
+            resumen = store.steps_of(conn, tid)[-1]["result_summary"]
+        finally:
+            conn.close()
+        self.assertEqual(resumen, "x" * len(resumen), "todo el presupuesto es salida")
+        self.assertLessEqual(len(resumen), config.load()["max_result_summary_chars"])
+
+
 class ClasificacionTest(IsolatedStoreTest):
     """El clasificador, contra los prompts que esta sesión realmente recibió."""
 

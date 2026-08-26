@@ -421,7 +421,9 @@ modelo Qwen local:
 
 1. Agrupar por similitud estructural (tipo de tarea + forma de la trayectoria).
 2. Extraer el patrón: hipótesis → señal decisiva → fix.
-3. Producir `abstraction` y `valid_when`.
+3. Producir `abstraction`, `valid_when` y la `hypothesis` — el primer eslabón de la
+   cadena causal, que la captura no puede poblar porque no persiste texto del prompt
+   (enmienda 0.3.1 de §5.1). Dream es el único momento en que puede aparecer.
 4. Enlazar contradicciones: si una trayectoria nueva contradice una vieja, la vieja
    pasa a `superseded` con `superseded_by` apuntando a la nueva. **No se borra.**
 5. Resultado: estado `candidate`.

@@ -34,6 +34,48 @@ CAMPO_SALIDA = ("tool_response", "tool_output")
 CAMPO_ERROR = ("error", "error_message")
 
 
+# Lo que trae el `tool_response` según la tool, verificado el 2026-08-26 sobre capturas
+# reales: Bash devuelve {stdout, stderr, interrupted, isImage, noOutputExpected} y Read
+# devuelve {type, file:{filePath, content, …}}.
+CLAVES_DE_SALIDA = ("stdout", "content", "output", "result", "message")
+CLAVES_DE_RUIDO = ("isImage", "noOutputExpected", "interrupted", "type", "gitOperation",
+                   "filePath", "numLines", "startLine", "totalLines")
+
+
+def resumir_salida(raw, profundidad=0):
+    """Saca el texto que importa del `tool_response`. Determinista, sin modelo.
+
+    Guardar el JSON crudo gastaba el presupuesto de caracteres en andamiaje: en una
+    captura real el resumen empezaba con `{"stdout": "…", "isImage": false,
+    "noOutputExpected": false}` y la salida verdadera quedaba cortada por el límite. La
+    memoria que se inyecta es lo que el agente lee: si son llaves y flags, no es memoria.
+    """
+    if raw is None:
+        return ""
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        partes = [resumir_salida(item, profundidad + 1) for item in raw[:10]]
+        return "\n".join(p for p in partes if p)
+    if isinstance(raw, dict) and profundidad <= 3:
+        for clave in CLAVES_DE_SALIDA:
+            valor = raw.get(clave)
+            texto = resumir_salida(valor, profundidad + 1) if valor is not None else ""
+            if texto.strip():
+                extra = resumir_salida(raw.get("stderr"), profundidad + 1) \
+                    if clave == "stdout" else ""
+                return "%s\n%s" % (texto, extra.strip()) if extra.strip() else texto
+        # `file` de Read: el contenido está un nivel más abajo.
+        for clave, valor in raw.items():
+            if clave in CLAVES_DE_RUIDO or valor is None:
+                continue
+            texto = resumir_salida(valor, profundidad + 1)
+            if texto.strip():
+                return texto
+        return ""
+    return json.dumps(raw, ensure_ascii=False)
+
+
 def _primero(payload, claves, default=None):
     """Primer campo presente de la lista. Los nombres cambian entre versiones."""
     for clave in claves:
@@ -237,9 +279,7 @@ def _append_tool_step(payload, cfg, conn, *, failed):
         summary = None
         error = (red.text(str(_primero(payload, CAMPO_ERROR, "") or "")) or "")[:limit]
     else:
-        raw = _primero(payload, CAMPO_SALIDA)
-        if not isinstance(raw, str):
-            raw = json.dumps(raw, ensure_ascii=False) if raw is not None else ""
+        raw = resumir_salida(_primero(payload, CAMPO_SALIDA))
         summary = (red.text(raw) or "")[:limit]
         error = None
 
