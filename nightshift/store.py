@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS trajectories (
     outcome_evidence TEXT,
     abstraction_json TEXT,
     valid_when_json TEXT,
+    consolidation_model TEXT,
+    consolidation_cost_usd REAL,
     superseded_by TEXT,
     verified_json TEXT,
     injection_weight REAL,
@@ -90,7 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_traj_task ON trajectories(task_type, status);
 CREATE INDEX IF NOT EXISTS idx_inj_session ON injections(session_id);
 """
 
-SCHEMA_REVISION = "2"
+SCHEMA_REVISION = "3"
 
 
 def now() -> str:
@@ -110,6 +112,7 @@ def now() -> str:
 # ni se reescribe una columna con datos.
 COLUMNAS_AGREGADAS = {
     "runs": [("cost_usd", "REAL")],
+    "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL")],
 }
 
 
@@ -286,11 +289,17 @@ def recent_runs(conn, limit=10):
 
 # ------------------------------------------------------------------- dream (M3)
 def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypothesis=None,
-                         weight=0.6):
+                         weight=0.6, consolidation_model=None, consolidation_cost_usd=None):
     """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
 
     No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
     inyección baja a propósito respecto de un procedimiento verificado (spec §6.3).
+
+    `consolidation_model` y `consolidation_cost_usd` son la respuesta a "¿con qué se
+    abstrajo esto y cuánto costó?" — sin registrarlos por trayectoria, la condición de
+    éxito 3 (auditabilidad, spec §1.3) queda a medias: `why` reconstruye el patrón pero
+    no de dónde salió. `consolidation_cost_usd` en `None` significa que el backend no
+    reportó costo (p.ej. un modelo local), no que haya costado cero.
     """
     # `hypothesis` sólo se escribe si dream infirió una y la trayectoria no tenía: la
     # captura nunca la pobló (no se persiste texto del prompt), así que éste es el único
@@ -298,10 +307,11 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
     conn.execute(
         "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
         " valid_when_json = ?, injection_weight = ?,"
-        " hypothesis = COALESCE(hypothesis, ?) WHERE id = ? AND status = 'closed'",
+        " hypothesis = COALESCE(hypothesis, ?), consolidation_model = ?,"
+        " consolidation_cost_usd = ? WHERE id = ? AND status = 'closed'",
         (json.dumps(abstraction, ensure_ascii=False),
          json.dumps(valid_when or [], ensure_ascii=False), weight, hypothesis,
-         trajectory_id))
+         consolidation_model, consolidation_cost_usd, trajectory_id))
     conn.commit()
     return conn.execute("SELECT status FROM trajectories WHERE id = ?",
                         (trajectory_id,)).fetchone()["status"]
@@ -438,6 +448,22 @@ def counts(conn):
     out["steps"] = conn.execute("SELECT COUNT(*) c FROM steps").fetchone()["c"]
     out["injections"] = conn.execute("SELECT COUNT(*) c FROM injections").fetchone()["c"]
     return out
+
+
+def store_size_bytes(path: Path | None = None) -> int:
+    """Tamaño en disco del store: el archivo principal más los sidecars de WAL
+
+    (`-wal`, `-shm`), que `connect()` deja activo (spec: sin política de retención
+    todavía, LATER.md). Sin los sidecars el número subestima lo que realmente ocupa
+    un store con escrituras recientes sin checkpointear.
+    """
+    target = path or config.db_path()
+    total = 0
+    for suffix in ("", "-wal", "-shm"):
+        candidate = Path(str(target) + suffix)
+        if candidate.is_file():
+            total += candidate.stat().st_size
+    return total
 
 
 # --------------------------------------------------------------------- exportar

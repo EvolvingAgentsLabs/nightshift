@@ -195,13 +195,15 @@ class StoreTest(IsolatedStoreTest):
         la columna para siempre y falla al escribir. Migrar es agregar lo que falte: nunca
         borrar ni reescribir una columna con datos.
         """
+        import re
         import sqlite3
 
         from nightshift import config
 
         db = config.db_path()
         viejo = store.SCHEMA_SQL.replace("    cost_usd REAL,\n", "")
-        self.assertNotIn("cost_usd", viejo, "el esquema viejo no tenía la columna")
+        tabla_runs = re.search(r"CREATE TABLE IF NOT EXISTS runs \(.*?\);", viejo, re.S).group(0)
+        self.assertNotIn("cost_usd", tabla_runs, "el esquema viejo no tenía la columna")
         conn = sqlite3.connect(str(db))
         conn.executescript(viejo)
         conn.execute("INSERT INTO runs (started_at, command, exit_code, note)"
@@ -255,6 +257,29 @@ class StoreTest(IsolatedStoreTest):
             self.assertEqual(store.get_trajectory(conn, tid[:8])["id"], tid)
         finally:
             conn.close()
+
+    def test_store_size_bytes_crece_con_datos_y_cuenta_el_wal(self):
+        conn = store.connect()
+        try:
+            antes = store.store_size_bytes()
+            self.assertGreater(antes, 0)  # el archivo ya existe por connect()
+
+            tid = store.open_trajectory(conn, session_id="s6", repo_fingerprint="f" * 64,
+                                        task_type="general")
+            for _ in range(50):
+                store.append_step(conn, tid, kind="tool_use", tool="read_file",
+                                  result_summary="x" * 500)
+
+            # sin checkpointear: si store_size_bytes() no sumara el -wal, este assert
+            # fallaría porque los datos recién escritos viven ahí, no en el archivo
+            # principal.
+            despues = store.store_size_bytes()
+            self.assertGreater(despues, antes)
+        finally:
+            conn.close()
+
+    def test_store_size_bytes_cero_sin_store(self):
+        self.assertEqual(store.store_size_bytes(self.home / "no-existe.sqlite3"), 0)
 
 
 if __name__ == "__main__":

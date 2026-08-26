@@ -484,21 +484,37 @@ def validate(data, *, redactor, home_dir):
 
 # ------------------------------------------------------------------ consolidar
 def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
-                dry_run=False, log=None) -> dict:
-    """Ejecuta la fase 1 completa. Devuelve un reporte; no imprime nada."""
+                max_groups=None, dry_run=False, log=None) -> dict:
+    """Ejecuta la fase 1 completa. Devuelve un reporte; no imprime nada.
+
+    `max_groups` limita cuántos grupos consolida esta corrida. Cada grupo llama al
+    modelo, y desde ADR-003 eso cuesta (el backend `claude-code` cobra por token). El
+    límite corta por los primeros grupos en el orden estable de `groups()`; los que
+    quedan afuera no se pierden, se consolidan en la próxima corrida.
+    """
     cfg = cfg or config.load()
     lookback = lookback_days if lookback_days is not None else cfg.get("dream_lookback_days", 7)
+    max_groups = max_groups if max_groups is not None else cfg.get("dream_max_groups")
     redactor = Redactor(identifiers=identifiers or [], deny_paths=cfg.get("deny_paths", []),
                         home_dir=cfg.get("_home_dir"))
     home_dir = cfg.get("_home_dir")
     say = log or (lambda _message: None)
 
+    todos = groups(conn, lookback_days=lookback)
+    limitados = todos[:max_groups] if max_groups is not None else todos
+    saltados_por_limite = len(todos) - len(limitados)
+
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
+               "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
                "cost_usd": None,
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 
-    for group in groups(conn, lookback_days=lookback):
+    if saltados_por_limite:
+        say("%d grupo(s) sin consolidar por --max-groups=%d: quedan para la próxima corrida"
+            % (saltados_por_limite, max_groups))
+
+    for group in limitados:
         reporte["groups"] += 1
         reporte["trajectories"] += len(group)
         winner = representative(group)
@@ -508,6 +524,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         prompt = build_prompt(conn, group)
         abstraction = valid_when = hypothesis = None
         problemas = []
+        costo_antes = getattr(model, "total_cost", 0.0) or 0.0
         for intento in range(1 + REINTENTOS):
             try:
                 data = model.ask_json(prompt if intento == 0
@@ -541,11 +558,19 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             reporte["rejected"].append({"trajectory": winner["id"], "reasons": problemas})
             continue
 
+        # Costo atribuible a este grupo: lo gastado entre el arranque del intento y acá,
+        # incluidos los reintentos. `or None` porque un backend que no reporta costo
+        # (el modelo local) y uno que reportó exactamente 0 son indistinguibles con un
+        # float, y "no reportado" es la lectura correcta por defecto (spec §1.3 cond. 3).
+        costo_grupo = (getattr(model, "total_cost", 0.0) or 0.0) - costo_antes
+
         if not dry_run:
             estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
                                                 valid_when=valid_when,
                                                 hypothesis=hypothesis,
-                                                weight=CANDIDATE_WEIGHT)
+                                                weight=CANDIDATE_WEIGHT,
+                                                consolidation_model=model.name,
+                                                consolidation_cost_usd=costo_grupo or None)
             if estado != "candidate":
                 # La promoción exige `closed`. Si la trayectoria cambió de estado entre
                 # que se agrupó y que se promovió, el UPDATE no toca nada — y un reporte

@@ -28,6 +28,7 @@ import platform
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import config
@@ -184,6 +185,20 @@ class LaunchdBackend(Backend):
             '</dict>\n'
             '</plist>\n'
         ) % (LABEL, args, self.hour, self.minute, logs, logs)
+
+    def next_run(self, now: datetime | None = None) -> datetime:
+        """Próxima corrida, calculada desde el `StartCalendarInterval` del plist.
+
+        No consulta `launchctl print`: su salida no tiene un formato versionado
+        contra el cual valga confiar en parsear (doc/00-spec.md §5.4 — la misma
+        lección de los hooks aplica acá). El plist es la fuente de verdad: es
+        exactamente lo que carga launchd.
+        """
+        now = now or datetime.now()
+        candidate = now.replace(hour=self.hour, minute=self.minute, second=0, microsecond=0)
+        if candidate <= now:
+            candidate += timedelta(days=1)
+        return candidate
 
     def _domain(self) -> str:
         return "gui/%d" % os.getuid()
