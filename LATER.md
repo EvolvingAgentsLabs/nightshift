@@ -25,6 +25,26 @@ alguna fila de la matriz, hay que revisar qué parte de la captura sobra.
 
 ---
 
+## Deuda de proceso: el adaptador del agente entró sin rama ni PR
+
+El commit `5f9a446` (adaptador del agente para M4) se pusheó **directo a `main`**. La
+regla de `CLAUDE.md` es una rama por milestone y PR con el gate en verde; acá hubo gate en
+verde —`make check` pasó antes del commit— pero no hubo rama ni PR.
+
+Cómo pasó, porque el modo de fallar importa más que el error: la sesión venía de mergear
+el PR anterior y quedó en `main`; el comando de push tenía un fallback
+`|| git push origin $(git branch --show-current)` que, al no existir la rama, empujó la
+rama en la que estaba. Un fallback que "hace algo" en vez de fallar convirtió un error en
+un push.
+
+No se reescribió la historia: `main` es una rama compartida y arreglar el registro
+rompiendo el registro es peor que la deuda.
+
+**Acción pendiente:** ninguna sobre el código. Sobre el proceso: el push no debería tener
+fallback, y la rama se crea antes de empezar a trabajar, no antes de pushear.
+
+---
+
 ## Diferido: el daemon
 
 La spec §3.1 describe un `nightshiftd`. M1+M2 escriben directo a SQLite (WAL) y no hay
