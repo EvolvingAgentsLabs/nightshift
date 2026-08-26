@@ -6,6 +6,7 @@ Dos invariantes de este módulo, ambos testeados:
    resuelto, `is_enabled()` es False y no se captura nada.
 2. nightshift nunca escribe bajo el árbol de Auto Memory (spec §1.3.4). `guard_path()`
    levanta si alguien lo intenta, y es el único camino a disco del paquete.
+3. El store vive en un solo lugar, lo ejecute quien lo ejecute. Ver `home()`.
 """
 
 from __future__ import annotations
@@ -52,16 +53,24 @@ DEFAULTS = {
 }
 
 
-def home() -> Path:
-    """Directorio de datos de nightshift.
+DEFAULT_HOME = "~/.nightshift"
 
-    Orden: NIGHTSHIFT_HOME (tests) > CLAUDE_PLUGIN_DATA (plugin instalado) > ~/.nightshift
+
+def home() -> Path:
+    """Directorio de datos de nightshift. Uno solo, en todos los contextos.
+
+    `NIGHTSHIFT_HOME` (para tests y para quien quiera moverlo) o `~/.nightshift`.
+
+    **`CLAUDE_PLUGIN_DATA` se ignora a propósito.** Claude Code se lo pasa a los hooks
+    pero no al Bash tool, así que usarlo partía el store en dos: los hooks escribían en
+    `~/.claude/plugins/data/<id>/` y `nightshift init` configuraba `~/.nightshift`. El
+    resultado era una captura que nunca arrancaba y un `status` que siempre decía cero.
+    Una ruta que cambia según quién ejecuta el proceso no es una ruta.
     """
-    for var in ("NIGHTSHIFT_HOME", "CLAUDE_PLUGIN_DATA"):
-        value = os.environ.get(var)
-        if value:
-            return Path(value).expanduser()
-    return Path.home() / ".nightshift"
+    value = os.environ.get("NIGHTSHIFT_HOME")
+    if value:
+        return Path(value).expanduser()
+    return Path(DEFAULT_HOME).expanduser()
 
 
 def config_path() -> Path:

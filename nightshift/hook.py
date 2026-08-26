@@ -282,7 +282,9 @@ def dispatch(event: str, payload: dict) -> str:
     if not (cfg["configured"] and cfg["enabled"] and cfg["deny_paths"]):
         if event == "SessionStart":
             return ("nightshift está instalado pero **no configurado**: no captura nada "
-                    "hasta que exista `deny_paths` (spec §8.1). Corré `nightshift init`.")
+                    "hasta que exista `deny_paths` (spec §8.1).\n\n"
+                    "Falta `%s`. Corré `nightshift init` y después `/reload-plugins`."
+                    % config.config_path())
         return ""
     handler = HANDLERS.get(event)
     if handler is None:
