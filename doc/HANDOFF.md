@@ -118,6 +118,20 @@ el mismo commit y dejá la fecha.
 | T4 — M3-a dream `consolidate` | ✅ #7 | Agrupación determinista, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor. Gate: `make dream-selftest`. |
 | T5 — M3-b scheduler | ✅ | `launchd` / `systemd` (timer de usuario) / `loop`, con registro de corridas. Gate: `nightshift schedule status` reporta las últimas y sus resultados. |
 
+### Antes de nada: ensayá la máquina
+
+```sh
+make simulate      # o `nightshift simulate --no-model` si no hay modelo local
+```
+
+Corre siete sesiones sintéticas por los siete hooks, audita, cierra una huérfana, hace
+las dos pasadas de retrieval, consolida con el modelo, instala el scheduler en un HOME
+temporal, corre tres noches simuladas y vuelve a auditar. En un store desechable, en
+menos de un minuto. Si algo se rompió, esto lo dice antes de que lo descubras en una
+sesión real.
+
+**No cierra ningún gate**, y el motivo está en `LATER.md` §"Sobre el ensayo end-to-end".
+
 ### Lo que falta, y de quién es
 
 **Ninguna de estas tres es código pendiente. Son decisiones o evidencia.**

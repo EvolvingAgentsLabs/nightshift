@@ -140,6 +140,7 @@ nightshift/                    The implementation. Standard library only
   dream.py                       Dream phase 1: local model, structural grouping
   schedule.py                    Pluggable scheduler: launchd | systemd | loop
   bench.py                       M4 runner: reads thresholds, never sets them
+  simulate.py                    End-to-end rehearsal. Never touches the real store
   cli.py                         init | status | why | export | audit | dream | schedule | doctor | …
 tests/                         Unit tests plus the capture→export→validate round trip
 tools/                         The gate: lint-docs, lint-code, validate-schema
@@ -182,6 +183,7 @@ make selftest         # replays all seven hooks against a throwaway store
 make dream-selftest   # the M3-a gate. Needs a local model, so it is NOT part of check
 make bench-selftest   # the M4 runner's gate (synthetic fixtures, no real benchmark)
 make bench-check      # what the pre-registration still needs before M4 can run
+make simulate         # the end-to-end rehearsal (closes no gate — see above)
 ```
 
 `make check` is the gate. It needs no dependencies except
@@ -254,6 +256,25 @@ Every dream run is recorded, and `schedule status` prints the last ones with the
 codes. That is the point: a scheduler with no recorded runs is a promise, not a fact. The
 M3 gate is three consecutive unattended nights, and a person runs it; this is what makes
 it checkable.
+
+### Rehearsing the whole thing
+
+```sh
+nightshift simulate              # synthetic sessions through the real hooks
+nightshift simulate --no-model   # skip dream, for machines with no local model
+```
+
+It drives seven synthetic sessions through the seven hooks — including one that dies
+without `SessionEnd`, one that touches a `deny_path`, and one carrying a secret — then
+audits the store, checks the orphan got closed, checks retrieval ran in both passes,
+consolidates with the local model, installs the scheduler in a temporary `HOME` and runs
+three simulated nights, and audits again. Everything happens in a throwaway store.
+
+**It is not evidence for the M1 or M3 gates.** M1 asks for five *real* sessions; M3 asks
+for three *unattended nights*. A synthetic session is not a real one, and three runs in a
+loop are not three nights: there is no sleep, no battery, no launchd that forgot to fire —
+which is exactly what those gates measure. That is also why the rehearsal never writes to
+the real store: you cannot close a real-sessions gate by inventing sessions.
 
 ### The M4 benchmark runner
 

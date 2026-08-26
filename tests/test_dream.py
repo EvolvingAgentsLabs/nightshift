@@ -269,6 +269,49 @@ class DreamTest(IsolatedStoreTest):
         self.assertEqual(code, 0, "una noche sin trayectorias nuevas no es un error")
         self.assertIn("nada que consolidar", err.getvalue())
 
+    def test_sin_patron_comun_es_una_noche_tranquila_no_un_fallo(self):
+        """Salir 1 acá haría figurar una noche normal como corrida fallida.
+
+        Y entonces el gate de M3 —tres noches seguidas sin intervención— no podría
+        distinguir una noche tranquila de una que hay que ir a mirar. Lo encontró el
+        ensayo end-to-end, no una revisión.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn)
+        finally:
+            conn.close()
+        original = dream.detect_command
+        dream.detect_command = lambda cfg: None
+        try:
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = cli.main(["dream", "--model", "/bin/echo"])
+        finally:
+            dream.detect_command = original
+        self.assertEqual(code, 1, "/bin/echo no devuelve JSON: eso es un grupo descartado")
+
+        # Y ahora el caso real: el modelo responde bien y dice que no hay patrón.
+        original_consolidate = dream.consolidate
+        dream.consolidate = lambda conn_, model, **kw: {
+            "model": "fake", "lookback_days": 7, "groups": 1, "trajectories": 1,
+            "candidates": [], "superseded": [], "rejected": [],
+            "skipped": [{"trajectory": "x", "reason": dream.SIN_PATRON}], "dry_run": False}
+        try:
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = cli.main(["dream", "--model", "/bin/echo"])
+        finally:
+            dream.consolidate = original_consolidate
+        self.assertEqual(code, 0, "«no comparten patrón» es una respuesta, no un fallo")
+        self.assertIn("no encontró patrón común", err.getvalue())
+
+        conn = store.connect()
+        try:
+            self.assertIn("noche tranquila", store.recent_runs(conn)[0]["note"])
+        finally:
+            conn.close()
+
     def test_con_material_y_sin_candidatas_sale_distinto_de_cero(self):
         conn = store.connect()
         try:
