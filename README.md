@@ -297,6 +297,10 @@ to own a benchmark that does not measure. Family A is ten bugs with one shared c
 family C is two repos with the same structural pattern and no shared vocabulary; family D
 ships a hand-built ground truth and a deterministic classifier.
 
+The agent adapter that launches each cell lives in `bench/agentes/` and **refuses to run
+for the same reason the runner does**: without the model, the tool-call limit and the
+reset protocol — all three `TODO(Matias)` — it does not pick values on its own.
+
 `bench/PREREG.md` says **BORRADOR — no congelado** and holds 19 `TODO(Matias)`. Until a
 person freezes it, `bench run` refuses and lists what is missing, by section and line. A
 threshold that gets adjusted after seeing the result is not a threshold, and a runner

@@ -164,6 +164,11 @@ sesión real.
   Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
   `nightshift bench check` lista los 19 con sección y línea.
 
+  El adaptador que lanza el agente en cada celda también está
+  (`bench/agentes/correr-agente.py`) y se niega a correr sin el modelo, el límite de tool
+  calls y el protocolo de reset. **Con eso, M4 corre en cuanto se congele el
+  pre-registro**: no queda código en el camino.
+
   Un agujero que los fixtures dejan a la vista y no tapan: **en la fila S0 no se pueden
   enumerar las memorias inyectadas** — nightshift no está y las de Auto Memory no son
   visibles. Sin eso la familia D es indecidible, y el runner lo reporta así.

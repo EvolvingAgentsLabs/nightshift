@@ -571,6 +571,13 @@ resuelve el fix de referencia**. Un fixture donde una tarea ya pasa, o donde nin
 resolución es posible, no mide nada y no rompe nada: es la forma más silenciosa de tener
 un benchmark que no mide. Sus identificadores los congela Matías en el pre-registro.
 
+El adaptador que lanza el agente en cada celda está en `bench/agentes/`, y **se niega a
+correr por el mismo motivo que el runner**: sin el modelo, el límite de tool calls y el
+protocolo de reset —los tres `TODO(Matias)`— no elige valores por su cuenta. Dos cosas
+verificadas contra el CLI el 2026-08-26: las tool calls se cuentan de los bloques
+`tool_use` del stream (`num_turns` **no** es lo mismo y se reporta aparte), y el CLI no
+expone `--max-turns`, así que el límite de PREREG §2 se mide y se reporta, no se impone.
+
 Lo que el runner **no** puede hacer todavía: correr. Los repos fixture de A y C, el
 modelo, el seed y todos los umbrales son `TODO(Matias)`. El gate del runner
 (`make bench-selftest`) usa fixtures sintéticos y un agente falso, y afirma —entre otras

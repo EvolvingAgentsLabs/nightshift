@@ -299,6 +299,10 @@ silenciosa de tener un benchmark que no mide. La familia A son diez bugs con una
 causa; la C, dos repos con el mismo patrón estructural y cero vocabulario compartido; la D
 trae ground truth hecho a mano y un clasificador determinista.
 
+El adaptador que lanza el agente en cada celda vive en `bench/agentes/` y **se niega a
+correr por el mismo motivo que el runner**: sin el modelo, el límite de tool calls y el
+protocolo de reset —los tres `TODO(Matias)`— no elige valores por su cuenta.
+
 `bench/PREREG.md` dice **BORRADOR — no congelado** y tiene 19 `TODO(Matias)`. Hasta que
 una persona lo congele, `bench run` se niega y lista qué falta, con sección y línea. Un
 umbral que se ajusta después de ver el resultado no es un umbral, y un runner que corre
