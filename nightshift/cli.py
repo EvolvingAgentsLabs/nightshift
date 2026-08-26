@@ -298,10 +298,14 @@ def _model_for(cfg, override=None, timeout=None):
 
     command = shlex.split(override) if override else dream_mod.detect_command(cfg)
     if not command:
+        backend = cfg.get("model_backend", "claude-code")
         raise dream_mod.ModelUnavailable(
-            "no hay modelo local disponible. dream corre con Qwen local por `subprocess`;\n"
-            "no hay fallback remoto (spec §2.2). Instalá ollama y bajá un modelo qwen,\n"
-            "o fijá `model_command` en %s." % config.config_path())
+            "no hay con qué consolidar: el backend `%s` no tiene su ejecutable.\n"
+            "Por defecto dream consolida con Claude Code —el agente que ya está\n"
+            "instalado— invocándolo por `subprocess` (ADR-003). Con\n"
+            "`model_backend: \"local\"` usa Qwen por ollama, y `model_command` acepta\n"
+            "cualquier ejecutable que lea un prompt por stdin. Config: %s"
+            % (backend, config.config_path()))
     return dream_mod.LocalModel(command, timeout=timeout or cfg.get("dream_timeout_seconds", 180))
 
 
