@@ -139,6 +139,7 @@ doc/adr/ADR-002-verify-gate.md What counts as reproduction
 schema/trajectory.v1.json      Versioned Trajectory schema (normative data model)
 schema/examples/               Valid and invalid fixtures
 bench/PREREG.md                Pre-registered benchmark, thresholds frozen before M1
+doc/HANDOFF.md                 Control handoff: state, rules, and the ordered work queue
 LATER.md                       Everything deliberately deferred, with the reason
 ```
 

@@ -138,6 +138,7 @@ doc/adr/ADR-002-verify-gate.md Qué cuenta como reproducción
 schema/trajectory.v1.json      Esquema versionado de Trajectory (modelo de datos normativo)
 schema/examples/               Fixtures válidas e inválidas
 bench/PREREG.md                Benchmark pre-registrado, umbrales congelados antes de M1
+doc/HANDOFF.md                 Handoff de control: estado, reglas y la cola de trabajo
 LATER.md                       Todo lo diferido a propósito, con el motivo
 ```
 

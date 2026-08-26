@@ -5,8 +5,9 @@ Fuente: `doc/PLAN-v0.3.md` §5.
 
 ## Antes de tocar nada
 
-Leé, en este orden: `doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec.md`
-(spec v0.3) → los dos ADRs → `LATER.md`.
+Leé, en este orden: **`doc/HANDOFF.md`** (estado real y cola de trabajo) →
+`doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec.md` (spec v0.3) → los dos
+ADRs → `LATER.md`.
 
 ## Reglas
 
