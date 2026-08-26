@@ -1,0 +1,30 @@
+[
+  {
+    "id": "h1",
+    "claim": "c01",
+    "task_type": "debug_runtime",
+    "outcome": "tests_passed",
+    "resumen": "el límite de la consulta se cambia en el diccionario de ajustes y toma efecto"
+  },
+  {
+    "id": "h2",
+    "claim": "c02",
+    "task_type": "debug_runtime",
+    "outcome": "tests_passed",
+    "resumen": "el límite vive hardcodeado en el cliente de red y hay que editarlo ahí"
+  },
+  {
+    "id": "h3",
+    "claim": "c03",
+    "task_type": "debug_runtime",
+    "outcome": "user_corrected",
+    "resumen": "subir todos los límites a 30 segundos resuelve los cortes"
+  },
+  {
+    "id": "h4",
+    "claim": "c04",
+    "task_type": "debug_runtime",
+    "outcome": "tests_passed",
+    "resumen": "cuando cambiar la configuración no cambia nada, buscar un valor escrito a mano en el llamador"
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "name": "familia-a",
+  "family": "A",
+  "learning_tasks": 4,
+  "gate": [
+    "/bin/sh",
+    "gate.sh"
+  ],
+  "reference_fix": {
+    "apply": [
+      ".referencia/texto-arreglado.py",
+      "registro/texto.py"
+    ],
+    "revert": [
+      ".referencia/texto-con-bug.py",
+      "registro/texto.py"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "test_01_indice",
+      "prompt": "En este repo, buscar() levanta KeyError con una clave que está en el índice. Encontralo y arreglalo. El gate es `python3 -m unittest test_01_indice -q`.",
+      "symptom": "buscar() levanta KeyError con una clave que está en el índice"
+    },
+    {
+      "id": "test_02_dedup",
+      "prompt": "En este repo, quedan duplicados que deberían haberse colapsado. Encontralo y arreglalo. El gate es `python3 -m unittest test_02_dedup -q`.",
+      "symptom": "quedan duplicados que deberían haberse colapsado"
+    },
+    {
+      "id": "test_03_orden",
+      "prompt": "En este repo, el orden alfabético sale mal y no se ve por qué. Encontralo y arreglalo. El gate es `python3 -m unittest test_03_orden -q`.",
+      "symptom": "el orden alfabético sale mal y no se ve por qué"
+    },
+    {
+      "id": "test_04_union",
+      "prompt": "En este repo, el join pierde filas en silencio. Encontralo y arreglalo. El gate es `python3 -m unittest test_04_union -q`.",
+      "symptom": "el join pierde filas en silencio"
+    },
+    {
+      "id": "test_05_cache",
+      "prompt": "En este repo, el cache no acierta nunca y todo se recalcula. Encontralo y arreglalo. El gate es `python3 -m unittest test_05_cache -q`.",
+      "symptom": "el cache no acierta nunca y todo se recalcula"
+    },
+    {
+      "id": "test_06_grupo",
+      "prompt": "En este repo, un grupo aparece partido en dos. Encontralo y arreglalo. El gate es `python3 -m unittest test_06_grupo -q`.",
+      "symptom": "un grupo aparece partido en dos"
+    },
+    {
+      "id": "test_07_csvio",
+      "prompt": "En este repo, el ida y vuelta por CSV no devuelve la misma clave. Encontralo y arreglalo. El gate es `python3 -m unittest test_07_csvio -q`.",
+      "symptom": "el ida y vuelta por CSV no devuelve la misma clave"
+    },
+    {
+      "id": "test_08_busqueda",
+      "prompt": "En este repo, la búsqueda no encuentra algo que está. Encontralo y arreglalo. El gate es `python3 -m unittest test_08_busqueda -q`.",
+      "symptom": "la búsqueda no encuentra algo que está"
+    },
+    {
+      "id": "test_09_reporte",
+      "prompt": "En este repo, los totales no cierran: el mismo cliente aparece dos veces. Encontralo y arreglalo. El gate es `python3 -m unittest test_09_reporte -q`.",
+      "symptom": "los totales no cierran: el mismo cliente aparece dos veces"
+    },
+    {
+      "id": "test_10_validacion",
+      "prompt": "En este repo, una fila válida se rechaza. Encontralo y arreglalo. El gate es `python3 -m unittest test_10_validacion -q`.",
+      "symptom": "una fila válida se rechaza"
+    }
+  ]
+}

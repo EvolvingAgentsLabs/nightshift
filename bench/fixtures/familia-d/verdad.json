@@ -1,0 +1,18 @@
+{
+  "c01": {
+    "estado": "vigente",
+    "motivo": "los ajustes existen y son la fuente correcta"
+  },
+  "c02": {
+    "estado": "stale",
+    "motivo": "fue verdad hasta que los límites se movieron a ajustes.py; el valor hardcodeado que queda es el bug, no la forma de configurarlo"
+  },
+  "c03": {
+    "estado": "falsa",
+    "motivo": "se probó, el usuario lo revirtió en la misma sesión y contradice el estado del repo en el commit de la tarea"
+  },
+  "c04": {
+    "estado": "vigente",
+    "motivo": "es el procedimiento, no el hecho: sigue aplicando"
+  }
+}

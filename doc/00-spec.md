@@ -565,6 +565,12 @@ y está documentado en `nightshift/bench.py`; el número es cosa de Matías y vi
 pre-registro. Un umbral que el runner no entiende **bloquea la corrida** en vez de
 interpretarse.
 
+Los repos fixture de las tres familias están construidos en `bench/fixtures/` y
+`nightshift bench fixtures` afirma, tarea por tarea, que **el gate falla antes y lo
+resuelve el fix de referencia**. Un fixture donde una tarea ya pasa, o donde ninguna
+resolución es posible, no mide nada y no rompe nada: es la forma más silenciosa de tener
+un benchmark que no mide. Sus identificadores los congela Matías en el pre-registro.
+
 Lo que el runner **no** puede hacer todavía: correr. Los repos fixture de A y C, el
 modelo, el seed y todos los umbrales son `TODO(Matias)`. El gate del runner
 (`make bench-selftest`) usa fixtures sintéticos y un agente falso, y afirma —entre otras

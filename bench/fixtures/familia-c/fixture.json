@@ -1,0 +1,60 @@
+{
+  "name": "familia-c",
+  "family": "C",
+  "learning_tasks": 2,
+  "fixed_order": true,
+  "gate": [
+    "/bin/sh",
+    "gate.sh"
+  ],
+  "tasks": [
+    {
+      "id": "alfa_promedio",
+      "repo": "repo-alfa",
+      "symptom": "el promedio de las lecturas da 0 y los datos de entrada están bien",
+      "reference_fix": {
+        "apply": [
+          ".referencia/cadena-arreglada.py",
+          "repo-alfa/recolector/cadena.py"
+        ]
+      },
+      "prompt": "En `repo-alfa`, el promedio de las lecturas da 0 y los datos de entrada están bien. Encontralo y arreglalo."
+    },
+    {
+      "id": "alfa_rotulo",
+      "repo": "repo-alfa",
+      "symptom": "algunos rótulos salen vacíos y no aparece ningún error",
+      "reference_fix": {
+        "apply": [
+          ".referencia/cadena-arreglada.py",
+          "repo-alfa/recolector/cadena.py"
+        ]
+      },
+      "prompt": "En `repo-alfa`, algunos rótulos salen vacíos y no aparece ningún error. Encontralo y arreglalo."
+    },
+    {
+      "id": "beta_indice",
+      "repo": "repo-beta",
+      "symptom": "faltan fichas en el índice y no aparece ningún error",
+      "reference_fix": {
+        "apply": [
+          ".referencia/secuencia-arreglada.py",
+          "repo-beta/catalogo/secuencia.py"
+        ]
+      },
+      "prompt": "En `repo-beta`, faltan fichas en el índice y no aparece ningún error. Encontralo y arreglalo."
+    },
+    {
+      "id": "beta_encabezado",
+      "repo": "repo-beta",
+      "symptom": "algunos títulos salen vacíos y el año en 0",
+      "reference_fix": {
+        "apply": [
+          ".referencia/secuencia-arreglada.py",
+          "repo-beta/catalogo/secuencia.py"
+        ]
+      },
+      "prompt": "En `repo-beta`, algunos títulos salen vacíos y el año en 0. Encontralo y arreglalo."
+    }
+  ]
+}

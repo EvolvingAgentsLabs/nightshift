@@ -157,10 +157,16 @@ sesión real.
 ### Bloqueado — no empieces
 
 - **M4.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
-  correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)`. Lo que falta no es
-  código: son los umbrales, el modelo, el seed, el protocolo de reset y los repos
-  fixture. Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
+  correr**: `bench/PREREG.md` sigue en borrador con 19 `TODO(Matias)`. **Los tres repos
+  fixture también están construidos** (`bench/fixtures/familia-{a,c,d}/`, verificados con
+  `make bench-fixtures`). Lo que falta no es código: son los umbrales, el modelo, el seed,
+  el protocolo de reset entre corridas, y congelar los identificadores de los fixtures.
+  Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
   `nightshift bench check` lista los 19 con sección y línea.
+
+  Un agujero que los fixtures dejan a la vista y no tapan: **en la fila S0 no se pueden
+  enumerar las memorias inyectadas** — nightshift no está y las de Auto Memory no son
+  visibles. Sin eso la familia D es indecidible, y el runner lo reporta así.
 - **M5 (`verify`).** Prohibido hasta que M4 dé veredicto. Hoy nada llega a `procedure`, y
   eso es correcto: ninguna memoria inyectada está verificada.
 - **Adapter de OpenCode.** Prohibido.

@@ -38,7 +38,9 @@ corrida.
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -215,9 +217,14 @@ def ordered_tasks(fixture, seed):
 
     No se usa `random`: el orden tiene que ser el mismo en otra máquina y en otro mes.
     Una rotación determinista por seed alcanza y se puede reproducir a mano.
+
+    Un fixture puede declarar `fixed_order` y quedarse fuera de la rotación. La familia C
+    lo necesita: su protocolo es **aprender en el repo A y medir en el B**, y rotar el
+    orden mete tareas del repo B en la fase de aprendizaje, que es exactamente la
+    exposición previa que el protocolo prohíbe.
     """
     tasks = list(fixture["tasks"])
-    if not seed:
+    if not seed or fixture.get("fixed_order"):
         return tasks
     corrimiento = int(seed) % len(tasks) if str(seed).lstrip("-").isdigit() else (
         sum(ord(c) for c in str(seed)) % len(tasks))
@@ -242,6 +249,24 @@ def matrix(fixture, *, rows=ROWS, repeats=3, seed=None):
 
 
 # ------------------------------------------------------------------------ ejecución
+IGNORAR = shutil.ignore_patterns("__pycache__", "*.pyc", ".git", "celdas")
+
+
+def prepare_workdir(fixture, destino) -> str:
+    """Copia limpia del fixture para **una** celda.
+
+    Sin esto, la celda que corre segunda hereda el fix de la primera y el gate sale 0 sin
+    que el agente haya hecho nada: la medición deja de medir. Cada celda arranca del
+    mismo estado o el experimento no existe.
+    """
+    destino = Path(destino)
+    if destino.exists():
+        shutil.rmtree(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(fixture["cwd"], destino, ignore=IGNORAR)
+    return str(destino)
+
+
 def _run(command, *, cwd, timeout, env=None):
     try:
         out = subprocess.run(command, cwd=cwd, capture_output=True, text=True,
@@ -323,6 +348,58 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None):
 
     registro["seconds"] = round(time.time() - inicio, 2)
     return registro
+
+
+# ------------------------------------------------------------- validar un fixture
+def check_fixture(fixture, *, timeout=120, log=None) -> dict:
+    """Afirma que cada tarea del fixture **es una tarea**.
+
+    Dos maneras de que un fixture no mida nada, y las dos son silenciosas:
+
+    - una tarea que **ya pasa** antes de que el agente toque nada — el gate sale 0 en el
+      estado inicial y la celda cuenta como resuelta sin trabajo;
+    - una tarea que **no se puede resolver** — ninguna resolución es posible y la celda
+      cuenta como fallo para todas las filas por igual.
+
+    Se comprueban las dos aplicando el fix de referencia sobre una copia limpia. El fix
+    de referencia existe para esto y nada más: nunca se le muestra al agente.
+    """
+    say = log or (lambda _m: None)
+    resultados = []
+    referencia = fixture.get("reference_fix")
+    import tempfile
+
+    for task in fixture["tasks"]:
+        entorno = dict(os.environ)
+        entorno["NIGHTSHIFT_BENCH_TASK"] = task["id"]
+        # Un fixture con varios repos necesita un fix por tarea, no uno solo.
+        referencia = task.get("reference_fix") or fixture.get("reference_fix")
+        with tempfile.TemporaryDirectory(prefix="nightshift-fixcheck-") as tmp:
+            trabajo = prepare_workdir(fixture, Path(tmp) / "repo")
+            antes, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout, env=entorno)
+            despues = None
+            if referencia:
+                origen, destino = referencia["apply"]
+                shutil.copyfile(Path(trabajo) / origen, Path(trabajo) / destino)
+                despues, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout,
+                                     env=entorno)
+        problemas = []
+        if antes == 0:
+            problemas.append("el gate ya sale 0 sin tocar nada: no es una tarea")
+        if antes is None:
+            problemas.append("el gate no terminó en el estado inicial")
+        if referencia and despues != 0:
+            problemas.append("el fix de referencia no la resuelve (gate salió %s)" % despues)
+        if not referencia:
+            problemas.append("el fixture no declara `reference_fix`: no se puede afirmar "
+                             "que la tarea sea resoluble")
+        resultados.append({"task": task["id"], "gate_before": antes, "gate_after": despues,
+                           "problems": problemas})
+        say("  %-20s antes=%s después=%s %s"
+            % (task["id"], antes, despues, "OK" if not problemas else "; ".join(problemas)))
+    return {"fixture": fixture["name"], "family": fixture["family"],
+            "tasks": resultados,
+            "ok": all(not r["problems"] for r in resultados)}
 
 
 # ------------------------------------------------------------------------- resumen

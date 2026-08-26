@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 SHELL := /usr/bin/env bash
 
-.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-check simulate doctor init clean help
+.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-fixtures bench-check simulate doctor init clean help
 
 ## check: el gate completo. Un gate es un script, no un juicio.
 check: lint validate-schema test selftest
@@ -42,6 +42,10 @@ simulate:
 ## bench-selftest: gate del runner de M4. No corre el benchmark: prueba el runner
 bench-selftest:
 	@./bin/nightshift bench selftest
+
+## bench-fixtures: cada tarea de cada fixture falla antes y la resuelve su fix de referencia
+bench-fixtures:
+	@NIGHTSHIFT_ROOT=$(CURDIR) ./bin/nightshift bench fixtures
 
 ## bench-check: qué le falta al pre-registro para poder correr M4
 bench-check:

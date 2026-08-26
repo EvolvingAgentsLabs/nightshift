@@ -151,6 +151,7 @@ doc/adr/ADR-002-verify-gate.md What counts as reproduction
 schema/trajectory.v1.json      Versioned Trajectory schema (normative data model)
 schema/examples/               Valid and invalid fixtures
 bench/PREREG.md                Pre-registered benchmark, thresholds frozen before M1
+bench/fixtures/familia-a|c|d/  The M4 fixture repos (identifiers still to be frozen)
 bench/fixtures/selftest/       Synthetic fixtures for the runner's gate. NOT the M4 fixtures
 doc/HANDOFF.md                 Control handoff: state, rules, and the ordered work queue
 LATER.md                       Everything deliberately deferred, with the reason
@@ -182,6 +183,7 @@ make test             # unit tests (stdlib unittest)
 make selftest         # replays all seven hooks against a throwaway store
 make dream-selftest   # the M3-a gate. Needs a local model, so it is NOT part of check
 make bench-selftest   # the M4 runner's gate (synthetic fixtures, no real benchmark)
+make bench-fixtures   # every fixture task fails before and is fixed by its reference fix
 make bench-check      # what the pre-registration still needs before M4 can run
 make simulate         # the end-to-end rehearsal (closes no gate — see above)
 ```
@@ -286,6 +288,14 @@ nightshift bench plan --fixture <f>   # the experiment grid: planning is not run
 nightshift bench run  --fixture <f> --agent "<cmd>"   # exits 3 while PREREG is open
 nightshift bench selftest   # the runner's own gate, on synthetic fixtures
 ```
+
+The three fixture repos are built — `bench/fixtures/familia-{a,c,d}/` — and
+`nightshift bench fixtures` (`make bench-fixtures`) asserts task by task that **the gate
+fails before and the reference fix resolves it**. A fixture where a task already passes,
+or where no resolution exists, measures nothing and breaks nothing: it is the quietest way
+to own a benchmark that does not measure. Family A is ten bugs with one shared cause;
+family C is two repos with the same structural pattern and no shared vocabulary; family D
+ships a hand-built ground truth and a deterministic classifier.
 
 `bench/PREREG.md` says **BORRADOR — no congelado** and holds 19 `TODO(Matias)`. Until a
 person freezes it, `bench run` refuses and lists what is missing, by section and line. A
