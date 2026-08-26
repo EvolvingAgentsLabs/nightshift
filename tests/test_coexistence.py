@@ -61,3 +61,41 @@ class CoexistenceTest(IsolatedStoreTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SingleStoreTest(unittest.TestCase):
+    """Regresión: la ruta del store no puede depender de quién ejecuta el proceso.
+
+    Claude Code le pasa CLAUDE_PLUGIN_DATA a los hooks pero no al Bash tool. Mientras
+    influyó en `home()`, los hooks escribían en ~/.claude/plugins/data/<id>/ y
+    `nightshift init` configuraba ~/.nightshift: la captura nunca arrancaba y `status`
+    decía cero para siempre.
+    """
+
+    def setUp(self):
+        from nightshift import config
+        self.config = config
+        self._saved = {k: os.environ.get(k) for k in ("NIGHTSHIFT_HOME", "CLAUDE_PLUGIN_DATA")}
+        os.environ.pop("NIGHTSHIFT_HOME", None)
+        os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+
+    def tearDown(self):
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def test_claude_plugin_data_no_mueve_el_store(self):
+        sin = self.config.home()
+        os.environ["CLAUDE_PLUGIN_DATA"] = "/tmp/otro/lugar/nightshift"
+        con = self.config.home()
+        self.assertEqual(sin, con,
+                         "CLAUDE_PLUGIN_DATA no puede cambiar dónde vive el store")
+
+    def test_default_es_home_del_usuario(self):
+        self.assertEqual(self.config.home(), Path.home() / ".nightshift")
+
+    def test_nightshift_home_si_manda(self):
+        os.environ["NIGHTSHIFT_HOME"] = "/tmp/elegido"
+        self.assertEqual(self.config.home(), Path("/tmp/elegido"))

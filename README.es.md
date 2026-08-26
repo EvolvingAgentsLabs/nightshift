@@ -99,7 +99,8 @@ de correr la cosa:
 
 ### Qué guarda, y dónde
 
-`~/.nightshift/trajectories.sqlite3` (o `$CLAUDE_PLUGIN_DATA`). Nunca dentro de tu repo,
+`~/.nightshift/trajectories.sqlite3` — una sola ubicación, la ejecute quien la ejecute.
+Se mueve con `NIGHTSHIFT_HOME` si hace falta. Nunca dentro de tu repo,
 y nunca bajo `~/.claude/projects/*/memory/` — un guard en `config.py` levanta si alguna
 ruta de código lo intenta, y un test afirma que una sesión completa deja la memoria
 nativa intacta.

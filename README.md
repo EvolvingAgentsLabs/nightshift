@@ -100,7 +100,8 @@ and then by running the thing:
 
 ### What it stores, and where
 
-`~/.nightshift/trajectories.sqlite3` (or `$CLAUDE_PLUGIN_DATA`). Never inside your repo,
+`~/.nightshift/trajectories.sqlite3` — one location, whoever runs the process. Override
+it with `NIGHTSHIFT_HOME` if you must. Never inside your repo,
 and never under `~/.claude/projects/*/memory/` — a guard in `config.py` raises if any
 code path tries, and a test asserts a full session leaves the native memory untouched.
 

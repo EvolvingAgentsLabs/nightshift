@@ -149,7 +149,25 @@ def run_doctor() -> list[dict]:
                          ".".join(str(p) for p in sys.version_info[:3])))
 
     cfg_ok = config.config_path().is_file()
-    checks.append(_check("config presente", cfg_ok, str(config.config_path())))
+    checks.append(_check("config presente", cfg_ok,
+                         str(config.config_path()) if cfg_ok
+                         else "no existe: corré `nightshift init`"))
+
+    # Sonda: el store tiene que ser el mismo lo ejecute quien lo ejecute. Claude Code
+    # le pasa CLAUDE_PLUGIN_DATA a los hooks pero no al Bash tool; si influyera en la
+    # ruta habría dos stores, y la captura nunca arrancaría.
+    resolved = str(config.home())
+    saved = os.environ.get("CLAUDE_PLUGIN_DATA")
+    os.environ["CLAUDE_PLUGIN_DATA"] = "/tmp/nightshift-probe-debe-ser-ignorado"
+    try:
+        ignored = str(config.home()) == resolved
+    finally:
+        if saved is None:
+            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+        else:
+            os.environ["CLAUDE_PLUGIN_DATA"] = saved
+    checks.append(_check("un solo store para hooks y CLI", ignored, resolved))
+
     cfg = config.load()
     checks.append(_check("deny_paths resuelto", bool(cfg["deny_paths"]),
                          "%d patrones" % len(cfg["deny_paths"])))
