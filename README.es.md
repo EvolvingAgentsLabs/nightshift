@@ -84,8 +84,11 @@ cuando cambiás `hooks/hooks.json`, una skill o el manifiesto.
 | `/nightshift:why <id>` | Reconstruye la trayectoria origen de una inyección — el gate de M2 |
 | `/nightshift:doctor` | Chequeo de invariantes en runtime más un replay end-to-end de los siete hooks |
 | `/nightshift:dev` | Estado de desarrollo del plugin, para las sesiones que lo modifican |
+| `/nightshift:dream` | Fase 1 (`consolidate`) sobre las trayectorias cerradas, con el modelo local |
 
-`/nightshift:dream` todavía no existe: llega con M3 (`consolidate`) y M5 (`verify`).
+`/nightshift:dream --verify` no existe: la fase 2 es M5 y está bloqueada hasta el
+veredicto de M4. **Nada llega a `procedure`, así que nada de lo inyectado está
+verificado.**
 
 ### Hooks que registra
 
@@ -126,7 +129,7 @@ no se captura en absoluto — ni el path, ni el contenido, ni el hecho de que oc
 .claude-plugin/plugin.json     Manifiesto del plugin
 hooks/hooks.json               Los siete hooks que registra
 bin/                           ns-hook (entrypoint de hooks) y nightshift (CLI), van al PATH
-skills/                        /nightshift:status | why | doctor | dev
+skills/                        /nightshift:status | why | doctor | dev | dream
 nightshift/                    La implementación. Sólo librería estándar
   config.py                      Rutas, deny_paths, el guard de escritura de Auto Memory
   redact.py                      Redactor determinista — corre antes de persistir
@@ -134,7 +137,8 @@ nightshift/                    La implementación. Sólo librería estándar
   context.py                     Fingerprint del repo, clasificación de tarea, normalización
   hook.py                        Despacho de hooks. Nunca levanta, siempre sale 0
   retrieve.py                    Ranking estructural e inyección
-  cli.py                         init | status | why | export | audit | doctor | selftest | dev
+  dream.py                       Dream fase 1: modelo local, agrupación estructural
+  cli.py                         init | status | why | export | audit | dream | doctor | selftest | dev
 tests/                         Tests unitarios y el round trip captura→export→validar
 tools/                         El gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Spec v0.3 (prosa normativa)
@@ -155,7 +159,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
-| M3 | Dream `consolidate` + scheduler pluggable (`launchd`/`systemd`/`loop`) | 3 noches seguidas sin intervención |
+| M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable (`launchd`/`systemd`/`loop`) | `nightshift dream --selftest` pasa. El gate del milestone — 3 noches seguidas sin intervención — necesita el scheduler |
 | M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | Adapter de OpenCode, marketplace de plugins, Omarchy/Quattro | Ver [`LATER.md`](LATER.md) |
@@ -172,6 +176,7 @@ make lint-code        # stdlib pura, sin red, coexistencia con Auto Memory, plug
 make validate-schema  # los válidos validan Y los inválidos son rechazados
 make test             # tests unitarios (unittest de la stdlib)
 make selftest         # replay de los siete hooks contra un store desechable
+make dream-selftest   # el gate de M3-a. Necesita modelo local, por eso NO está en check
 ```
 
 `make check` es el gate. No necesita dependencias más allá de
@@ -195,6 +200,33 @@ nightshift audit --json             # el mismo reporte, legible por máquina
 El reporte dice **dónde** (trayectoria, paso, campo) y **qué regla** saltó — nunca el
 valor. Un reporte que cita la fuga la propaga a la terminal, al scrollback y al pipe de
 quien lo corrió.
+
+### Dream fase 1 — `consolidate`
+
+`nightshift dream` agrupa las trayectorias cerradas por tipo de tarea, le pide al modelo
+**local** el patrón estructural de cada grupo, y deja el resultado en `candidate` con su
+`abstraction` y su `valid_when`. Si una trayectoria nueva contradice una vieja, la vieja
+pasa a `superseded` enlazada a su sucesora — **no se borra nunca**.
+
+```sh
+nightshift dream              # consolidar los últimos 7 días
+nightshift dream --dry-run    # mostrar qué haría, sin escribir
+nightshift dream --selftest   # el gate de M3-a, sobre un set fixture desechable
+```
+
+El modelo corre local — Qwen por `subprocess`, autodetectado desde ollama, el más chico
+ya descargado, y nunca se baja nada solo. **Si no hay modelo local, dream falla y lo
+dice** (sale 2): no hay fallback remoto ni heurística que finja ser consolidación. Salir
+1 significa que había material y no salió nada.
+
+Todo lo que produce el modelo pasa por los mismos gates que la captura: el esquema
+rechaza rutas en `abstraction.pattern`, el redactor rechaza identificadores del repo y el
+auditor de M1 rechaza fugas. Una respuesta rechazada se reintenta, y un grupo que insiste
+se descarta: si el modelo produce algo que no valida, el bug es del prompt, no del
+esquema.
+
+Una `candidate` **no** está verificada. Se inyecta con menos peso y marcada como no
+verificada, porque `verify` (M5) está bloqueado hasta el veredicto de M4.
 
 `make doctor` va aparte a propósito: chequea *tu* instalación (config presente, captura
 activa), que no es algo que CI tenga por qué afirmar.

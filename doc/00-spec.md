@@ -348,7 +348,8 @@ Las skills de un plugin llevan el namespace del plugin, así que los nombres rea
 - `/nightshift:doctor` — auto-diagnóstico de invariantes y replay end-to-end de los hooks.
 - `/nightshift:dev` — estado de desarrollo del propio plugin, para las sesiones que lo
   modifican.
-- `/nightshift:dream [--verify]` — **no existe todavía.** Llega con M3 y M5.
+- `/nightshift:dream` — **fase 1 (`consolidate`), desde M3-a.** `--verify` no existe:
+  la fase 2 es M5 y está bloqueada hasta el veredicto de M4.
 
 Todas son envoltorios finos sobre `nightshift <subcomando>`, que es donde vive la lógica
 para poder testearla sin un harness corriendo.
@@ -370,6 +371,27 @@ modelo Qwen local:
 4. Enlazar contradicciones: si una trayectoria nueva contradice una vieja, la vieja
    pasa a `superseded` con `superseded_by` apuntando a la nueva. **No se borra.**
 5. Resultado: estado `candidate`.
+
+**Implementado en M3-a, con tres decisiones que la v0.3 no fijaba:**
+
+- **Lo determinista no se le pregunta al modelo.** Agrupar, elegir el representante del
+  grupo y detectar contradicciones son reglas fijas: agrupar con un LLM es
+  irreproducible, y una contradicción es una señal registrada (`contradicted`,
+  `user_corrected`), no una opinión. Al modelo se le pide una sola cosa — abstraer.
+- **La agrupación es por tipo de tarea.** La primera versión agrupaba por tipo *más*
+  firma exacta de herramientas y clases de paso, y contra el set fixture dejaba grupos de
+  uno: dos trayectorias del mismo bug caían separadas porque una tenía `tool_failure` y
+  la otra no, y un grupo de uno no puede tener contradicciones. La forma de la
+  trayectoria no se pierde: entra en el prompt.
+- **La salida del modelo pasa por los gates de la captura.** El esquema (§4.4), el
+  redactor (§8.2) y el auditor de M1. Rechazo → reintento; si insiste, el grupo se
+  descarta. Si el modelo produce algo que no valida, el bug es del prompt, no del
+  esquema.
+
+Códigos de salida, porque distinguen tres estados que conviene no confundir: `0`
+consolidó o no había nada que consolidar; `1` había material y no salió ninguna
+candidata; `2` **no hay modelo local**, y dream no cae a una API remota (§2.2) ni a una
+heurística que finja ser consolidación.
 
 ### 6.2 Fase 2 — `verify` (nueva)
 
@@ -509,7 +531,7 @@ humano es explícito).
 | M0 | Docs: spec v0.3, ADR-001, ADR-002, schema versionado, PREREG, README | `make lint-docs` pasa **y** Ismael revisa ADR-001 |
 | M1 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor con tests | **Código listo.** Gate pendiente: 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) y fixtures de Histora |
 | M2 | Retrieve: inyección estructural en `SessionStart`, trayectorias crudas, sin dream | **Código listo.** `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
-| M3 | Dream `consolidate` + scheduler pluggable | 3 noches seguidas sin intervención en la Air |
+| M3 | Dream `consolidate` + scheduler pluggable | 3 noches seguidas sin intervención en la Air. **Fase 1 entregada** (`nightshift dream --selftest`); falta el scheduler |
 | M4 | **Benchmark — go/no-go** | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión en S0 |
 | M5 | Dream `verify` (worktree + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
 | M6+ | OpenCode adapter, marketplace, Omarchy/Quattro | Ver `LATER.md` |
@@ -553,3 +575,5 @@ la spec y el benchmark negativo son publicables.
 | 5.1, 5.7 | El retrieval se rehace en el primer `UserPromptSubmit` con tipo de tarea, sin re-inyectar lo ya dicho | `SessionStart` corre antes del primer prompt: ahí el tipo es siempre `general` y el ranking por tipo no puede ocurrir |
 | 5.7 | `general` deja de puntuar como coincidencia de tipo de tarea | Emparejaba dos trayectorias sin clasificar y reportaba `same_task_type`: el `why` afirmaba un ranking que no había pasado |
 | 5.1, 5.8 | `SessionStart` cierra las trayectorias huérfanas de sesiones muertas | Una trayectoria `open` para siempre no la ve el retrieval: se pierde entera |
+| 6.1 | Dream fase 1 implementado: agrupación determinista por tipo de tarea, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor | Agrupar con un LLM es irreproducible; y una abstracción que no valida es una fuga cross-repo esperando |
+| 6.3 | El texto inyectado dice de cada trayectoria si es cruda, `candidate` o verificada | "El agente debe poder distinguir 'esto se probó' de 'esto pareció funcionar una vez'" exige que el texto lo diga |

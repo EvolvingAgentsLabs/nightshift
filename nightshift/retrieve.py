@@ -8,6 +8,7 @@ de M2 y la condición de éxito 3 de la spec.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 from . import context, store
@@ -119,8 +120,21 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None):
 
     for rank, (score, reasons, row) in enumerate(chosen, start=1):
         short = row["id"][:8]
-        lines.append("### %d. `%s` — %s (score %.2f · %s)" % (rank, short, row["task_type"],
-                                                              score, reasons))
+        etiqueta = {"candidate": "consolidada por dream, SIN VERIFICAR",
+                    "procedure": "verificada"}.get(row["status"], "trayectoria cruda")
+        lines.append("### %d. `%s` — %s · %s (score %.2f · %s)"
+                     % (rank, short, row["task_type"], etiqueta, score, reasons))
+        # Una `candidate` trae el patrón abstraído; una cruda, sólo sus pasos. El agente
+        # tiene que poder distinguir "esto se probó" de "esto pareció funcionar una vez"
+        # (spec §6.3), y para eso el texto tiene que decir cuál es cuál.
+        if row["status"] in ("candidate", "procedure") and row["abstraction_json"]:
+            abstraction = json.loads(row["abstraction_json"])
+            if abstraction.get("pattern"):
+                lines.append("- patrón: %s" % abstraction["pattern"])
+            if abstraction.get("decisive_signal"):
+                lines.append("- señal decisiva del patrón: %s" % abstraction["decisive_signal"])
+            for item in json.loads(row["valid_when_json"] or "[]")[:3]:
+                lines.append("- aplica cuando: %s" % item.get("condition", ""))
         if row["hypothesis"]:
             lines.append("- hipótesis: %s" % row["hypothesis"])
         steps = store.steps_of(conn, row["id"])
