@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002 |
-| Revisión | 0.3.1 — enmendada por lo aprendido implementando M1+M2 |
+| Revisión | 0.3.2 — enmendada por lo aprendido corriendo M1+M2 |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -227,7 +227,7 @@ Nombres verificados contra la doc vigente de Claude Code
 | `PreCompact` | Snapshot de la trayectoria activa completa antes de que muera el contexto. Ver §5.3. |
 | `Stop` | **Sellar el turno**, no cerrar la trayectoria. Ver §5.6. |
 | `SessionEnd` | **Añadido en 0.3.1.** Cerrar la trayectoria: `outcome` (`tests_passed` / `user_corrected` / `abandoned`), y el gate asociado si existe. |
-| `UserPromptSubmit` | **Sólo** detectar correcciones ("no, eso está mal") → marcar el paso anterior como `contradicted`. No captura el prompt completo. |
+| `UserPromptSubmit` | Detectar correcciones ("no, eso está mal") → marcar el paso anterior como `contradicted`; fijar el tipo de tarea; y, **la primera vez que ese tipo deja de ser `general`**, rehacer el retrieval e inyectar (§5.7). No captura el prompt completo. |
 
 ### 5.2 Hallazgo: `PostToolUse` no ve los fallos
 
@@ -283,6 +283,34 @@ Reparto corregido, implementado en M1:
 - `SessionEnd` — cierra la trayectoria e infiere el `outcome`.
 
 `SessionEnd` pasa a ser hook obligatorio de M1.
+
+### 5.7 Hallazgo: `SessionStart` no puede saber el tipo de tarea
+
+**Añadido en 0.3.2, de correr M2 contra sesiones reales.**
+
+`SessionStart` dispara antes de que el usuario escriba nada. La trayectoria de la sesión
+nueva se abre, por lo tanto, con `task_type = general`, que no es un tipo sino "todavía
+sin clasificar". El ranking de §5.1 emparejaba entonces `general` con `general`, sumaba
+el peso de coincidencia de tarea y reportaba `same_task_type`. Una inyección real dijo
+`score 0.90 · same_task_type,same_repo` con las dos trayectorias sin clasificar: el
+retrieval decía ser estructural y era por repo y recencia.
+
+Dos correcciones, ambas en M2:
+
+1. `general` **no puntúa** como coincidencia de tipo de tarea. Sigue habiendo retrieval
+   en `SessionStart` — por repo, recencia y desenlace — pero el texto inyectado dice qué
+   ranking ocurrió en vez de nombrar uno que no ocurrió.
+2. El retrieval se **rehace** en el primer `UserPromptSubmit` cuyo prompt clasifica la
+   tarea, que es el primer momento de la sesión en que "retrieve por estructura (tipo de
+   tarea)" puede cumplirse. Ese hook también admite `additionalContext` (§5.4).
+
+Dos invariantes que la segunda pasada tiene que respetar, y que están testeadas:
+
+- **Nada se inyecta dos veces en la misma sesión.** La tabla `injections` tiene
+  `session_id`; lo ya inyectado se filtra del ranking. Repetir una trayectoria no es más
+  evidencia, es más contexto gastado.
+- **La segunda pasada ocurre una sola vez.** Se dispara en la transición de `general` a
+  un tipo, no en cada prompt.
 
 ### 5.5 Comandos
 
@@ -493,3 +521,10 @@ la spec y el benchmark negativo son publicables.
 | 5.1, 5.6 | `SessionEnd` pasa a hook obligatorio; `Stop` sella el turno | `Stop` dispara por turno: cerrar ahí partiría cada sesión en N trayectorias |
 | 5.5 | Los comandos son `/nightshift:<skill>` | Las skills de plugin llevan namespace; el plan suponía `/nightshift <sub>` |
 | 5.1 | `UserPromptSubmit` persiste la **etiqueta** de tipo de tarea, nunca el texto del prompt | El retrieval estructural necesita el tipo; guardar el prompt sería una superficie de privacidad que el plan no pidió |
+
+### Enmiendas 0.3.2 (de correr M2 contra sesiones reales)
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.1, 5.7 | El retrieval se rehace en el primer `UserPromptSubmit` con tipo de tarea, sin re-inyectar lo ya dicho | `SessionStart` corre antes del primer prompt: ahí el tipo es siempre `general` y el ranking por tipo no puede ocurrir |
+| 5.7 | `general` deja de puntuar como coincidencia de tipo de tarea | Emparejaba dos trayectorias sin clasificar y reportaba `same_task_type`: el `why` afirmaba un ranking que no había pasado |

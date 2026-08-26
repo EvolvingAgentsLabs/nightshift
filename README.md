@@ -103,6 +103,9 @@ and then by running the thing:
   nightshift's own store. It is a sealing signal, not a data source.
 - `Stop` fires at the end of **every turn**, not the session. It seals the turn;
   `SessionEnd` closes the trajectory.
+- `SessionStart` runs **before** you type, so the task type there is still `general`.
+  Structural retrieval is redone on the first prompt that classifies the task, without
+  repeating anything already injected (spec §5.7).
 
 ### What it stores, and where
 
@@ -149,7 +152,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 |---|---|---|
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, versioned schema, PREREG, README | `make check` passes ✅ · Ismael's review of ADR-001 **still pending** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
-| **M2** 🟡 | Retrieve: structural injection at `SessionStart` | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
+| **M2** 🟡 | Retrieve: structural injection at `SessionStart`, and again at the first classified prompt | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
 | M3 | Dream `consolidate` + pluggable scheduler (`launchd`/`systemd`/`loop`) | 3 consecutive unattended nights |
 | M4 | **Benchmark — go/no-go** | ≥ pre-registered threshold in ≥ 2 of A/C/D, zero regression vs S0 |
 | M5 | Dream `verify` (ephemeral worktree + gate). **Only if M4 passes** | Precision of `procedure` > `candidate` on a benchmark re-run |

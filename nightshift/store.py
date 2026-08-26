@@ -178,6 +178,19 @@ def record_injection(conn, *, session_id, source_trajectory, rank, score, reason
     conn.commit()
 
 
+def injected_sources(conn, session_id):
+    """Ids ya inyectados en esta sesión.
+
+    El retrieval corre dos veces (`SessionStart` y el primer `UserPromptSubmit` con tipo
+    de tarea), así que hace falta saber qué se dijo ya: repetir una trayectoria gasta
+    contexto y hace pasar por dos evidencias lo que es una sola.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT source_trajectory FROM injections WHERE session_id = ?",
+        (session_id,)).fetchall()
+    return {row["source_trajectory"] for row in rows}
+
+
 def injections_for_session(conn, session_id):
     return conn.execute("SELECT * FROM injections WHERE session_id = ? ORDER BY rank",
                         (session_id,)).fetchall()

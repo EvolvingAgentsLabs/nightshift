@@ -73,24 +73,45 @@ def _ensure_trajectory(conn, payload, cfg):
     )
 
 
+# ---------------------------------------------------------- retrieval e inyección
+def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
+    """Rankea, renderiza y registra. Lo comparten `SessionStart` y `UserPromptSubmit`.
+
+    Nada que ya se haya inyectado en esta sesión se vuelve a inyectar: el retrieval
+    corre dos veces y la misma trayectoria dicha dos veces no es más evidencia, es más
+    contexto gastado.
+    """
+    cwd = payload.get("cwd") or "."
+    session_id = payload.get("session_id")
+    scored = retrieve.candidates(
+        conn,
+        task_type=task_type,
+        repo_fingerprint=context.repo_fingerprint(cwd),
+        cfg=cfg,
+        exclude_id=tid,
+    )
+    if session_id:
+        ya = store.injected_sources(conn, session_id)
+        scored = [item for item in scored if item[2]["id"] not in ya]
+    text, chosen = retrieve.render(conn, scored, max_injected=cfg.get("max_injected", 3),
+                                   native_memory=context.memory_signal(cwd),
+                                   task_type=task_type)
+    for rank, (score, reasons, source) in enumerate(chosen, start=1):
+        store.record_injection(conn, session_id=session_id, source_trajectory=source["id"],
+                               rank=rank, score=score, reason=reasons, into_trajectory=tid)
+    return text, chosen
+
+
 # ------------------------------------------------------------------- SessionStart
 def on_session_start(payload, cfg, conn):
     cwd = payload.get("cwd") or "."
     tid = _ensure_trajectory(conn, payload, cfg)
     row = store.get_trajectory(conn, tid) if tid else None
-    scored = retrieve.candidates(
-        conn,
-        task_type=row["task_type"] if row else context.DEFAULT_TASK_TYPE,
-        repo_fingerprint=context.repo_fingerprint(cwd),
-        cfg=cfg,
-        exclude_id=tid,
-    )
-    text, chosen = retrieve.render(conn, scored, max_injected=cfg.get("max_injected", 3),
-                                   native_memory=context.memory_signal(cwd))
-    for rank, (score, reasons, source) in enumerate(chosen, start=1):
-        store.record_injection(conn, session_id=payload.get("session_id"),
-                               source_trajectory=source["id"], rank=rank, score=score,
-                               reason=reasons, into_trajectory=tid)
+    # Acá el tipo de tarea es siempre `general`: SessionStart corre antes de que el
+    # usuario escriba. El segundo retrieval, en el primer prompt, es el estructural.
+    text, chosen = _retrieve_and_inject(
+        conn, payload, cfg, tid,
+        row["task_type"] if row else context.DEFAULT_TASK_TYPE)
 
     # `additionalContext` va al contexto del modelo y el usuario no lo ve. Sin una línea
     # visible, un plugin que funciona y uno que no hace nada se ven exactamente igual.
@@ -120,12 +141,24 @@ def on_user_prompt_submit(payload, cfg, conn):
             _log("contradicted step %s of %s" % (idx, tid))
 
     row = store.get_trajectory(conn, tid)
-    if row is not None and row["task_type"] == context.DEFAULT_TASK_TYPE:
-        task_type = context.classify_task(prompt)
-        if task_type != context.DEFAULT_TASK_TYPE:
-            conn.execute("UPDATE trajectories SET task_type = ? WHERE id = ?", (task_type, tid))
-            conn.commit()
-    return ""
+    if row is None or row["task_type"] != context.DEFAULT_TASK_TYPE:
+        return ""
+    task_type = context.classify_task(prompt)
+    if task_type == context.DEFAULT_TASK_TYPE:
+        return ""
+    conn.execute("UPDATE trajectories SET task_type = ? WHERE id = ?", (task_type, tid))
+    conn.commit()
+
+    # Segundo retrieval, ahora sí por estructura. Es la primera vez en la sesión que hay
+    # tipo de tarea, y por lo tanto la primera vez que "retrieve por tipo de tarea"
+    # (spec §5.7) puede cumplirse. Ocurre una sola vez: en el próximo prompt el tipo ya
+    # no es `general` y esta rama no se vuelve a tomar.
+    text, chosen = _retrieve_and_inject(conn, payload, cfg, tid, task_type)
+    if not chosen:
+        return ""
+    _log("retrieval por tipo de tarea (%s): %d inyectada(s)" % (task_type, len(chosen)))
+    return text, ("nightshift: %d trayectoria(s) de `%s` inyectada(s) · /nightshift:status"
+                  % (len(chosen), task_type))
 
 
 # ------------------------------------------------------- PostToolUse / …Failure

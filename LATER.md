@@ -78,6 +78,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 | Ítem | Motivo |
 |---|---|
+| Dos pasadas de retrieval, dos oportunidades de gastar contexto | T2 inyecta en `SessionStart` (por repo y recencia) y otra vez en el primer prompt clasificado (por tipo). Nunca repite una trayectoria, pero una sesión puede recibir hasta `2 × max_injected`. Si eso resulta caro en contexto, el número que hay que revisar es `max_injected`, no la segunda pasada. **Sin medir.** |
 | Cómo se elige `N` | Hoy `max_injected: 3` por config. El número sale de una intuición, no de medir presupuesto de contexto. |
 | Los pesos del ranking | `retrieve.W_*` son constantes elegidas a mano. Son deterministas y auditables (`why` los reimprime), pero nadie las calibró. M4 es quien puede decir si sirven. |
 | Retención y tamaño del store | Sin política. Una trayectoria por sesión y hasta 400 pasos cada una crece sin techo. |
