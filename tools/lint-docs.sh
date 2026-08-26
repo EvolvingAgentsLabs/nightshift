@@ -27,6 +27,9 @@ REQUIRED=(
   schema/trajectory.v1.json
   schema/examples/README.md
   bench/PREREG.md
+  .claude-plugin/plugin.json
+  hooks/hooks.json
+  skills/dev/SKILL.md
 )
 for f in "${REQUIRED[@]}"; do
   [ -f "$f" ] && ok "$f" || err "falta $f"
@@ -37,21 +40,24 @@ for d in schema/examples/valid schema/examples/invalid; do
   [ "$n" -gt 0 ] && ok "$d/ tiene $n ejemplo(s)" || err "$d/ está vacío"
 done
 
-# ------------------------------------------------- 2. límites del milestone M0
-echo "== límites de M0 (sólo documentación) =="
-py=$(find . -name '*.py' -not -path './.git/*' 2>/dev/null)
-[ -z "$py" ] && ok "sin código Python" || err "M0 no admite código Python: $py"
-
-for f in pyproject.toml requirements.txt setup.py setup.cfg Pipfile package.json; do
-  [ -f "$f" ] && err "M0 no admite dependencias declaradas: $f"
+# ------------------------------------------- 2. la documentación describe el plugin
+# Los límites del código (stdlib pura, sin red, coexistencia) los verifica lint-code.sh.
+echo "== documentación del plugin =="
+for f in .claude-plugin/plugin.json hooks/hooks.json; do
+  [ -f "$f" ] && ok "$f" || err "falta $f"
 done
-ok "sin manifiestos de dependencias"
+n_skills=$(find skills -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
+[ "$n_skills" -gt 0 ] && ok "$n_skills skill(s) declaradas" || err "skills/ sin SKILL.md"
 
-if [ -d .claude/hooks ] || [ -f .claude/settings.json ]; then
-  err "M0 no toca hooks: encontrado .claude/hooks o .claude/settings.json"
-else
-  ok "sin hooks instalados"
-fi
+for skill in skills/*/SKILL.md; do
+  name=$(basename "$(dirname "$skill")")
+  grep -qF "/nightshift:$name" README.md || err "README.md no documenta /nightshift:$name"
+done
+ok "el README documenta cada skill"
+
+grep -qF 'claude --plugin-dir' README.md \
+  && ok "README explica cómo cargarlo en desarrollo" \
+  || err "README.md no explica 'claude --plugin-dir'"
 
 # ------------------------------------------------------ 3. JSON bien formado
 echo "== JSON =="

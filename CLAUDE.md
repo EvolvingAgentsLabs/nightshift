@@ -32,22 +32,51 @@ Leé, en este orden: `doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec
   texto del proyecto (ADR-001).
 - Añadir features que no estén en el plan. Si parece buena idea, va a `LATER.md`.
 
-## Límites del milestone actual (M0 — sólo documentación)
+## Milestone actual: M1 + M2 — capture y retrieve
 
-Mientras M0 esté abierto: **no hay código Python, no se tocan hooks, no se agregan
-dependencias.** El linter lo verifica (`make lint-docs`) y falla si aparece un `.py`,
-un `pyproject.toml` o un `requirements.txt`.
+**Este repositorio es el plugin.** Si la sesión se abrió con `claude --plugin-dir .`, los
+hooks que están capturando esta misma sesión son el código de este working tree. Editar
+`nightshift/hook.py` cambia cómo se captura la próxima tool call.
 
-## Gate
+Empezá cualquier sesión de desarrollo con:
 
 ```sh
-make check
+nightshift dev      # o ./bin/nightshift dev
 ```
 
-`lint-docs` comprueba estructura, enlaces internos y los límites de M0.
-`validate-schema` comprueba que los ejemplos válidos validan y **que los inválidos son
-rechazados** — un inválido que empieza a validar es un agujero en el esquema y rompe el
-gate igual.
+### El loop cuando tocás código del plugin
+
+1. Cambiás el código.
+2. `make check` — lint-docs, lint-code, esquema, tests y el replay end-to-end. Todo, no
+   la parte que creés haber tocado.
+3. `/reload-plugins` en la sesión, si no seguís probando el código viejo.
+4. `nightshift selftest` desde la sesión recargada.
+5. Commit. Si no hay nada que commitear, el motivo va a `LATER.md`.
+
+### Invariantes que el linter defiende (no son estilo)
+
+- **Sólo librería estándar.** Ningún import de tercero, en `nightshift/` ni en `tests/`.
+- **Sin red.** Ningún `socket`, `urllib`, `http`, `requests` en `nightshift/`.
+- **Coexistencia.** Sólo `config.py` (el guard), `context.py` (lectura de señal) y
+  `cli.py` (el doctor, que afirma que el guard rechaza) pueden nombrar
+  `~/.claude/projects/*/memory/`. Cualquier otro archivo es una vía de escritura sin
+  auditar.
+- **Los hooks no ensucian stdout.** Lo que sale de un hook es JSON válido o nada.
+- **`hook.main` sale 0 siempre.** Una sesión con nightshift roto debe ser
+  indistinguible de una sesión sin nightshift (spec §7.2).
+
+### Qué es real y qué no
+
+Al describir el proyecto — en el README, en un commit, en una demo — esto es lo que
+corresponde decir:
+
+- **Hecho:** captura (7 hooks), redactor determinista, store SQLite, retrieval
+  estructural e inyección, `why`, doctor y selftest.
+- **No construido:** dream (`consolidate` y `verify`), scheduler, benchmark. Hoy nada
+  llega a `candidate` ni a `procedure`, así que **ninguna memoria inyectada está
+  verificada.** No la describas como si lo estuviera.
+- **No decidido:** todos los `TODO(Matias)` de `bench/PREREG.md`, y el gate humano de M0
+  (la revisión de ADR-001 por Ismael), que sigue pendiente.
 
 ## Verificación de la doc del harness
 

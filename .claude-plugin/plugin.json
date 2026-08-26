@@ -1,0 +1,11 @@
+{
+  "name": "nightshift",
+  "displayName": "nightshift",
+  "description": "Procedural memory layer over the agent's native declarative memory. Captures causal trajectories, redacts them deterministically, and injects prior ones at session start.",
+  "version": "0.1.0",
+  "author": { "name": "Evolving Agents Lab" },
+  "homepage": "https://github.com/EvolvingAgentsLabs/nightshift",
+  "repository": "https://github.com/EvolvingAgentsLabs/nightshift",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "procedural-memory", "trajectories", "observability"]
+}

@@ -1,0 +1,120 @@
+"""Configuración y rutas.
+
+Dos invariantes de este módulo, ambos testeados:
+
+1. `deny_paths` es obligatorio antes de capturar (spec §8.1). Sin archivo de config
+   resuelto, `is_enabled()` es False y no se captura nada.
+2. nightshift nunca escribe bajo el árbol de Auto Memory (spec §1.3.4). `guard_path()`
+   levanta si alguien lo intenta, y es el único camino a disco del paquete.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+from pathlib import Path
+
+CONFIG_FILENAME = "config.json"
+
+# Rutas propiedad de la memoria declarativa nativa. nightshift lee MEMORY.md como
+# señal de retrieval y no escribe nada acá. Ver ADR-001.
+AUTO_MEMORY_RE = re.compile(r"/\.claude/projects/[^/]+/memory(/|$)")
+
+DEFAULT_DENY_PATHS = [
+    "**/.env",
+    "**/.env.*",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+    "**/.ssh/**",
+    "**/.aws/**",
+    "**/.gnupg/**",
+    "**/credentials*",
+    "**/secrets/**",
+    "**/*.sqlite",
+    "**/.claude/**",
+    "**/.git/config",
+]
+
+DEFAULTS = {
+    "enabled": True,
+    "deny_paths": DEFAULT_DENY_PATHS,
+    "max_injected": 3,
+    "max_steps_per_trajectory": 400,
+    "max_result_summary_chars": 400,
+    "retrieval_lookback_days": 30,
+    # Transferencia cross-repo real necesita `abstraction`, que la produce dream (M3).
+    # Hasta entonces esto inyecta trayectorias crudas de otro repo: apagado por defecto.
+    "cross_repo": False,
+}
+
+
+def home() -> Path:
+    """Directorio de datos de nightshift.
+
+    Orden: NIGHTSHIFT_HOME (tests) > CLAUDE_PLUGIN_DATA (plugin instalado) > ~/.nightshift
+    """
+    for var in ("NIGHTSHIFT_HOME", "CLAUDE_PLUGIN_DATA"):
+        value = os.environ.get(var)
+        if value:
+            return Path(value).expanduser()
+    return Path.home() / ".nightshift"
+
+
+def config_path() -> Path:
+    return home() / CONFIG_FILENAME
+
+
+def db_path() -> Path:
+    return guard_path(home() / "trajectories.sqlite3")
+
+
+def log_path() -> Path:
+    return guard_path(home() / "nightshift.log")
+
+
+def guard_path(path: Path) -> Path:
+    """Única puerta a disco del paquete. Levanta si la ruta es de Auto Memory."""
+    resolved = str(Path(path).expanduser())
+    if AUTO_MEMORY_RE.search(resolved.replace("\\", "/")):
+        raise PermissionError(
+            "nightshift nunca escribe en el arbol de Auto Memory (spec 1.3.4): %s" % resolved
+        )
+    return Path(resolved)
+
+
+def load() -> dict:
+    """Config efectiva. Sin archivo, devuelve los defaults marcados como no configurado."""
+    cfg = dict(DEFAULTS)
+    cfg["configured"] = False
+    path = config_path()
+    try:
+        if path.is_file():
+            user = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(user, dict):
+                cfg.update({k: v for k, v in user.items() if k in DEFAULTS})
+                cfg["configured"] = True
+    except (OSError, ValueError):
+        # Config ilegible: se degrada a no configurado. Nunca levanta hacia el hook.
+        pass
+    return cfg
+
+
+def is_enabled() -> bool:
+    """Capturar exige config explícita con deny_paths resuelto (spec §8.1)."""
+    cfg = load()
+    return bool(cfg["configured"] and cfg["enabled"] and cfg["deny_paths"])
+
+
+def init(force: bool = False) -> Path:
+    """Escribe la config inicial con los deny_paths por defecto."""
+    path = guard_path(config_path())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and not force:
+        return path
+    payload = {k: DEFAULTS[k] for k in DEFAULTS}
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path

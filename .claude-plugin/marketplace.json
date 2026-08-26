@@ -1,0 +1,11 @@
+{
+  "name": "evolving-agents-lab",
+  "owner": { "name": "Evolving Agents Lab" },
+  "plugins": [
+    {
+      "name": "nightshift",
+      "source": "./",
+      "description": "Procedural memory layer over the agent's native declarative memory."
+    }
+  ]
+}

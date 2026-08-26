@@ -7,6 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002 |
+| Revisión | 0.3.1 — enmendada por lo aprendido implementando M1+M2 |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -133,9 +134,15 @@ dump de la sesión no contiene ninguna escritura bajo el árbol de Auto Memory.
                   └────────────────┘
 ```
 
-Los hooks son procesos cortos y sin estado: leen JSON de stdin, hablan con el daemon
-por socket local, escriben JSON a stdout. Si el daemon no responde dentro del timeout,
-el hook sale con éxito y no inyecta nada. **nightshift jamás debe bloquear una sesión.**
+Los hooks son procesos cortos y sin estado: leen JSON de stdin, escriben JSON a stdout.
+Si algo falla, el hook sale 0 y no inyecta nada. **nightshift jamás debe bloquear una
+sesión.**
+
+**Enmienda 0.3.1 — el daemon está diferido.** En M1+M2 los hooks escriben directo a
+SQLite (WAL) en vez de hablar con `nightshiftd`. El daemon existía en v0.2 para amortizar
+la carga del modelo local, y capturar no necesita modelo: agregarlo ahora sería un
+proceso de fondo más que puede colgarse, en contra de §7.2. Se reabre cuando llegue dream
+(M3), que sí carga Qwen. Ver `LATER.md`.
 
 ### 3.2 Stack
 
@@ -218,7 +225,8 @@ Nombres verificados contra la doc vigente de Claude Code
 | `PostToolUse` | Capturar (`tool_name`, `tool_input` redactado, resumen de `tool_output`, Δ estado) → append a la trayectoria activa. |
 | `PostToolUseFailure` | **Añadido en v0.3.** Igual que `PostToolUse` pero con `error_message`. Ver §5.2. |
 | `PreCompact` | Snapshot de la trayectoria activa completa antes de que muera el contexto. Ver §5.3. |
-| `Stop` | Cerrar trayectoria: `outcome` (`tests_passed` / `user_corrected` / `abandoned`), y el gate asociado si existe. |
+| `Stop` | **Sellar el turno**, no cerrar la trayectoria. Ver §5.6. |
+| `SessionEnd` | **Añadido en 0.3.1.** Cerrar la trayectoria: `outcome` (`tests_passed` / `user_corrected` / `abandoned`), y el gate asociado si existe. |
 | `UserPromptSubmit` | **Sólo** detectar correcciones ("no, eso está mal") → marcar el paso anterior como `contradicted`. No captura el prompt completo. |
 
 ### 5.2 Hallazgo: `PostToolUse` no ve los fallos
@@ -253,14 +261,39 @@ raíz del JSON. `additionalContext` está soportado en `SessionStart`, `UserProm
 **Este formato cambia entre versiones de Claude Code.** M1 debe re-verificarlo contra
 la doc vigente antes de escribir el primer hook, y dejar el resultado fechado aquí.
 
+### 5.6 Hallazgo: `Stop` dispara por turno, no por sesión
+
+La doc vigente define `Stop` como "cuando Claude termina de responder", y su exit code 2
+*impide que Claude termine y continúa la conversación*. Es decir: dispara al final de
+**cada turno**, no al final de la sesión. Quien señala el fin de la sesión es `SessionEnd`.
+
+El plan v0.3 §2 le asigna a `Stop` el cierre de la trayectoria. Hacerlo ahí partiría cada
+sesión de debugging en tantas trayectorias como turnos tenga, que es exactamente lo
+contrario de capturar una cadena causal completa.
+
+Reparto corregido, implementado en M1:
+
+- `Stop` — sella el turno: registra la señal acumulada como un paso `observation`.
+- `SessionEnd` — cierra la trayectoria e infiere el `outcome`.
+
+`SessionEnd` pasa a ser hook obligatorio de M1.
+
 ### 5.5 Comandos
 
-- `/nightshift status` — qué hay capturado, qué está `candidate`, qué está `procedure`,
+Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
+`/nightshift:<skill>` y no `/nightshift <sub>` como suponía el plan:
+
+- `/nightshift:status` — qué hay capturado, qué está `candidate`, qué está `procedure`,
   qué inyectó esta sesión.
-- `/nightshift dream [--verify]` — dispara consolidación a mano. Con `--verify`,
-  también fase 2.
-- `/nightshift why <procedure_id>` — muestra la trayectoria origen completa.
-  La auditabilidad es feature, no debug: es la condición de éxito 3 (§1.3).
+- `/nightshift:why <id>` — muestra la trayectoria origen completa. La auditabilidad es
+  feature, no debug: es la condición de éxito 3 (§1.3).
+- `/nightshift:doctor` — auto-diagnóstico de invariantes y replay end-to-end de los hooks.
+- `/nightshift:dev` — estado de desarrollo del propio plugin, para las sesiones que lo
+  modifican.
+- `/nightshift:dream [--verify]` — **no existe todavía.** Llega con M3 y M5.
+
+Todas son envoltorios finos sobre `nightshift <subcomando>`, que es donde vive la lógica
+para poder testearla sin un harness corriendo.
 
 ---
 
@@ -416,8 +449,8 @@ humano es explícito).
 | M | Entrega | Gate |
 |---|---|---|
 | M0 | Docs: spec v0.3, ADR-001, ADR-002, schema versionado, PREREG, README | `make lint-docs` pasa **y** Ismael revisa ADR-001 |
-| M1 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop` → SQLite. Redactor con tests contra fixtures de Histora | 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) |
-| M2 | Retrieve: inyección estructural en `SessionStart`, trayectorias crudas, sin dream | `/nightshift why` reconstruye la trayectoria origen de cada inyección |
+| M1 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor con tests | **Código listo.** Gate pendiente: 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) y fixtures de Histora |
+| M2 | Retrieve: inyección estructural en `SessionStart`, trayectorias crudas, sin dream | **Código listo.** `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 | Dream `consolidate` + scheduler pluggable | 3 noches seguidas sin intervención en la Air |
 | M4 | **Benchmark — go/no-go** | Mejora ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión en S0 |
 | M5 | Dream `verify` (worktree + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
@@ -445,3 +478,12 @@ la spec y el benchmark negativo son publicables.
 | 8 | `deny_paths` obligatorio antes del primer hook. Redactor determinista antes de persistir. Histora primero. |
 | 10 | Baseline S0: de "sin memoria" a "Auto Memory + Auto Dream on". |
 | 11 | Milestones reordenados: benchmark (M4) antes de verify (M5). |
+
+### Enmiendas 0.3.1 (de implementar M1+M2)
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 3.1 | El daemon queda diferido; los hooks escriben directo a SQLite | Capturar no necesita modelo local, y un proceso de fondo más es superficie de bloqueo contra §7.2 |
+| 5.1, 5.6 | `SessionEnd` pasa a hook obligatorio; `Stop` sella el turno | `Stop` dispara por turno: cerrar ahí partiría cada sesión en N trayectorias |
+| 5.5 | Los comandos son `/nightshift:<skill>` | Las skills de plugin llevan namespace; el plan suponía `/nightshift <sub>` |
+| 5.1 | `UserPromptSubmit` persiste la **etiqueta** de tipo de tarea, nunca el texto del prompt | El retrieval estructural necesita el tipo; guardar el prompt sería una superficie de privacidad que el plan no pidió |

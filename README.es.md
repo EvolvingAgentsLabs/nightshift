@@ -4,10 +4,11 @@
 
 *[Read this in English](README.md)*
 
-> **Estado: M0 — sólo documentación.** Todavía no hay código en este repositorio, y es
-> deliberado. La spec, los dos ADRs, el esquema versionado de trayectoria y el
-> benchmark pre-registrado se cierran antes de escribir el primer hook. Ver
-> [Milestones](#milestones).
+> **Estado: M1 + M2 — capture y retrieve, corriendo como plugin de Claude Code.**
+> Captura trayectorias de sesiones reales, las redacta de forma determinista e
+> inyecta las previas al arrancar. **Dream todavía no existe**, así que nada está
+> verificado y todo lo inyectado es evidencia débil — etiquetada como tal a propósito.
+> El benchmark go/no-go (M4) no se corrió. Ver [Milestones](#milestones).
 
 Claude Code ya trae **Auto Memory** (notas declarativas por repositorio) y **Auto
 Dream** (consolidación en background). nightshift **no los reemplaza** y no compite en
@@ -52,15 +53,84 @@ Eso es un resultado, no un fracaso: la spec más un benchmark negativo son publi
 - No sirve para tareas de una sola pasada. El valor aparece donde importa el *proceso*
   — debugging recurrente, transferencia entre repos — y no debe fingir lo contrario.
 
+## Instalarlo y correrlo
+
+nightshift es un plugin de Claude Code. **Sin dependencias**: sólo librería estándar de
+Python 3.9+, nada que instalar, ninguna API key.
+
+```sh
+git clone https://github.com/EvolvingAgentsLabs/nightshift
+cd nightshift
+./bin/nightshift init        # escribe la config; sin deny_paths no se captura
+claude --plugin-dir .        # cargarlo por una sesión
+```
+
+`init` no es ceremonia opcional: sin `deny_paths` resuelto la captura queda apagada y
+`SessionStart` lo dice en vez de capturar (spec §8.1).
+
+Para iterar sobre el plugin mismo, editá y corré `/reload-plugins` — los cambios en los
+hooks y en `nightshift/*.py` no tienen efecto hasta que lo hagas.
+
+### Skills
+
+| Skill | Qué hace |
+|---|---|
+| `/nightshift:status` | Qué hay capturado y qué se inyectó en esta sesión |
+| `/nightshift:why <id>` | Reconstruye la trayectoria origen de una inyección — el gate de M2 |
+| `/nightshift:doctor` | Chequeo de invariantes en runtime más un replay end-to-end de los siete hooks |
+| `/nightshift:dev` | Estado de desarrollo del plugin, para las sesiones que lo modifican |
+
+`/nightshift:dream` todavía no existe: llega con M3 (`consolidate`) y M5 (`verify`).
+
+### Hooks que registra
+
+`SessionStart` · `UserPromptSubmit` · `PostToolUse` · `PostToolUseFailure` ·
+`PreCompact` · `Stop` · `SessionEnd`
+
+Tres de ésos son correcciones al plan original, salidas de leer la doc vigente y después
+de correr la cosa:
+
+- `PostToolUse` no dispara en fallos: van a `PostToolUseFailure`. En una trayectoria de
+  debugging el fallo *es* la señal decisiva.
+- `PreCompact` no trae el transcript, así que el snapshot se arma desde el store propio.
+  Es señal de sellado, no fuente de datos.
+- `Stop` dispara al final de **cada turno**, no de la sesión. Sella el turno;
+  `SessionEnd` cierra la trayectoria.
+
+### Qué guarda, y dónde
+
+`~/.nightshift/trajectories.sqlite3` (o `$CLAUDE_PLUGIN_DATA`). Nunca dentro de tu repo,
+y nunca bajo `~/.claude/projects/*/memory/` — un guard en `config.py` levanta si alguna
+ruta de código lo intenta, y un test afirma que una sesión completa deja la memoria
+nativa intacta.
+
+Todo se redacta **antes** de persistir, con un redactor determinista: regex más los
+identificadores del propio repo, sin modelo en el camino. Lo que cae bajo `deny_paths`
+no se captura en absoluto — ni el path, ni el contenido, ni el hecho de que ocurrió.
+
 ## Estructura del repositorio
 
 ```
+.claude-plugin/plugin.json     Manifiesto del plugin
+hooks/hooks.json               Los siete hooks que registra
+bin/                           ns-hook (entrypoint de hooks) y nightshift (CLI), van al PATH
+skills/                        /nightshift:status | why | doctor | dev
+nightshift/                    La implementación. Sólo librería estándar
+  config.py                      Rutas, deny_paths, el guard de escritura de Auto Memory
+  redact.py                      Redactor determinista — corre antes de persistir
+  store.py                       SQLite; export_trajectory() emite trajectory.v1
+  context.py                     Fingerprint del repo, clasificación de tarea, normalización
+  hook.py                        Despacho de hooks. Nunca levanta, siempre sale 0
+  retrieve.py                    Ranking estructural e inyección
+  cli.py                         init | status | why | export | doctor | selftest | dev
+tests/                         Tests unitarios y el round trip captura→export→validar
+tools/                         El gate: lint-docs, lint-code, validate-schema
 doc/00-spec.md                 Spec v0.3 (prosa normativa)
 doc/PLAN-v0.3.md               Alcance de referencia
 doc/adr/ADR-001-…              Por qué no competimos con Auto Dream
 doc/adr/ADR-002-verify-gate.md Qué cuenta como reproducción
 schema/trajectory.v1.json      Esquema versionado de Trajectory (modelo de datos normativo)
-schema/examples/               Fixtures válidas e inválidas — el gate de M0
+schema/examples/               Fixtures válidas e inválidas
 bench/PREREG.md                Benchmark pre-registrado, umbrales congelados antes de M1
 LATER.md                       Todo lo diferido a propósito, con el motivo
 ```
@@ -69,9 +139,9 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 
 | M | Entrega | Gate |
 |---|---|---|
-| **M0** | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa **y** Ismael revisa ADR-001 |
-| M1 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop` → SQLite. Redactor determinista | 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) |
-| M2 | Retrieve: inyección estructural en `SessionStart` | `/nightshift why` reconstruye la trayectoria origen de cada inyección |
+| M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
+| **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo. 5 sesiones reales capturadas sin fuga de `deny_paths` (test automatizado sobre el dump) |
+| **M2** 🟡 | Retrieve: inyección estructural en `SessionStart` | Code done. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 | Dream `consolidate` + scheduler pluggable (`launchd`/`systemd`/`loop`) | 3 noches seguidas sin intervención |
 | M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |
@@ -80,16 +150,23 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 M5 va después de M4 a propósito: `verify` es lo más caro de construir y sólo vale la
 pena si la memoria procedimental cruda ya muestra ganancia.
 
-## Correr el gate de M0
+## Correr el gate
 
 ```sh
-make check          # lint-docs + validate-schema
-make lint-docs      # estructura, enlaces, límites de M0
-make validate-schema
+make check            # todo lo de abajo
+make lint-docs        # estructura de la documentación y enlaces internos
+make lint-code        # stdlib pura, sin red, coexistencia con Auto Memory, plugin bien formado
+make validate-schema  # los válidos validan Y los inválidos son rechazados
+make test             # tests unitarios (unittest de la stdlib)
+make selftest         # replay de los siete hooks contra un store desechable
 ```
 
-`validate-schema` necesita [`check-jsonschema`](https://github.com/python-jsonschema/check-jsonschema).
-Si no está en el `PATH`, el script cae a `uvx` o `pipx`.
+`make check` es el gate. No necesita dependencias más allá de
+[`check-jsonschema`](https://github.com/python-jsonschema/check-jsonschema) para el paso
+del esquema, y cae a `uvx` o `pipx` si no está en el `PATH`.
+
+`make doctor` va aparte a propósito: chequea *tu* instalación (config presente, captura
+activa), que no es algo que CI tenga por qué afirmar.
 
 ## Reglas de trabajo
 
