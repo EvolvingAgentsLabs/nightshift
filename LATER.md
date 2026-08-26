@@ -140,6 +140,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Ítem | Motivo |
 |---|---|
 | Backend híbrido por repositorio | ADR-003 elige el backend por instalación, no por repo. Lo natural es marcar un repositorio como sensible y que ése consolide local mientras el resto usa Claude Code. No implementado: hoy es una línea de config global. |
+| Migraciones del esquema del store | La primera fue `runs.cost_usd`, y funciona: agrega lo que falta y no toca lo que hay. No hay downgrade ni versionado por columna, y una migración que necesite reescribir datos —no sólo agregar— todavía no tiene forma. |
 | El redactor pasó a ser también la barrera de salida | Con el backend `claude-code`, lo redactado **sale de la máquina**. Antes el redactor sólo tenía que impedir que el material sucio se persistiera; ahora es lo último antes de que salga. Sube la importancia de las fixtures de Histora, que siguen sin estar. |
 | El benchmark tiene dos modelos y PREREG los pide en singular | El del agente que resuelve y el que consolida. `PREREG §2` pide "modelo exacto y versión" en singular: hay que desdoblarlo antes de congelar, o queda una constante del experimento suelta. |
 | Modelo Qwen concreto y tamaño | **Sin medir.** La autodetección toma el qwen más chico ya descargado (acá `qwen3.5:4b`) porque el target es una Air de noche. Con 4b los patrones salen genéricos: sirven para el gate estructural, no está probado que sirvan para el benchmark. Qué modelo usar en M4 se decide midiendo. |

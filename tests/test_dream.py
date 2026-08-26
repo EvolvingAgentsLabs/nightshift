@@ -452,6 +452,49 @@ class DreamTest(IsolatedStoreTest):
         crudo = '{"pattern": "queda par\x1b[3D\x1b[K\npartido al medio"}'
         self.assertEqual(dream.extract_json(crudo), {"pattern": "queda partido al medio"})
 
+    def test_el_costo_de_consolidar_queda_registrado(self):
+        """Con ADR-003 consolidar dejó de ser gratis, y una corrida sin costo anotado
+        no se puede justificar después."""
+        import os
+        import tempfile
+
+        conn = store.connect()
+        try:
+            self.seed(conn)
+        finally:
+            conn.close()
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "modelo.sh"
+        respuesta = json.dumps({"total_cost_usd": 0.25, "num_turns": 1,
+                                "result": json.dumps(BUENA)})
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\n%s\nFIN\n" % respuesta, encoding="utf-8")
+        falso.chmod(0o755)
+
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(["dream", "--model", str(falso)])
+        self.assertEqual(code, 0, err.getvalue())
+        self.assertIn("USD 0.25", out.getvalue())
+
+        conn = store.connect()
+        try:
+            corrida = store.recent_runs(conn)[0]
+        finally:
+            conn.close()
+        self.assertAlmostEqual(corrida["cost_usd"], 0.25, places=4)
+
+    def test_un_backend_que_no_cobra_no_inventa_un_costo(self):
+        modelo = FakeModel(BUENA)
+        conn = store.connect()
+        try:
+            self.seed(conn)
+            reporte = dream.consolidate(conn, modelo, cfg=config.load(), lookback_days=3650)
+        finally:
+            conn.close()
+        self.assertIsNone(reporte["cost_usd"])
+
     # ------------------------------------------------------------------ backends
     def test_el_default_es_claude_code(self):
         """ADR-003: el agente que ya está instalado y autenticado, por `subprocess`."""

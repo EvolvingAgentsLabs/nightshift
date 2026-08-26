@@ -188,6 +188,48 @@ class StoreTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_un_store_viejo_se_migra_sin_perder_nada(self):
+        """`CREATE TABLE IF NOT EXISTS` no toca una tabla que ya existe.
+
+        Sin migración, un store creado antes de que `runs` tuviera `cost_usd` se queda sin
+        la columna para siempre y falla al escribir. Migrar es agregar lo que falte: nunca
+        borrar ni reescribir una columna con datos.
+        """
+        import sqlite3
+
+        from nightshift import config
+
+        db = config.db_path()
+        viejo = store.SCHEMA_SQL.replace("    cost_usd REAL,\n", "")
+        self.assertNotIn("cost_usd", viejo, "el esquema viejo no tenía la columna")
+        conn = sqlite3.connect(str(db))
+        conn.executescript(viejo)
+        conn.execute("INSERT INTO runs (started_at, command, exit_code, note)"
+                     " VALUES ('2026-01-01T00:00:00Z','dream',0,'corrida vieja')")
+        conn.commit()
+        conn.close()
+
+        conn = store.connect()
+        try:
+            columnas = {f["name"] for f in conn.execute("PRAGMA table_info(runs)")}
+            self.assertIn("cost_usd", columnas, "la migración agregó la columna")
+            vieja = conn.execute("SELECT note, cost_usd FROM runs").fetchone()
+            self.assertEqual(vieja["note"], "corrida vieja", "y no perdió la fila")
+            self.assertIsNone(vieja["cost_usd"])
+
+            store.record_run(conn, command="dream", exit_code=0, cost_usd=0.42)
+            nueva = store.recent_runs(conn)[0]
+            self.assertEqual(nueva["cost_usd"], 0.42)
+        finally:
+            conn.close()
+
+    def test_migrar_dos_veces_no_rompe_nada(self):
+        conn = store.connect()
+        try:
+            self.assertEqual(store.migrate(conn), [], "ya está migrado: no hay nada que hacer")
+        finally:
+            conn.close()
+
     def test_export_tiene_la_forma_del_schema(self):
         conn = store.connect()
         try:

@@ -152,6 +152,10 @@ class LocalModel:
     def __init__(self, command, timeout=DEFAULT_TIMEOUT):
         self.command = [str(part) for part in command]
         self.timeout = timeout
+        # Lo que llevamos gastado. Un backend local devuelve 0 y es la respuesta correcta;
+        # uno que cobra por token devuelve lo que cobró. Consolidar dejó de ser gratis con
+        # ADR-003, y una corrida nocturna cuyo costo nadie anotó no se puede justificar.
+        self.total_cost = 0.0
 
     @property
     def name(self) -> str:
@@ -190,8 +194,18 @@ class LocalModel:
                              % (out.returncode, (out.stderr or "").strip()[:300]))
         return out.stdout
 
+    def _anotar_costo(self, salida):
+        """Suma el costo si el backend lo reporta. El envoltorio del agente lo trae."""
+        envoltorio = extract_json(salida, _profundidad=3)   # sin desenvolver: la factura
+        if isinstance(envoltorio, dict):
+            costo = envoltorio.get("total_cost_usd") or envoltorio.get("cost_usd")
+            if isinstance(costo, (int, float)):
+                self.total_cost += float(costo)
+
     def ask_json(self, prompt: str):
-        data = extract_json(self.ask(prompt))
+        salida = self.ask(prompt)
+        self._anotar_costo(salida)
+        data = extract_json(salida)
         if data is None:
             raise DreamError("el modelo no devolvió JSON parseable")
         return data
@@ -480,6 +494,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     say = log or (lambda _message: None)
 
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
+               "cost_usd": None,
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 
@@ -554,6 +569,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             say("  %s contradicha por %s: superseded, no borrada"
                 % (old["id"][:8], winner["id"][:8]))
 
+    reporte["cost_usd"] = getattr(model, "total_cost", None) or None
     return reporte
 
 

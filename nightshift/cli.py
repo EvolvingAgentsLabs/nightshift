@@ -39,6 +39,7 @@ def cmd_status(args) -> int:
         print("nightshift no está configurado. Corré `nightshift init`.")
         print("Sin `deny_paths` resuelto no se captura nada (spec §8.1).")
         return 0
+    cfg = config.load()
     conn = store.connect()
     try:
         c = store.counts(conn)
@@ -71,6 +72,16 @@ def cmd_status(args) -> int:
                          ", ".join(t[:8] for t in calidad["broken"][:4])))
                 print("  (las anteriores al 2026-08-26 son cascarón por el bug de los")
                 print("   campos del payload; ver LATER.md)")
+        print()
+        from . import dream as dream_mod
+
+        backend = cfg.get("model_backend", "claude-code")
+        comando = dream_mod.detect_command(cfg)
+        print("consolidación: %s%s" % (
+            backend if comando else "%s — NO disponible" % backend,
+            "  · lo redactado sale de la máquina (ADR-003)"
+            if comando and backend == "claude-code" else
+            "  · nada sale de la máquina" if comando else ""))
         print()
         print("dream fase 1 (`consolidate`) existe: las `candidate` salieron de ahí.")
         print("La fase 2 (`verify`) es M5 y no existe, así que **nada llega a")
@@ -297,6 +308,8 @@ def _model_for(cfg, override=None, timeout=None):
 def _print_dream_report(report):
     print("modelo: %s" % report["model"])
     print("período: últimos %d día(s)" % report["lookback_days"])
+    if report.get("cost_usd"):
+        print("costo: USD %.4f" % report["cost_usd"])
     print("grupos: %d sobre %d trayectoria(s) cerrada(s)"
           % (report["groups"], report["trajectories"]))
     print()
@@ -426,6 +439,7 @@ def _record_run(conn, args, started, exit_code, report=None, note=None):
                      candidates=len(report.get("candidates", [])),
                      superseded=len(report.get("superseded", [])),
                      rejected=len(report.get("rejected", [])),
+                     cost_usd=report.get("cost_usd"),
                      note=(note or "")[:200] or None)
 
 
@@ -1210,10 +1224,12 @@ def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
         for row in runs:
             veredicto = {0: "ok", 1: "no consolidó", 2: "sin modelo local"}.get(
                 row["exit_code"], "exit=%s" % row["exit_code"])
-            print("  %s  %-8s %-9s %-16s cand=%d sup=%d desc=%d  %s" % (
+            costo = row["cost_usd"] if "cost_usd" in row.keys() else None
+            print("  %s  %-8s %-9s %-16s cand=%d sup=%d desc=%d %s %s" % (
                 row["started_at"], row["command"], row["backend"] or "—", veredicto,
                 row["candidates"] or 0, row["superseded"] or 0, row["rejected"] or 0,
-                (row["note"] or "")[:60]))
+                ("USD %.3f" % costo) if costo else "        ",
+                (row["note"] or "")[:50]))
     else:
         print("últimas corridas: ninguna todavía.")
         print("Un scheduler sin corridas registradas es una promesa, no un hecho.")
@@ -1361,6 +1377,24 @@ def run_doctor() -> list[dict]:
         checks.append(_check("la captura trae contenido", ok, detalle))
     except Exception as exc:
         checks.append(_check("la captura trae contenido", False, str(exc)))
+
+    # Qué modelo consolida, y qué implica. Con ADR-003 el default manda lo redactado
+    # fuera de la máquina: eso tiene que verse en la herramienta, no sólo en un ADR.
+    try:
+        from . import dream as dream_mod
+
+        backend = cfg.get("model_backend", "claude-code")
+        comando = dream_mod.detect_command(cfg)
+        if comando:
+            detalle = "%s · %s" % (
+                backend,
+                "lo redactado sale de la máquina (ADR-003)" if backend == "claude-code"
+                else "nada sale de la máquina")
+        else:
+            detalle = "backend `%s` sin ejecutable: dream no puede consolidar" % backend
+        checks.append(_check("backend de consolidación", bool(comando), detalle))
+    except Exception as exc:
+        checks.append(_check("backend de consolidación", False, str(exc)))
 
     manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
     hooks = PLUGIN_ROOT / "hooks" / "hooks.json"

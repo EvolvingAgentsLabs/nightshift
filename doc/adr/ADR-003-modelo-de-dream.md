@@ -52,8 +52,10 @@ que la elección sea consciente y no un default heredado.
 la última barrera antes de que el material *salga de la máquina*. Su superficie de riesgo
 sube, y con ella la importancia de las fixtures de Histora que todavía no están (`LATER`).
 
-**Dream cuesta dinero.** Cada corrida nocturna tiene un costo por token. El registro de
-corridas ya guarda lo que el adaptador mide; para dream todavía no.
+**Dream cuesta dinero.** Cada corrida nocturna tiene un costo por token, y queda
+registrado: el store guarda `cost_usd` por corrida y `nightshift schedule status` lo
+muestra. Un backend que no cobra devuelve nada, que es la respuesta correcta y no un cero
+inventado.
 
 **El benchmark ahora tiene dos modelos.** El del agente que resuelve las tareas y el que
 consolida. `bench/PREREG.md` §2 tiene un solo `TODO(Matias)` para "modelo exacto y
