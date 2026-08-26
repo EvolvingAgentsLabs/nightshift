@@ -25,6 +25,29 @@ alguna fila de la matriz, hay que revisar qué parte de la captura sobra.
 
 ---
 
+## Las trayectorias capturadas antes del 2026-08-26 están degradadas
+
+Durante M1 y M2 la captura leyó tres campos del payload que no existen (spec §5.9). Lo
+que quedó en el store de esas sesiones **es estructura sin contenido**: pasos sin resumen
+ni error, `task_type` siempre `general`, ningún paso `contradicted`, ninguna trayectoria
+cerrada como `user_corrected`.
+
+Consecuencias que hay que tener presentes y no maquillar:
+
+- **El conteo del gate de M1 hay que reiniciarlo.** Las sesiones capturadas con los campos
+  equivocados no sirven como evidencia de "5 sesiones reales capturadas": se capturó el
+  cascarón. `nightshift audit --min-sessions 5` va a contarlas igual —cuenta sesiones, no
+  calidad— así que el conteo hay que mirarlo sabiendo esto.
+- **Las trayectorias viejas siguen ahí y no se borran.** Son inútiles para retrieval
+  (todos sus pasos dicen "(sin resumen)") pero borrarlas sería reescribir el registro.
+  Envejecen solas por `retrieval_lookback_days`.
+- **Nada de lo que dream consolidó de ellas vale**, por el mismo motivo.
+
+**Acción pendiente:** ninguna sobre el código. Sobre la evidencia: las 5 sesiones del gate
+de M1 se cuentan **desde el fix**, no desde el principio.
+
+---
+
 ## Deuda de proceso: el adaptador del agente entró sin rama ni PR
 
 El commit `5f9a446` (adaptador del agente para M4) se pusheó **directo a `main`**. La

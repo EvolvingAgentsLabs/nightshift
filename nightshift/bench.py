@@ -281,7 +281,8 @@ def _run(command, *, cwd, timeout, env=None):
 METRICS_RE = re.compile(r"^NIGHTSHIFT_BENCH\s+(\{.*\})\s*$", re.M)
 
 
-def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None):
+def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
+             placeholders=None):
     """Prepara, corre el agente, corre el gate. Devuelve un registro, nunca levanta.
 
     El criterio de resolución es el del pre-registro: **el gate del fixture sale 0 y
@@ -309,10 +310,17 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None):
     code_antes, _, _ = _run(fixture["gate"], cwd=cwd, timeout=timeout, env=env)
     registro["gate_before"] = code_antes
 
-    command = [part.replace("{prompt}", task.get("prompt", ""))
-                   .replace("{task}", task["id"])
-                   .replace("{row}", cell["row"])
-               for part in agent_command]
+    # `{agentes}` y `{root}` son absolutos a propósito: la celda corre en una copia bajo
+    # el directorio de la corrida, no dentro del fixture, así que cualquier ruta relativa
+    # al fixture apunta a otro lado. La documentación decía `../../agentes/` y era falsa.
+    sustituciones = dict(placeholders or {})
+    sustituciones.update({"{prompt}": task.get("prompt", ""), "{task}": task["id"],
+                          "{row}": cell["row"], "{workdir}": str(cwd)})
+    command = []
+    for part in agent_command:
+        for clave, valor in sustituciones.items():
+            part = part.replace(clave, str(valor))
+        command.append(part)
     code_agente, salida, err = _run(command, cwd=cwd, timeout=timeout, env=env)
     registro["agent_exit"] = code_agente
     match = METRICS_RE.search(salida or "")

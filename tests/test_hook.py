@@ -2,6 +2,7 @@
 
 import json
 import unittest
+from pathlib import Path
 
 from tests.base import IsolatedStoreTest
 from nightshift import config, hook, store
@@ -11,6 +12,127 @@ def payload(**kwargs):
     base = {"session_id": "sess", "cwd": "."}
     base.update(kwargs)
     return base
+
+
+# Payloads con la forma REAL de Claude Code, sondeada el 2026-08-26 ejecutando los hooks
+# de verdad. Las claves están acá arriba, sueltas, para que se vean: leer las equivocadas
+# no rompe nada, no loguea nada y no falla ningún test estructural — simplemente captura
+# vacío para siempre.
+CLAVES_REALES = {
+    "SessionStart": ["cwd", "hook_event_name", "session_id", "source", "transcript_path"],
+    "UserPromptSubmit": ["cwd", "hook_event_name", "permission_mode", "prompt", "prompt_id",
+                         "session_id", "transcript_path"],
+    "PostToolUse": ["cwd", "duration_ms", "effort", "hook_event_name", "permission_mode",
+                    "prompt_id", "session_id", "tool_input", "tool_name", "tool_response",
+                    "tool_use_id", "transcript_path"],
+    "PostToolUseFailure": ["cwd", "duration_ms", "effort", "error", "hook_event_name",
+                           "is_interrupt", "permission_mode", "prompt_id", "session_id",
+                           "tool_input", "tool_name", "tool_use_id", "transcript_path"],
+    "Stop": ["cwd", "hook_event_name", "last_assistant_message", "permission_mode",
+             "prompt_id", "session_id", "stop_hook_active", "transcript_path"],
+    "SessionEnd": ["cwd", "hook_event_name", "prompt_id", "reason", "session_id",
+                   "transcript_path"],
+}
+
+
+class PayloadRealTest(IsolatedStoreTest):
+    """El bug más caro de M1+M2: leer los nombres de campo equivocados.
+
+    `prompt` se leía como `user_input`, `tool_response` como `tool_output` y `error` como
+    `error_message`. Consecuencia: el tipo de tarea nunca se clasificó, ninguna corrección
+    se detectó, y **todos los pasos quedaron sin contenido** — durante dos milestones, en
+    silencio, porque los hooks salen 0 pase lo que pase (spec §7.2) y el selftest usaba
+    los mismos nombres inventados que el código.
+    """
+
+    def sesion_real(self):
+        base = {"session_id": "real", "cwd": ".", "transcript_path": "/tmp/t.jsonl"}
+        hook.dispatch("SessionStart", dict(base, source="startup"))
+        hook.dispatch("UserPromptSubmit", dict(base, prompt="los tests fallan con "
+                                                            "UnicodeDecodeError"))
+        hook.dispatch("PostToolUse", dict(
+            base, tool_name="Read", tool_use_id="t1", duration_ms=12,
+            tool_input={"file_path": "parser.py"},
+            tool_response={"type": "text", "file": {"content": "def parse(): ..."}}))
+        hook.dispatch("PostToolUseFailure", dict(
+            base, tool_name="Bash", tool_use_id="t2", is_interrupt=False,
+            tool_input={"command": "pytest -q"},
+            error="UnicodeDecodeError: 'utf-8' codec can't decode byte"))
+        hook.dispatch("Stop", dict(base, last_assistant_message="listo"))
+        hook.dispatch("SessionEnd", dict(base, reason="clear"))
+        conn = store.connect()
+        try:
+            row = conn.execute("SELECT * FROM trajectories").fetchone()
+            return dict(row), [dict(s) for s in store.steps_of(conn, row["id"])]
+        finally:
+            conn.close()
+
+    def test_el_prompt_clasifica_el_tipo_de_tarea(self):
+        row, _ = self.sesion_real()
+        self.assertEqual(row["task_type"], "debug_test_failure",
+                         "el prompt llega en `prompt`, no en `user_input`")
+
+    def test_la_salida_de_la_tool_se_captura(self):
+        _, pasos = self.sesion_real()
+        uso = [p for p in pasos if p["kind"] == "tool_use"][0]
+        self.assertTrue(uso["result_summary"], "la salida llega en `tool_response`")
+        self.assertIn("def parse", uso["result_summary"])
+
+    def test_el_error_de_la_tool_se_captura(self):
+        _, pasos = self.sesion_real()
+        fallo = [p for p in pasos if p["kind"] == "tool_failure"][0]
+        self.assertTrue(fallo["error_message"], "el error llega en `error`")
+        self.assertIn("UnicodeDecodeError", fallo["error_message"])
+        self.assertTrue(fallo["decisive"])
+
+    def test_ningun_paso_de_tool_queda_vacio(self):
+        """La aserción que faltaba: estructura correcta y contenido vacío es el bug."""
+        _, pasos = self.sesion_real()
+        for paso in pasos:
+            if paso["kind"] in ("tool_use", "tool_failure"):
+                with self.subTest(idx=paso["idx"]):
+                    self.assertTrue(paso["result_summary"] or paso["error_message"])
+
+    def test_una_correccion_del_usuario_se_detecta(self):
+        base = {"session_id": "corr", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUse", dict(base, tool_name="Edit",
+                                          tool_input={"file_path": "a.py"},
+                                          tool_response={"type": "text", "file": "ok"}))
+        hook.dispatch("UserPromptSubmit", dict(base, prompt="no, eso está mal"))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, "corr")["id"]
+            self.assertTrue(store.steps_of(conn, tid)[-1]["contradicted"])
+        finally:
+            conn.close()
+
+    def test_una_interrupcion_no_es_senal_decisiva(self):
+        """`is_interrupt` es alguien apretando Esc, no una herramienta que falló."""
+        base = {"session_id": "esc", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUseFailure", dict(base, tool_name="Bash", is_interrupt=True,
+                                                 tool_input={"command": "sleep 900"},
+                                                 error="interrupted by user"))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, "esc")["id"]
+            paso = store.steps_of(conn, tid)[-1]
+            self.assertEqual(paso["kind"], "tool_failure")
+            self.assertFalse(paso["decisive"])
+        finally:
+            conn.close()
+
+    def test_los_nombres_de_campo_estan_documentados(self):
+        """Si el harness los cambia otra vez, esto dice contra qué se verificó y cuándo."""
+        spec = (Path(__file__).resolve().parent.parent / "doc" / "00-spec.md").read_text(
+            encoding="utf-8")
+        for evento, claves in CLAVES_REALES.items():
+            with self.subTest(evento=evento):
+                self.assertIn(evento, spec)
+        for clave in ("prompt", "tool_response", "error", "is_interrupt"):
+            with self.subTest(clave=clave):
+                self.assertIn("`%s`" % clave, spec)
 
 
 class HookTest(IsolatedStoreTest):
@@ -66,7 +188,7 @@ class HookTest(IsolatedStoreTest):
         hook.dispatch("SessionStart", payload())
         hook.dispatch("PostToolUse", payload(tool_name="Edit", tool_input={"file_path": "a.py"},
                                              tool_output="ok"))
-        hook.dispatch("UserPromptSubmit", payload(user_input="no, eso está mal"))
+        hook.dispatch("UserPromptSubmit", payload(user_input="no, eso está mal"))  # alias viejo
         conn = store.connect()
         try:
             tid = store.active_trajectory(conn, "sess")["id"]

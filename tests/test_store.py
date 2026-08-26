@@ -50,6 +50,67 @@ class StoreTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_pasos_concurrentes_no_se_pisan(self):
+        """El bug que encontró correr el benchmark: dos hooks a la vez perdían un paso.
+
+        Claude Code lanza tool calls en paralelo, y cada hook es un proceso nuevo con su
+        propia conexión. Con el índice calculado en dos sentencias, los dos leían el
+        mismo máximo y el segundo moría con `UNIQUE constraint failed`. El hook salía 0
+        igual —como manda spec §7.2— así que la sesión no se enteraba de nada.
+        """
+        import threading
+
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="paralelo",
+                                        repo_fingerprint="a" * 64, task_type="general")
+        finally:
+            conn.close()
+
+        errores, indices = [], []
+        cerrojo = threading.Lock()
+
+        def agregar(n):
+            propia = store.connect()
+            try:
+                idx = store.append_step(propia, tid, kind="tool_use", tool="run_shell",
+                                        result_summary="paso %d" % n)
+                with cerrojo:
+                    indices.append(idx)
+            except Exception as exc:            # noqa: BLE001 - se reporta, no se traga
+                with cerrojo:
+                    errores.append(repr(exc))
+            finally:
+                propia.close()
+
+        hilos = [threading.Thread(target=agregar, args=(n,)) for n in range(12)]
+        for hilo in hilos:
+            hilo.start()
+        for hilo in hilos:
+            hilo.join()
+
+        self.assertEqual(errores, [], "ningún hook puede morir por una carrera")
+        conn = store.connect()
+        try:
+            pasos = store.steps_of(conn, tid)
+        finally:
+            conn.close()
+        self.assertEqual(len(pasos), 12, "no se perdió ningún paso")
+        self.assertEqual(sorted(p["idx"] for p in pasos), list(range(12)),
+                         "los índices son consecutivos y únicos")
+
+    def test_el_tope_de_pasos_tambien_es_atomico(self):
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="tope", repo_fingerprint="b" * 64,
+                                        task_type="general")
+            for _ in range(6):
+                store.append_step(conn, tid, kind="tool_use", max_steps=4)
+            self.assertEqual(len(store.steps_of(conn, tid)), 4)
+            self.assertIsNone(store.append_step(conn, tid, kind="tool_use", max_steps=4))
+        finally:
+            conn.close()
+
     def test_export_tiene_la_forma_del_schema(self):
         conn = store.connect()
         try:

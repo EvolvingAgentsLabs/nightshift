@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002 |
-| Revisión | 0.3.2 — enmendada por lo aprendido corriendo M1+M2 |
+| Revisión | 0.3.3 — enmendada por sondear los hooks de verdad |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -342,6 +342,50 @@ hacer:
   fecha de apertura. Dos sesiones simultáneas son normales, y una sesión de doce horas
   que sigue apendeando pasos está viva.
 
+### 5.9 Hallazgo: los nombres de campo del payload, y lo que costó suponerlos
+
+**Añadido en 0.3.3, sondeando los hooks de verdad el 2026-08-26.**
+
+M1 y M2 se implementaron leyendo tres campos que no existen. El payload real de Claude
+Code trae:
+
+| Evento | Campo que importa | Se leía como |
+|---|---|---|
+| `UserPromptSubmit` | `prompt` | `user_input` |
+| `PostToolUse` | `tool_response` (objeto) | `tool_output` |
+| `PostToolUseFailure` | `error` (string) | `error_message` |
+
+Consecuencia, durante dos milestones enteros: **el tipo de tarea nunca se clasificó**
+(todas las trayectorias quedaron `general`), **ninguna corrección se detectó** (y por lo
+tanto ningún paso quedó `contradicted`, y ninguna trayectoria cerró como
+`user_corrected`), y **todos los pasos de tool se guardaron sin contenido**.
+
+Nada de eso produjo un error. Los hooks salen 0 pase lo que pase (§7.2), que es correcto
+y es exactamente lo que lo hizo invisible. La memoria inyectada decía "(sin resumen)" en
+cada paso, que era el sistema reportando el bug en voz alta sin que nadie lo leyera.
+
+El agravante es de método: **el selftest usaba los mismos nombres inventados que el
+código**, así que pasaba en verde confirmando la suposición en vez de la realidad. Un
+replay que uno mismo escribe con sus propias claves no prueba la integración: prueba que
+uno es consistente consigo mismo.
+
+Tres reglas que salen de acá, y que M3 en adelante respeta:
+
+1. Los campos se leen con **alternativas** (`_primero(payload, CAMPO_PROMPT)`), porque
+   cambian entre versiones y el fallback cuesta una línea.
+2. El replay del selftest usa la **forma real** del payload, sondeada, no la inventada.
+   `tests/test_hook.py` deja las claves verificadas escritas y con fecha.
+3. El selftest afirma que los pasos capturados **tienen contenido**. Estructura correcta
+   con contenido vacío era el bug, y ninguna aserción estructural lo veía.
+
+También se verificaron, y ahora se usan:
+
+- `is_interrupt` en `PostToolUseFailure` — distingue "la herramienta falló" de "el usuario
+  apretó Esc". Una interrupción **no** es señal decisiva: aprender de ella sería aprender
+  del momento en que alguien cortó.
+- `SessionEnd` trae `reason`, `PostToolUse` trae `duration_ms`, y `SessionStart` trae
+  `source`. Todavía no se usan.
+
 ### 5.5 Comandos
 
 Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
@@ -632,7 +676,7 @@ la spec y el benchmark negativo son publicables.
 | 5.5 | Los comandos son `/nightshift:<skill>` | Las skills de plugin llevan namespace; el plan suponía `/nightshift <sub>` |
 | 5.1 | `UserPromptSubmit` persiste la **etiqueta** de tipo de tarea, nunca el texto del prompt | El retrieval estructural necesita el tipo; guardar el prompt sería una superficie de privacidad que el plan no pidió |
 
-### Enmiendas 0.3.2 (de correr M2 contra sesiones reales)
+### Enmiendas 0.3.2 y 0.3.3 (de correr M2, y de sondear los hooks)
 
 | § | Enmienda | Por qué |
 |---|---|---|
@@ -642,5 +686,7 @@ la spec y el benchmark negativo son publicables.
 | 6.1 | Dream fase 1 implementado: agrupación determinista por tipo de tarea, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor | Agrupar con un LLM es irreproducible; y una abstracción que no valida es una fuga cross-repo esperando |
 | 6.3 | El texto inyectado dice de cada trayectoria si es cruda, `candidate` o verificada | "El agente debe poder distinguir 'esto se probó' de 'esto pareció funcionar una vez'" exige que el texto lo diga |
 | 7.1 | Scheduler implementado; instalar y activar son pasos separados, y cada corrida queda registrada | Cargar una unidad en el gestor de arranque no es reversible desde un test; y un timer sin corridas registradas no es verificable |
+| 5.1, 5.9 | Los campos del payload se leen con alternativas, y el replay del selftest usa la forma real | Se leían tres campos que no existen: durante M1 y M2 el tipo de tarea nunca se clasificó, ninguna corrección se detectó y todos los pasos se guardaron vacíos |
+| 4.3 | Un `PostToolUseFailure` con `is_interrupt` no cuenta como señal decisiva | Es el usuario cortando, no la herramienta fallando |
 | 4.4 | De otro repo se emite **sólo** la abstracción, nunca los pasos | El gate de cross-repo estaba en el ranking y no en la emisión: encender `cross_repo` hubiera cruzado detalle de repo |
 | 9 | `why` muestra la abstracción y los enlaces de contradicción | Una `candidate` se inyecta por su patrón; un `why` que no lo muestra no reconstruye el origen de lo inyectado |
