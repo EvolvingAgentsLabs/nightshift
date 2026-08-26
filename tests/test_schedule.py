@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from tests.base import IsolatedStoreTest
@@ -88,6 +89,46 @@ class ScheduleTest(IsolatedStoreTest):
         self.assertEqual(data["corridas"][0]["candidates"], 1)
         self.assertIn(data["backend_elegido"], schedule.BACKENDS)
         self.assertEqual(code, 1, "todavía no hay nada instalado")
+
+    # -------------------------------------------------------- próxima corrida
+    def test_next_run_hoy_si_todavia_no_paso(self):
+        backend = schedule.backend("launchd", config.load())  # 03:30 por default
+        ahora = datetime(2026, 1, 5, 1, 0)
+        self.assertEqual(backend.next_run(ahora), datetime(2026, 1, 5, 3, 30))
+
+    def test_next_run_manana_si_ya_paso(self):
+        backend = schedule.backend("launchd", config.load())
+        ahora = datetime(2026, 1, 5, 10, 0)
+        self.assertEqual(backend.next_run(ahora), datetime(2026, 1, 6, 3, 30))
+
+    def test_next_run_al_segundo_exacto_cae_al_dia_siguiente(self):
+        """A esa hora la corrida de hoy ya está disparada (o disparándose)."""
+        backend = schedule.backend("launchd", config.load())
+        ahora = datetime(2026, 1, 5, 3, 30)
+        self.assertEqual(backend.next_run(ahora), datetime(2026, 1, 6, 3, 30))
+
+    def test_next_run_sin_now_usa_el_reloj_real(self):
+        backend = schedule.backend("launchd", config.load())
+        siguiente = backend.next_run()
+        self.assertGreater(siguiente, datetime.now())
+
+    def test_status_muestra_la_proxima_corrida_de_launchd(self):
+        self.run_cli(["schedule", "install", "--backend", "launchd", "--no-activate"])
+        code, out, _ = self.run_cli(["schedule", "status"])
+        self.assertEqual(code, 0)
+        self.assertIn("próxima    : ", out)
+
+    def test_status_json_incluye_la_proxima_corrida_de_launchd(self):
+        self.run_cli(["schedule", "install", "--backend", "launchd", "--no-activate"])
+        _, out, _ = self.run_cli(["schedule", "status", "--json"])
+        data = json.loads(out)
+        self.assertIsNotNone(data["proxima_corrida"])
+        datetime.fromisoformat(data["proxima_corrida"])  # no tira
+
+    def test_status_de_loop_no_promete_una_proxima_corrida(self):
+        """`loop` es un intervalo en primer plano, no un timer del sistema: nada que calcular."""
+        code, out, _ = self.run_cli(["schedule", "status", "--backend", "loop"])
+        self.assertNotIn("próxima    : ", out)
 
     # ------------------------------------------------------------------ backends
     def test_install_y_uninstall_no_dejan_rastro(self):

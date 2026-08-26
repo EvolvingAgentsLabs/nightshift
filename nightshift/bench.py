@@ -291,14 +291,22 @@ def _init_git(destino, remote):
 
 
 def _run(command, *, cwd, timeout, env=None):
+    """Devuelve `(code, stdout, stderr, timed_out)`.
+
+    `code is None` cubre dos causas distintas — el proceso agotó el timeout, o ni
+    siquiera arrancó (comando inexistente) — y son evidencia distinta: una celda que no
+    terminó a tiempo no es lo mismo que una celda que falló habiendo corrido entera.
+    `timed_out` es lo único que las separa; perderlo en el camino deja `resolved=False`
+    contando ambas como el mismo resultado.
+    """
     try:
         out = subprocess.run(command, cwd=cwd, capture_output=True, text=True,
                              timeout=timeout, env=env)
-        return out.returncode, out.stdout, out.stderr
+        return out.returncode, out.stdout, out.stderr, False
     except subprocess.TimeoutExpired:
-        return None, "", "timeout tras %ss" % timeout
+        return None, "", "timeout tras %ss" % timeout, True
     except OSError as exc:
-        return None, "", str(exc)
+        return None, "", str(exc), False
 
 
 METRICS_RE = re.compile(r"^NIGHTSHIFT_BENCH\s+(\{.*\})\s*$", re.M)
@@ -324,13 +332,13 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
     inicio = time.time()
 
     if task.get("setup"):
-        code, _, err = _run(task["setup"], cwd=cwd, timeout=timeout, env=env)
+        code, _, err, _ = _run(task["setup"], cwd=cwd, timeout=timeout, env=env)
         if code != 0:
             registro.update({"resolved": None, "error": "setup falló: %s" % err.strip()[:200],
                              "seconds": round(time.time() - inicio, 2)})
             return registro
 
-    code_antes, _, _ = _run(fixture["gate"], cwd=cwd, timeout=timeout, env=env)
+    code_antes, _, _, _ = _run(fixture["gate"], cwd=cwd, timeout=timeout, env=env)
     registro["gate_before"] = code_antes
 
     # `{agentes}` y `{root}` son absolutos a propósito: la celda corre en una copia bajo
@@ -344,8 +352,9 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
         for clave, valor in sustituciones.items():
             part = part.replace(clave, str(valor))
         command.append(part)
-    code_agente, salida, err = _run(command, cwd=cwd, timeout=timeout, env=env)
+    code_agente, salida, err, timed_out = _run(command, cwd=cwd, timeout=timeout, env=env)
     registro["agent_exit"] = code_agente
+    registro["timed_out"] = timed_out
     match = METRICS_RE.search(salida or "")
     if match:
         try:
@@ -366,7 +375,7 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
     if code_agente is None:
         registro["error"] = "el agente no terminó: %s" % err.strip()[:200]
 
-    code_despues, _, _ = _run(fixture["gate"], cwd=cwd, timeout=timeout, env=env)
+    code_despues, _, _, _ = _run(fixture["gate"], cwd=cwd, timeout=timeout, env=env)
     registro["gate_after"] = code_despues
     registro["resolved"] = bool(code_antes not in (0, None) and code_despues == 0)
 
@@ -374,8 +383,8 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
     # determinista del fixture** contra un ground truth hecho a mano, no un modelo
     # (PREREG §3-D). nightshift corre el script y anota lo que diga; no clasifica.
     if fixture.get("classify"):
-        code_clasif, salida_clasif, err_clasif = _run(fixture["classify"], cwd=cwd,
-                                                      timeout=timeout, env=env)
+        code_clasif, salida_clasif, err_clasif, _ = _run(fixture["classify"], cwd=cwd,
+                                                          timeout=timeout, env=env)
         match = METRICS_RE.search(salida_clasif or "")
         if code_clasif == 0 and match:
             try:
@@ -417,13 +426,13 @@ def check_fixture(fixture, *, timeout=120, log=None) -> dict:
         referencia = task.get("reference_fix") or fixture.get("reference_fix")
         with tempfile.TemporaryDirectory(prefix="nightshift-fixcheck-") as tmp:
             trabajo = prepare_workdir(fixture, Path(tmp) / "repo")
-            antes, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout, env=entorno)
+            antes, _, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout, env=entorno)
             despues = None
             if referencia:
                 origen, destino = referencia["apply"]
                 shutil.copyfile(Path(trabajo) / origen, Path(trabajo) / destino)
-                despues, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout,
-                                     env=entorno)
+                despues, _, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout,
+                                        env=entorno)
         problemas = []
         if antes == 0:
             problemas.append("el gate ya sale 0 sin tocar nada: no es una tarea")
@@ -470,6 +479,12 @@ def summarize(records) -> dict:
             celda["cost_usd"] = celda.get("cost_usd", 0.0) + float(record["cost_usd"])
         if record.get("tool_limit_exceeded"):
             celda["limit_exceeded"] = celda.get("limit_exceeded", 0) + 1
+        if record.get("timed_out"):
+            # Una celda que no terminó a tiempo cuenta como no resuelta —igual que un
+            # fallo— pero no es la misma evidencia: acá no se sabe si el agente la
+            # habría resuelto con más tiempo. Sin este conteo separado, el reporte
+            # mezcla las dos cosas bajo el mismo `resolved=False`.
+            celda["timed_out"] = celda.get("timed_out", 0) + 1
         if record.get("resolved") is not None:
             repeticion["resolved"].append(1.0 if record["resolved"] else 0.0)
         if record.get("tool_calls") is not None:
@@ -495,6 +510,7 @@ def summarize(records) -> dict:
             "false_stale_range": [min(falsas), max(falsas)] if falsas else None,
             "cost_usd": celda.get("cost_usd"),
             "limit_exceeded": celda.get("limit_exceeded", 0),
+            "timed_out": celda.get("timed_out", 0),
         }
     return salida
 

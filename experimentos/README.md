@@ -159,7 +159,45 @@ gate de M1**, que pide cinco sesiones reales. Los resultados de esta corrida est
 abajo, y los cambios que sobrevivieron entraron al repo por el camino normal: rama, gate
 en verde, PR.
 
-<!-- RESULTADOS-CICLOS -->
+### Lo que dio (2026-08-26, con `sonnet`)
+
+```
+ciclo  problema                  tool_calls  archivos  make_check  inyecciones
+1      medir el store            42          5         OK          0
+2      próxima corrida           26          7         OK          1
+3      tope de grupos en dream   28          10        OK          2
+4      trazabilidad del costo    40          10        OK          3
+5      celdas que no terminaron  48          12        OK          4
+```
+
+**Los cinco dejaron el gate en verde y produjeron código que se pudo mergear**: 431
+líneas, de las cuales 282 son tests. Las cinco features funcionan:
+
+```
+store: ~/.nightshift/trajectories.sqlite3 (1.3 MB en disco)
+próxima    : 2026-08-27 03:30
+--max-groups MAX_GROUPS
+  consolidada con: claude -p --output-format json
+```
+
+Tres cosas que se leen en la tabla:
+
+**Las inyecciones crecen de 0 a 4.** Cada ciclo recibe lo que consolidaron los anteriores:
+el 1 arranca con el store vacío, el 5 con cuatro patrones.
+
+**Los tool calls no bajan.** 42 → 26 → 28 → 40 → 48. Los cinco problemas no son igual de
+difíciles y los archivos tocados crecen de 5 a 12, así que la serie no dice nada sobre si
+la memoria ayudó. Es el mismo límite que encontró el experimento 01, otra vez: sin
+corridas repetidas de la misma tarea, no hay con qué comparar.
+
+**La calidad alcanzó para mergearlo.** El ciclo 4 usó el mecanismo de migración del
+esquema que se había construido horas antes, agregó ahí sus columnas y subió la revisión,
+sin que el prompt se lo pidiera. Su docstring distingue "el backend no reportó costo" de
+"costó cero", que es la misma distinción que hace el código de al lado. El trabajo entró
+al repo por el camino normal: rama, `make check` en verde, PR.
+
+**Lo que estos cinco ciclos no son:** sesiones de una persona trabajando. Corrieron sobre
+una copia y un store propios, y **no suman al conteo del gate de M1**.
 
 ---
 

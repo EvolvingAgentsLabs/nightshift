@@ -382,6 +382,68 @@ class CliTest(IsolatedStoreTest):
         self.assertEqual(code, 1)
         self.assertIn("no hay corridas registradas", err)
 
+    def test_report_distingue_una_celda_fallada_de_una_que_no_termino_por_timeout(self):
+        """Las dos cuentan como no resueltas, pero son evidencia distinta.
+
+        Un fallo dice que el agente corrió entero y no arregló nada. Un timeout dice que
+        no se sabe: nunca terminó. Mezclarlas bajo `resolved=False` sin distinción hace
+        que un reporte lleno de timeouts se lea igual que uno lleno de fallos genuinos.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        agente = Path(tmp.name) / "agente.sh"
+        agente.write_text(
+            "#!/bin/sh\n"
+            "task=\"$1\"\n"
+            "mkdir -p state\n"
+            "case \"$task\" in\n"
+            "  t3) sleep 5 ;;\n"          # nunca llega a arreglar nada: fuerza timeout
+            "  t4) : ;;\n"                # termina limpio y no arregla nada: fallo genuino
+            "  *) printf 'listo\\n' > \"state/${task}.fixed\" ;;\n"
+            "esac\n",
+            encoding="utf-8")
+        agente.chmod(0o755)
+
+        code, out, err = self.run_cli(
+            ["bench", "run", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--prereg", str(self.prereg_congelado()), "--agent",
+             "%s {task} {row}" % agente, "--rows", "S1", "--repeats", "1",
+             "--timeout", "1"])
+        self.assertIn(code, (0, 1), err)
+
+        base = Path(self.home) / "bench"
+        corrida = sorted(base.glob("*"))[-1]
+        registros = [json.loads(l) for l in
+                     (corrida / "results.jsonl").read_text(encoding="utf-8").splitlines()
+                     if l]
+        por_tarea = {r["task"]: r for r in registros}
+
+        self.assertTrue(por_tarea["t3"]["timed_out"], "t3 nunca terminó")
+        self.assertFalse(por_tarea["t3"]["resolved"])
+        self.assertFalse(por_tarea["t4"].get("timed_out"), "t4 sí terminó, sólo falló")
+        self.assertFalse(por_tarea["t4"]["resolved"])
+
+        code, out, _ = self.run_cli(["bench", "report", "--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        resumen = data["summary"][0]
+        self.assertEqual(resumen["timed_out"], 1,
+                         "el resumen agregado también tiene que separar timeouts de fallos")
+
+        # Sin --prereg apunta al PREREG real, sin congelar: el veredicto queda
+        # indecidible (code 1) porque C y D tampoco corrieron. Eso es aparte de lo que
+        # este test verifica — que el texto marque el timeout.
+        code, out, _ = self.run_cli(["bench", "report"])
+        self.assertEqual(code, 1)
+        self.assertIn("[TIMEOUT]", out, "el timeout se marca en el reporte de texto")
+        self.assertIn("no terminaron por timeout", out)
+        lineas = {l.split(None, 3)[2]: l for l in out.splitlines()
+                 if l.strip().startswith(("S0 ", "S1 "))}
+        self.assertIn("[TIMEOUT]", lineas["t3"])
+        self.assertNotIn("[TIMEOUT]", lineas["t4"])
+
 
 if __name__ == "__main__":
     unittest.main()

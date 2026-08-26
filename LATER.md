@@ -149,7 +149,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Los pesos del ranking | `retrieve.W_*` son constantes elegidas a mano. Son deterministas y auditables (`why` los reimprime), pero nadie las calibró. M4 es quien puede decir si sirven. |
 | Ventana de las huérfanas | `orphan_after_hours: 12` es un default razonado, no medido: por debajo, una sesión inactiva pero viva (una que quedó abierta durante la noche) se cierra y la siguiente tool call abre una trayectoria nueva; por encima, una sesión muerta tarda más en volverse recuperable. Se ajusta con trayectorias reales delante. |
 | Una máquina suspendida cuenta como inactividad | El barrido mira el reloj de pared, no el tiempo de CPU. Un portátil cerrado toda la noche con una sesión abierta la ve como huérfana a la mañana. Cerrarla no borra nada, pero parte la sesión si el usuario la retoma. |
-| Retención y tamaño del store | Sin política. Una trayectoria por sesión y hasta 400 pasos cada una crece sin techo. |
+| Retención y tamaño del store | Sin política. Una trayectoria por sesión y hasta 400 pasos cada una crece sin techo. `nightshift status` ya reporta el tamaño en disco (`store.store_size_bytes()`), así que la política se puede decidir con datos; la decisión en sí sigue sin tomarse. |
 | Función de ranking y peso exacto de `candidate` vs `procedure` | Spec §6.3 fija el orden (candidate < procedure); el número sale de datos. |
 | Cómo se usa `MEMORY.md` como señal de retrieval | Hoy sólo se detecta **si existe**, y si existe el texto inyectado lo dice. No se lee el contenido. Qué señal extraer se decide con memoria nativa real delante. |
 | Transferencia cross-repo de verdad | `cross_repo` sigue **apagado** por defecto, pero el camino ya es correcto: sólo cruzan trayectorias con `abstraction` (que ahora produce dream) y de ellas se emite **sólo** el patrón, nunca los pasos. Falta la decisión de encenderlo y la evidencia de M4 de que transferir sirve. La capacidad C no está entregada. |
@@ -171,7 +171,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 | `dream` no puebla `hypothesis` | Sigue vacía: el modelo produce `abstraction`, no hipótesis por trayectoria. Se puede derivar, no se hizo. |
 | Las tres noches del gate de M3 | El scheduler está y `schedule status` reporta las corridas. **La evidencia no está**: hay que instalar el timer en la Air y dejarlo correr tres noches. Lo hace una persona, no un agente. |
 | Ventana horaria fija (03:30) | Config, pero elegida a mano. No hay medición de cuánto tarda una consolidación real ni de si entra en la ventana de batería. |
-| `schedule status` no dice cuándo es la próxima corrida | `launchctl print` y `systemctl list-timers` lo saben; nightshift no los consulta todavía. Lo que sí muestra es lo que pasó, que es lo que el gate necesita. |
+| `schedule status` no dice cuándo es la próxima corrida en `systemd` ni en `loop` | Se resolvió para `launchd`: `LaunchdBackend.next_run()` calcula la próxima corrida desde el `Hour`/`Minute` del propio plist, sin parsear `launchctl print` (formato no versionado). Falta el mismo cálculo para `systemd` (`OnCalendar`) y una noción equivalente para `loop` (próximo vencimiento del intervalo). |
 | El backend `loop` no sobrevive a un reinicio | Es el backend de desarrollo, corre en primer plano y muere con la terminal. Documentado, no arreglado: para eso están los otros dos. |
 | Política de retención del store | No hay volumen real todavía. Decidir con datos, no con intuición. |
 
