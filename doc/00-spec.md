@@ -6,8 +6,8 @@
 | Estado | Draft — M0 |
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
-| ADRs vinculados | ADR-001, ADR-002 |
-| Revisión | 0.3.3 — enmendada por sondear los hooks de verdad |
+| ADRs vinculados | ADR-001, ADR-002, ADR-003 |
+| Revisión | 0.3.4 — el modelo de dream pasa a Claude Code (ADR-003) |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -95,7 +95,11 @@ dump de la sesión no contiene ninguna escritura bajo el árbol de Auto Memory.
   (§4.4); el *adapter* no se abre hasta M6.
 - Publicación en el marketplace de plugins de Claude Code.
 - Sincronización remota, multi-máquina o multi-usuario.
-- Cualquier dependencia de API remota. Todo el modelo corre local (Qwen).
+- Cualquier dependencia que exija una **API key nueva**. El modelo que consolida corre
+  en Claude Code —el agente que ya está instalado y autenticado, invocado por
+  `subprocess`— o en Qwen local, según `model_backend`. Ver **ADR-003**, que revierte el
+  "todo el modelo corre local" de la v0.3 y deja escrito su costo: las trayectorias
+  redactadas salen de la máquina salvo que se elija el backend local.
 - Integración con Omarchy / Quattro.
 
 ---
@@ -147,7 +151,8 @@ proceso de fondo más que puede colgarse, en contra de §7.2. Se reabre cuando l
 ### 3.2 Stack
 
 _(sin cambio respecto a v0.2)_ Daemon en Python, hooks como ejecutables en PATH,
-scheduler pluggable, modelo Qwen local. Sin dependencias de API remota (§2.2).
+scheduler pluggable. **Enmienda 0.3.4:** el modelo que consolida es Claude Code por
+defecto y Qwen local por config (ADR-003). Sin API keys nuevas (§2.2).
 
 ---
 
@@ -707,5 +712,11 @@ la spec y el benchmark negativo son publicables.
 | 7.1 | Scheduler implementado; instalar y activar son pasos separados, y cada corrida queda registrada | Cargar una unidad en el gestor de arranque no es reversible desde un test; y un timer sin corridas registradas no es verificable |
 | 5.1, 5.9 | Los campos del payload se leen con alternativas, y el replay del selftest usa la forma real | Se leían tres campos que no existen: durante M1 y M2 el tipo de tarea nunca se clasificó, ninguna corrección se detectó y todos los pasos se guardaron vacíos |
 | 4.3 | Un `PostToolUseFailure` con `is_interrupt` no cuenta como señal decisiva | Es el usuario cortando, no la herramienta fallando |
+
+### Enmiendas 0.3.4 (ADR-003)
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 2.2, 3.2, 6.1 | El modelo que consolida es Claude Code por defecto; el backend local queda por config | La calidad medida del modelo local no alcanzaba, y pedir ollama es más fricción que usar el agente que ya está instalado. El costo —las trayectorias redactadas salen de la máquina— está escrito en ADR-003 |
 | 4.4 | De otro repo se emite **sólo** la abstracción, nunca los pasos | El gate de cross-repo estaba en el ranking y no en la emisión: encender `cross_repo` hubiera cruzado detalle de repo |
 | 9 | `why` muestra la abstracción y los enlaces de contradicción | Una `candidate` se inyecta por su patrón; un `why` que no lo muestra no reconstruye el origen de lo inyectado |

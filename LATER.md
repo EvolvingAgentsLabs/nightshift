@@ -139,6 +139,9 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 | Ítem | Motivo |
 |---|---|
+| Backend híbrido por repositorio | ADR-003 elige el backend por instalación, no por repo. Lo natural es marcar un repositorio como sensible y que ése consolide local mientras el resto usa Claude Code. No implementado: hoy es una línea de config global. |
+| El redactor pasó a ser también la barrera de salida | Con el backend `claude-code`, lo redactado **sale de la máquina**. Antes el redactor sólo tenía que impedir que el material sucio se persistiera; ahora es lo último antes de que salga. Sube la importancia de las fixtures de Histora, que siguen sin estar. |
+| El benchmark tiene dos modelos y PREREG los pide en singular | El del agente que resuelve y el que consolida. `PREREG §2` pide "modelo exacto y versión" en singular: hay que desdoblarlo antes de congelar, o queda una constante del experimento suelta. |
 | Modelo Qwen concreto y tamaño | **Sin medir.** La autodetección toma el qwen más chico ya descargado (acá `qwen3.5:4b`) porque el target es una Air de noche. Con 4b los patrones salen genéricos: sirven para el gate estructural, no está probado que sirvan para el benchmark. Qué modelo usar en M4 se decide midiendo. |
 | Calidad del prompt de `consolidate` | El prompt de `dream.PROMPT` es una primera versión. Los gates que lo rodean (esquema, redactor, auditor) están testeados; que lo que produce sea *útil* no lo prueba ningún test — lo prueba M4. |
 | Agrupación fina | Hoy se agrupa por tipo de tarea y nada más, porque agrupar por firma de herramientas dejaba grupos de uno. Con volumen real habrá que agrupar mejor: un `debug_test_failure` de decodificación y uno de import circular no comparten patrón, y hoy caen en el mismo grupo. |

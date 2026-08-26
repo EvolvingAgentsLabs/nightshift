@@ -452,6 +452,73 @@ class DreamTest(IsolatedStoreTest):
         crudo = '{"pattern": "queda par\x1b[3D\x1b[K\npartido al medio"}'
         self.assertEqual(dream.extract_json(crudo), {"pattern": "queda partido al medio"})
 
+    # ------------------------------------------------------------------ backends
+    def test_el_default_es_claude_code(self):
+        """ADR-003: el agente que ya está instalado y autenticado, por `subprocess`."""
+        comando = dream.detect_command({})
+        self.assertIsNotNone(comando, "hace falta `claude` en el PATH para este test")
+        self.assertIn("claude", comando[0])
+        self.assertIn("-p", comando)
+        self.assertIn("--output-format", comando)
+
+    def test_el_backend_local_sigue_disponible(self):
+        """Para un repo cuyo material no puede salir de la máquina, es una línea de config."""
+        comando = dream.detect_command({"model_backend": "local"})
+        if comando is None:
+            self.skipTest("ollama no está en esta máquina")
+        self.assertIn("ollama", comando[0])
+
+    def test_el_modelo_concreto_no_se_elige_solo(self):
+        """Elegirlo sería fijar una constante del experimento (PREREG §2)."""
+        self.assertNotIn("--model", dream.detect_command({}))
+        self.assertIn("sonnet", dream.detect_command({"model_name": "sonnet"}))
+
+    def test_desenvuelve_la_respuesta_del_agente(self):
+        """Un agente no interactivo devuelve un envoltorio con la respuesta adentro.
+
+        Quedarse con el envoltorio sería leer la factura en vez de la respuesta.
+        """
+        envoltorio = json.dumps({
+            "is_error": False, "num_turns": 1, "total_cost_usd": 0.19,
+            "result": 'Acá va: {"pattern": "el patrón de verdad", "signals": []}',
+        })
+        self.assertEqual(dream.extract_json(envoltorio),
+                         {"pattern": "el patrón de verdad", "signals": []})
+
+    def test_un_json_directo_sigue_funcionando(self):
+        self.assertEqual(dream.extract_json('{"pattern": "directo"}'),
+                         {"pattern": "directo"})
+
+    def test_un_envoltorio_sin_json_adentro_se_devuelve_entero(self):
+        crudo = json.dumps({"result": "no hay json acá", "num_turns": 1})
+        self.assertEqual(dream.extract_json(crudo)["result"], "no hay json acá")
+
+    def test_el_modelo_corre_con_un_home_desechable(self):
+        """Sin esto, consolidar capturaría su propia sesión en el store que consolida.
+
+        El backend nuevo es un agente con los hooks de nightshift disponibles. El hijo
+        corre con `NIGHTSHIFT_HOME` temporal, y sin config ahí la captura ni arranca.
+        """
+        import os
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        sonda = Path(tmp.name) / "sonda.sh"
+        salida = Path(tmp.name) / "visto.txt"
+        sonda.write_text('#!/bin/sh\nprintf "%%s" "$NIGHTSHIFT_HOME" > %s\n'
+                         'echo \'{"pattern": null}\'\n' % salida, encoding="utf-8")
+        sonda.chmod(0o755)
+
+        propio = os.environ.get("NIGHTSHIFT_HOME")
+        dream.LocalModel([str(sonda)], timeout=30).ask("hola")
+        visto = salida.read_text(encoding="utf-8")
+
+        self.assertTrue(visto, "el hijo tiene que ver un NIGHTSHIFT_HOME")
+        self.assertNotEqual(visto, propio,
+                            "el modelo no puede escribir en el store que está consolidando")
+        self.assertFalse(Path(visto).exists(), "y era temporal: ya no está")
+
     def test_elige_el_qwen_mas_chico_y_no_descarga_nada(self):
         """El target es una Air de noche, no una workstation."""
         tmp = tempfile.mkdtemp(prefix="ns-ollama-")
@@ -463,7 +530,7 @@ class DreamTest(IsolatedStoreTest):
         saved = os.environ["PATH"]
         os.environ["PATH"] = tmp
         try:
-            command = dream.detect_command({})
+            command = dream.detect_command({"model_backend": "local"})
             self.assertIsNotNone(command)
             self.assertIn("qwen3.5:4b", command)
             self.assertNotIn("pull", command, "autodetectar no puede bajarse un modelo")
@@ -471,12 +538,13 @@ class DreamTest(IsolatedStoreTest):
             os.environ["PATH"] = saved
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def test_sin_ollama_no_hay_comando(self):
+    def test_sin_ningun_ejecutable_no_hay_comando(self):
         tmp = tempfile.mkdtemp(prefix="ns-vacio-")
         saved = os.environ["PATH"]
         os.environ["PATH"] = tmp
         try:
             self.assertIsNone(dream.detect_command({}))
+            self.assertIsNone(dream.detect_command({"model_backend": "local"}))
         finally:
             os.environ["PATH"] = saved
             shutil.rmtree(tmp, ignore_errors=True)

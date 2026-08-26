@@ -26,7 +26,9 @@ ADRs → `LATER.md`.
 - Escribir en el directorio de Auto Memory (`~/.claude/projects/*/memory/`) o en
   cualquier ruta propiedad de la memoria nativa. Leer `MEMORY.md` está permitido, sólo
   como señal de retrieval.
-- Agregar dependencias de API remota. Todo el modelo corre local.
+- Agregar dependencias que exijan una **API key nueva**. El modelo que consolida corre
+  en Claude Code o en Qwen local, los dos por `subprocess` (ADR-003). Ningún módulo de
+  `nightshift/` habla por red: `make lint-code` lo verifica.
 - Empezar M5 (verify) antes del veredicto de M4.
 - Abrir el adapter de OpenCode.
 - Presentar nightshift como reemplazo, mejora o parche de Auto Memory, en cualquier
