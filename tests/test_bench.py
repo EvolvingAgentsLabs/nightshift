@@ -308,6 +308,55 @@ class CliTest(IsolatedStoreTest):
         path.write_text(CONGELADO, encoding="utf-8")
         return path
 
+    def test_se_registran_todas_las_metricas_del_agente(self):
+        """Quedarse sólo con `tool_calls` dejaba el costo de la corrida sin anotar.
+
+        Una corrida de 102 celdas cuyo costo nadie registró no se puede volver a
+        justificar, y el límite de tool calls —que el CLI no puede imponer— no queda
+        auditable.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        metricas = ('{"tool_calls": 7, "num_turns": 9, "cost_usd": 0.42, '
+                    '"tool_limit": 5, "tool_limit_exceeded": true, "session_id": "abc-123"}')
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\nNIGHTSHIFT_BENCH %s\nFIN\n" % metricas,
+                         encoding="utf-8")
+        falso.chmod(0o755)
+        agente = str(falso)
+        code, out, err = self.run_cli(
+            ["bench", "run", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--prereg", str(self.prereg_congelado()), "--agent", agente,
+             "--rows", "S1", "--repeats", "1", "--timeout", "60"])
+        self.assertIn(code, (0, 1), err)
+
+        base = Path(self.home) / "bench"
+        corrida = sorted(base.glob("*"))[-1]
+        registros = [json.loads(l) for l in
+                     (corrida / "results.jsonl").read_text(encoding="utf-8").splitlines() if l]
+        primero = registros[0]
+        self.assertEqual(primero["tool_calls"], 7)
+        self.assertEqual(primero["num_turns"], 9, "turnos y tool calls no son lo mismo")
+        self.assertEqual(primero["cost_usd"], 0.42)
+        self.assertTrue(primero["tool_limit_exceeded"])
+        self.assertEqual(primero["agent_session_id"], "abc-123")
+
+        self.assertIn("USD", out, "el reporte muestra el costo")
+        self.assertIn("no lo puede", out, "y avisa que el límite no se impuso")
+
+    def test_plan_json_dice_el_tamano_de_la_grilla(self):
+        code, out, _ = self.run_cli(["bench", "plan", "--json", "--repeats", "3"])
+        data = json.loads(out)
+        self.assertEqual(code, 0, "planificar no es correr")
+        self.assertEqual({f["family"] for f in data["fixtures"]}, set(bench.FAMILIES))
+        self.assertEqual(data["cells_total"],
+                         sum(f["cells"] for f in data["fixtures"]))
+        self.assertEqual(data["cells_total"], 102, "17 tareas × 2 filas × 3 corridas")
+        self.assertFalse(data["ready"], "el pre-registro sigue en borrador")
+        self.assertTrue(data["blockers"])
+
     def test_report_sin_corridas_lo_dice(self):
         code, _, err = self.run_cli(["bench", "report"])
         self.assertEqual(code, 1)

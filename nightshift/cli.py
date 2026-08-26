@@ -718,12 +718,36 @@ def cmd_bench(args) -> int:
 
     if args.action == "plan":
         try:
-            fixture = bench_mod.load_fixture(args.fixture)
-            celdas = bench_mod.matrix(fixture, rows=tuple(args.rows.split(",")),
-                                      repeats=args.repeats, seed=args.seed)
-        except (bench_mod.FixtureError, ValueError) as exc:
+            rutas = ([Path(args.fixture)] if args.fixture else
+                     sorted(ruta for ruta in
+                            (PLUGIN_ROOT / "bench" / "fixtures").glob("*/fixture*.json")
+                            if ruta.parent.name != "selftest"))
+            planes = []
+            for ruta in rutas:
+                uno = bench_mod.load_fixture(ruta)
+                planes.append((uno, bench_mod.matrix(uno, rows=tuple(args.rows.split(",")),
+                                                     repeats=args.repeats, seed=args.seed)))
+            fixture, celdas = planes[0]
+        except (bench_mod.FixtureError, ValueError, IndexError) as exc:
             print("bench plan: %s" % exc, file=sys.stderr)
             return 2
+
+        if args.json:
+            total = sum(len(c) for _, c in planes)
+            json.dump({
+                "fixtures": [{"name": f["name"], "family": f["family"],
+                              "tasks": len(f["tasks"]),
+                              "learning_tasks": f["learning_tasks"],
+                              "cells": len(c)} for f, c in planes],
+                "rows": args.rows.split(","), "repeats": args.repeats, "seed": args.seed,
+                "cells_total": total,
+                # Cada celda es una sesión real del agente: el tamaño de la grilla es el
+                # tamaño de la factura, y conviene saberlo antes y no después.
+                "note": "cada celda es una sesión completa del agente",
+                "ready": estado["ready"], "blockers": estado["blockers"],
+            }, sys.stdout, indent=2, ensure_ascii=False)
+            sys.stdout.write("\n")
+            return 0
         print("fixture   : %s (familia %s, %d tarea(s), %d de aprendizaje)"
               % (fixture["name"], fixture["family"], len(fixture["tasks"]),
                  fixture["learning_tasks"]))
@@ -872,16 +896,28 @@ def _render_report(registros, prereg, args) -> int:
 
     print()
     print("resultados (mediana por celda; se publican todas las corridas, PREREG §4):")
-    print("  %-8s %-4s %-6s %-10s %-16s %s" % ("familia", "fila", "corr.", "tareas",
-                                               "resolución", "tool calls (med.)"))
+    print("  %-8s %-4s %-6s %-8s %-16s %-10s %s" % ("familia", "fila", "corr.", "tareas",
+                                                    "resolución", "tool calls", "costo"))
+    costo_total = 0.0
+    excedidas = 0
     for clave in sorted(resumen):
         item = resumen[clave]
         rango = item["resolution_rate_range"]
-        print("  %-8s %-4s %-6d %-10d %-16s %s" % (
+        costo_total += item["cost_usd"] or 0.0
+        excedidas += item["limit_exceeded"]
+        print("  %-8s %-4s %-6d %-8d %-16s %-10s %s" % (
             item["family"], item["row"], item["runs"], item["n"],
             "—" if item["resolution_rate"] is None else "%.2f [%.2f–%.2f]" % (
                 item["resolution_rate"], rango[0], rango[1]),
-            "—" if item["tool_calls_median"] is None else "%.1f" % item["tool_calls_median"]))
+            "—" if item["tool_calls_median"] is None else "%.1f" % item["tool_calls_median"],
+            "—" if item["cost_usd"] is None else "USD %.2f" % item["cost_usd"]))
+    if costo_total:
+        print("  %-8s %s" % ("total", "USD %.2f" % costo_total))
+    if excedidas:
+        print()
+        print("  %d celda(s) excedieron el límite de tool calls. El CLI no lo puede"
+              % excedidas)
+        print("  imponer (no expone `--max-turns`): se midió, no se cortó.")
 
     print()
     print("corridas individuales:")

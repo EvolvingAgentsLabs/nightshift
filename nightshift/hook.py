@@ -39,7 +39,8 @@ CAMPO_ERROR = ("error", "error_message")
 # devuelve {type, file:{filePath, content, …}}.
 CLAVES_DE_SALIDA = ("stdout", "content", "output", "result", "message")
 CLAVES_DE_RUIDO = ("isImage", "noOutputExpected", "interrupted", "type", "gitOperation",
-                   "filePath", "numLines", "startLine", "totalLines")
+                   "filePath", "numLines", "startLine", "totalLines", "userModified",
+                   "replaceAll", "structuredPatch", "originalFile")
 
 
 def resumir_salida(raw, profundidad=0):
@@ -58,6 +59,13 @@ def resumir_salida(raw, profundidad=0):
         partes = [resumir_salida(item, profundidad + 1) for item in raw[:10]]
         return "\n".join(p for p in partes if p)
     if isinstance(raw, dict) and profundidad <= 3:
+        # Una edición: lo que importa es el cambio, no una de las dos mitades. Sondeando
+        # las tools de verdad, `Edit` devolvía `oldString` y el resumen quedaba diciendo
+        # que la edición había producido el texto que **borró**.
+        if "oldString" in raw and "newString" in raw:
+            viejo = str(raw.get("oldString") or "").strip()
+            nuevo = str(raw.get("newString") or "").strip()
+            return "reemplazó «%s» por «%s»" % (viejo[:120], nuevo[:120])
         for clave in CLAVES_DE_SALIDA:
             valor = raw.get(clave)
             texto = resumir_salida(valor, profundidad + 1) if valor is not None else ""

@@ -350,9 +350,19 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
     if match:
         try:
             metricas = json.loads(match.group(1))
-            registro["tool_calls"] = metricas.get("tool_calls")
         except ValueError:
-            pass
+            metricas = {}
+        # Se guarda todo lo que el adaptador se tomó el trabajo de medir. Quedarse sólo
+        # con `tool_calls` dejaba el costo de la corrida sin registrar — y una corrida de
+        # 102 celdas cuyo costo nadie anotó no se puede volver a justificar.
+        for clave in ("tool_calls", "num_turns", "cost_usd", "tool_limit",
+                      "tool_limit_exceeded"):
+            if clave in metricas:
+                registro[clave] = metricas[clave]
+        if metricas.get("session_id"):
+            # El id de sesión del agente, no el de nightshift: sin esto no se puede
+            # cruzar una celda con su transcript.
+            registro["agent_session_id"] = metricas["session_id"]
     if code_agente is None:
         registro["error"] = "el agente no terminó: %s" % err.strip()[:200]
 
@@ -456,6 +466,10 @@ def summarize(records) -> dict:
                                                  {"resolved": [], "tool_calls": [],
                                                   "false_stale": []})
         celda["n"] += 1
+        if record.get("cost_usd") is not None:
+            celda["cost_usd"] = celda.get("cost_usd", 0.0) + float(record["cost_usd"])
+        if record.get("tool_limit_exceeded"):
+            celda["limit_exceeded"] = celda.get("limit_exceeded", 0) + 1
         if record.get("resolved") is not None:
             repeticion["resolved"].append(1.0 if record["resolved"] else 0.0)
         if record.get("tool_calls") is not None:
@@ -479,6 +493,8 @@ def summarize(records) -> dict:
             "tool_calls_median": median(calls),
             "false_stale_ratio": median(falsas),
             "false_stale_range": [min(falsas), max(falsas)] if falsas else None,
+            "cost_usd": celda.get("cost_usd"),
+            "limit_exceeded": celda.get("limit_exceeded", 0),
         }
     return salida
 

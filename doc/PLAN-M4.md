@@ -205,19 +205,21 @@ baseline. Eso convierte un resultado en una anécdota.
 | **La calidad de la abstracción del modelo no está medida** | dream corre con `qwen3.5:4b` y produce patrones genéricos; que sirvan lo dice M4 y nada más | fijar el modelo en PREREG; `qwen3.5:9b` está disponible local y no se probó |
 | **El store viejo es 82% cascarón** | `nightshift status` lo reporta | contar M1 desde el fix; correr dream con ventana corta |
 | **El límite de tool calls no se puede imponer** | el CLI no expone `--max-turns` (verificado 2026-08-26) | PREREG tiene que decir qué se hace con una celda que lo excede: el adaptador la marca, no la corta |
-| **Costo en dólares sin medir** | el adaptador emite `cost_usd` y el runner **no lo guarda** | arreglarlo antes de correr M4 (§8) |
+| **Costo en dólares sin medir** | el adaptador emite `cost_usd` y ahora el runner lo guarda | **resuelto**: el reporte suma costo por celda y total. Falta la corrida real para tener el número |
 | **Un solo `task_type` por sesión** | esta sesión cruzó implementar, analizar y depurar, y quedó `general` | afecta el uso real, no el benchmark (las tareas fixture son de un solo tipo) |
 
 ## 8. Lo que se puede construir mientras tanto
 
 Corto, y ninguno bloquea a nadie:
 
-1. **Guardar todas las métricas del adaptador** en el registro de la corrida. Hoy el
-   runner lee `tool_calls` y descarta `cost_usd`, `num_turns` y `tool_limit_exceeded`.
-   Sin eso, el costo de M4 no queda medido y el límite de tool calls no queda auditable.
-2. **Verificar las formas de `tool_response` de más tools**, sobre todo MCP. Hoy están
-   verificadas Bash y Read; el resto usa un fallback que busca el primer valor con texto.
-3. **`bench plan --json`** con el tamaño de la grilla, para estimar antes de correr.
+1. ~~Guardar todas las métricas del adaptador~~ — **hecho**. El registro de cada celda
+   guarda `tool_calls`, `num_turns`, `cost_usd`, `tool_limit_exceeded` y el id de sesión
+   del agente, y el reporte suma el costo por celda y total.
+2. ~~Verificar las formas de `tool_response`~~ — **hecho para siete tools** (Read, Bash,
+   Write, Edit, Glob, Grep, ToolSearch), sondeadas de verdad. Encontró que `Edit`
+   resumía el texto que **borraba**. Falta MCP: para eso sigue el fallback.
+3. ~~`bench plan --json`~~ — **hecho**: `nightshift bench plan --json` da el tamaño de la
+   grilla por familia y el total, con los bloqueos del pre-registro.
 
 Lo que **no** se construye: política de retención del store (necesita volumen real),
 transferencia cross-repo encendida (decisión de producto), y nada de M5.
