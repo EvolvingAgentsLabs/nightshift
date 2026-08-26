@@ -41,6 +41,12 @@ y un veredicto inventado es peor que ninguno.
 
 ## Correrlo
 
-El agente de la fila S1 tiene que arrancar con `NIGHTSHIFT_HOME` apuntando a
-`$NIGHTSHIFT_BENCH_WORKDIR/.store`, que es donde `sembrar.py` deja el histórico. Eso es
-parte del protocolo de invocación del agente, que también es `TODO(Matias)`.
+El runner exporta `NIGHTSHIFT_BENCH_STORE`, que vive por **(fila, repetición)** y no por
+celda: dentro de una repetición la memoria se acumula tarea a tarea. `sembrar.py` deja el
+histórico ahí y el adaptador apunta `NIGHTSHIFT_HOME` al mismo lugar.
+
+Ojo con lo que eso implica para esta familia: el histórico se siembra **antes de cada
+tarea** sobre un store que ya trae lo capturado por las tareas anteriores de la misma
+repetición. Es a propósito — mide la precisión de lo inyectado en una sesión que además
+viene aprendiendo — pero si el protocolo quisiera un store limpio por tarea, eso es parte
+de lo que hay que congelar en PREREG.

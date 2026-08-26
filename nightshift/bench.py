@@ -253,18 +253,41 @@ IGNORAR = shutil.ignore_patterns("__pycache__", "*.pyc", ".git", "celdas")
 
 
 def prepare_workdir(fixture, destino) -> str:
-    """Copia limpia del fixture para **una** celda.
+    """Copia limpia del fixture, en una ruta que el llamador elige.
 
-    Sin esto, la celda que corre segunda hereda el fix de la primera y el gate sale 0 sin
-    que el agente haya hecho nada: la medición deja de medir. Cada celda arranca del
-    mismo estado o el experimento no existe.
+    Sin resetear el contenido, la tarea que corre segunda hereda el fix de la primera y
+    el gate sale 0 sin que el agente haya hecho nada: la medición deja de medir.
+
+    Si el fixture declara `repo_url`, la copia se inicializa como repo git con ese remote.
+    No es decoración: el fingerprint del repo que usa nightshift sale del remote, y sin él
+    sale de la ruta — así que dos repeticiones en rutas distintas serían dos repos
+    distintos y no compartirían nada. Además una tarea sin commit no tiene `base_commit`,
+    y sin `base_commit` no hay worktree reproducible (ADR-002).
     """
     destino = Path(destino)
     if destino.exists():
         shutil.rmtree(destino)
     destino.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(fixture["cwd"], destino, ignore=IGNORAR)
+    if fixture.get("repo_url"):
+        _init_git(destino, fixture["repo_url"])
     return str(destino)
+
+
+def _init_git(destino, remote):
+    """Repo git mínimo y determinista. Si git no está, se sigue sin él."""
+    identidad = ["-c", "user.email=fixture@example.invalid", "-c", "user.name=fixture"]
+    pasos = [["init", "-q", "-b", "main"], ["remote", "add", "origin", remote],
+             ["add", "-A"], identidad + ["commit", "-q", "-m", "fixture inicial"]]
+    for paso in pasos:
+        try:
+            salida = subprocess.run(["git", "-C", str(destino)] + paso, capture_output=True,
+                                    text=True, timeout=60)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if salida.returncode != 0:
+            return False
+    return True
 
 
 def _run(command, *, cwd, timeout, env=None):

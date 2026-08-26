@@ -768,17 +768,28 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int
             entorno = dict(os.environ)
             entorno["NIGHTSHIFT_BENCH_TASK"] = celda["task"]
             entorno["NIGHTSHIFT_BENCH_ROW"] = celda["row"]
-            # Cada celda, su copia limpia. Compartir el árbol entre celdas hace que la
-            # segunda encuentre el trabajo de la primera ya hecho.
+            # Un directorio de trabajo por **(fila, repetición)**, con el contenido
+            # reseteado antes de cada tarea. Las dos mitades importan y por motivos
+            # distintos:
             #
-            # La copia vive bajo el directorio de la corrida y **nunca** dentro del
-            # fixture: ponerla adentro hace que `copytree` se copie a sí mismo hasta que
-            # el sistema de archivos se queja del largo del nombre. Encontrado corriendo.
-            trabajo = bench_mod.prepare_workdir(
-                fixture, destino / "celdas" / ("%s-c%d-%s" % (celda["row"], celda["repeat"],
-                                                             celda["task"])))
+            # - **El contenido se resetea** o la segunda tarea encuentra el fix de la
+            #   primera ya hecho y el gate sale 0 sin que el agente toque nada.
+            # - **La ruta se mantiene** porque las dos memorias que se comparan keyean por
+            #   ruta: Auto Memory por ruta de proyecto y nightshift por fingerprint del
+            #   repo, que sin remote sale de la ruta. Con una ruta nueva por tarea,
+            #   ninguna de las dos acumula nada y la fase de aprendizaje no existe.
+            #
+            # Con rutas distintas por tarea y el store de nightshift compartido, S1
+            # acumulaba memoria y S0 no: el benchmark le habría dado ventaja a nightshift
+            # por construcción. Un experimento que favorece a lo que mide no mide.
+            etiqueta = "%s-c%d" % (celda["row"], celda["repeat"])
+            trabajo = bench_mod.prepare_workdir(fixture, destino / "trabajo" / etiqueta)
             entorno["NIGHTSHIFT_BENCH_WORKDIR"] = trabajo
             entorno["NIGHTSHIFT_ROOT"] = str(PLUGIN_ROOT)
+
+            memoria = destino / "memoria" / etiqueta
+            memoria.mkdir(parents=True, exist_ok=True)
+            entorno["NIGHTSHIFT_BENCH_STORE"] = str(memoria)
             registro = bench_mod.run_cell(
                 celda, fixture, agent_command=agente, timeout=args.timeout, env=entorno,
                 cwd=trabajo,

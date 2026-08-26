@@ -12,8 +12,9 @@ script elige por su cuenta. Cada una es un `TODO(Matias)` de `bench/PREREG.md`.
 Las filas (PREREG §2):
 
 - `S0` — Claude Code con Auto Memory y Auto Dream encendidos. **Sin nightshift.**
-- `S1` — lo mismo más nightshift cargado como plugin, con su store en el directorio de
-  la celda.
+- `S1` — lo mismo más nightshift cargado como plugin, con su store por **(fila,
+  repetición)**: dentro de una repetición la memoria se acumula tarea a tarea, que es lo
+  único que hace que la fase de aprendizaje le enseñe algo a la de medición.
 - `S2` — es de M5, y M5 está bloqueado hasta el veredicto de M4. Se rechaza.
 
 Verificado contra el CLI el 2026-08-26:
@@ -28,6 +29,7 @@ Verificado contra el CLI el 2026-08-26:
 
 import json
 import os
+import pathlib
 import subprocess
 import sys
 import uuid
@@ -108,9 +110,12 @@ def main(argv):
                "--allow-dangerously-skip-permissions"]
 
     if fila == "S1":
-        # nightshift cargado como plugin, con su store dentro de la celda: cada celda
-        # arranca con la memoria que el fixture sembró y con ninguna otra.
-        store = trabajo / ".store"
+        # nightshift cargado como plugin. El store viene del runner y vive por
+        # **(fila, repetición)**, no por celda: dentro de una repetición la memoria se
+        # acumula tarea a tarea, que es lo único que hace que la fase de aprendizaje le
+        # enseñe algo a la de medición. Un store por celda mediría cero transferencia
+        # por construcción.
+        store = pathlib.Path(entorno.get("NIGHTSHIFT_BENCH_STORE") or (trabajo / ".store"))
         store.mkdir(parents=True, exist_ok=True)
         entorno["NIGHTSHIFT_HOME"] = str(store)
         comando += ["--plugin-dir", str(RAIZ_NIGHTSHIFT)]

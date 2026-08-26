@@ -56,5 +56,6 @@
       },
       "prompt": "En `repo-beta`, algunos títulos salen vacíos y el año en 0. Encontralo y arreglalo."
     }
-  ]
+  ],
+  "repo_url": "https://example.invalid/pipeline-fixture.git"
 }
