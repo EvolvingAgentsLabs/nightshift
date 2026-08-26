@@ -34,10 +34,10 @@ cerrada como `user_corrected`.
 
 Consecuencias que hay que tener presentes y no maquillar:
 
-- **El conteo del gate de M1 hay que reiniciarlo.** Las sesiones capturadas con los campos
-  equivocados no sirven como evidencia de "5 sesiones reales capturadas": se capturó el
-  cascarón. `nightshift audit --min-sessions 5` va a contarlas igual —cuenta sesiones, no
-  calidad— así que el conteo hay que mirarlo sabiendo esto.
+- **El conteo del gate de M1 hay que reiniciarlo, y ahora el comando lo hace solo.**
+  `nightshift audit --min-sessions` cuenta **sesiones que capturaron contenido**: una
+  sesión hueca no prueba ausencia de fuga, porque no se puede filtrar lo que nunca se
+  guardó. Reporta las dos cifras y dice cuántas huecas descartó.
 - **Las trayectorias viejas siguen ahí y no se borran.** Son inútiles para retrieval
   (todos sus pasos dicen "(sin resumen)") pero borrarlas sería reescribir el registro.
   Envejecen solas por `retrieval_lookback_days`.
