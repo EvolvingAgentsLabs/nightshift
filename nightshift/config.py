@@ -62,6 +62,9 @@ DEFAULTS = {
     "model_name": None,
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
+    # Tope de grupos por corrida. Cada grupo es una llamada al modelo y, con el backend
+    # `claude-code`, cobra (ADR-003). `None` es sin tope: el comportamiento de antes.
+    "dream_max_groups": None,
     # Scheduler (M3-b). `auto` detecta: launchd en macOS, systemd de usuario en Linux,
     # `loop` en cualquier otra cosa. La ventana nocturna asume portátil enchufado.
     "scheduler_backend": "auto",

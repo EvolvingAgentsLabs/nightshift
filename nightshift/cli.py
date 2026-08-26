@@ -33,6 +33,15 @@ def cmd_init(args) -> int:
     return 0
 
 
+def _format_size(n: int) -> str:
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
+            return "%.0f %s" % (value, unit) if unit == "B" else "%.1f %s" % (value, unit)
+        value /= 1024
+    return "%.1f GB" % value
+
+
 # ------------------------------------------------------------------------- status
 def cmd_status(args) -> int:
     if not config.config_path().is_file():
@@ -44,7 +53,7 @@ def cmd_status(args) -> int:
     try:
         c = store.counts(conn)
         print("nightshift %s · M3: captura, retrieval y dream fase 1" % __version__)
-        print("store: %s" % config.db_path())
+        print("store: %s (%s en disco)" % (config.db_path(), _format_size(store.store_size_bytes())))
         print()
         print("trayectorias:")
         for status in ("open", "closed", "candidate", "procedure", "superseded", "discarded"):
@@ -138,6 +147,11 @@ def cmd_why(args) -> int:
             abstraction = json.loads(row["abstraction_json"])
             print()
             print("abstracción (dream fase 1, sin verificar):")
+            print("  consolidada con: %s" % (row["consolidation_model"] or "—"))
+            print("  costo consolidar: %s" % (
+                "USD %.4f" % row["consolidation_cost_usd"]
+                if row["consolidation_cost_usd"] is not None
+                else "no reportado por el backend"))
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
             if abstraction.get("decisive_signal"):
                 print("  señal decisiva: %s" % abstraction["decisive_signal"])
@@ -312,6 +326,9 @@ def _print_dream_report(report):
         print("costo: USD %.4f" % report["cost_usd"])
     print("grupos: %d sobre %d trayectoria(s) cerrada(s)"
           % (report["groups"], report["trajectories"]))
+    if report.get("groups_skipped_by_limit"):
+        print("       %d grupo(s) más sin consolidar por --max-groups: quedan para la"
+              " próxima corrida" % report["groups_skipped_by_limit"])
     print()
     if report["candidates"]:
         print("candidatas (%d)%s:" % (len(report["candidates"]),
@@ -370,7 +387,7 @@ def cmd_dream(args) -> int:
         report = dream_mod.consolidate(
             conn, model, cfg=cfg,
             identifiers=dream_mod.redactor_identifiers(os.getcwd()),
-            lookback_days=args.lookback_days, dry_run=args.dry_run,
+            lookback_days=args.lookback_days, max_groups=args.max_groups, dry_run=args.dry_run,
             log=(lambda message: print("  %s" % message, file=sys.stderr))
             if args.verbose else None)
     except dream_mod.ModelUnavailable as exc:
@@ -894,7 +911,8 @@ def _bench_report(args, prereg) -> int:
         return 1
     registros = [json.loads(line) for line in
                  (elegida / "results.jsonl").read_text(encoding="utf-8").splitlines() if line]
-    print("corrida: %s" % elegida.name)
+    if not getattr(args, "json", False):
+        print("corrida: %s" % elegida.name)
     return _render_report(registros, prereg, args)
 
 
@@ -914,11 +932,13 @@ def _render_report(registros, prereg, args) -> int:
                                                     "resolución", "tool calls", "costo"))
     costo_total = 0.0
     excedidas = 0
+    timeouts = 0
     for clave in sorted(resumen):
         item = resumen[clave]
         rango = item["resolution_rate_range"]
         costo_total += item["cost_usd"] or 0.0
         excedidas += item["limit_exceeded"]
+        timeouts += item["timed_out"]
         print("  %-8s %-4s %-6d %-8d %-16s %-10s %s" % (
             item["family"], item["row"], item["runs"], item["n"],
             "—" if item["resolution_rate"] is None else "%.2f [%.2f–%.2f]" % (
@@ -932,14 +952,24 @@ def _render_report(registros, prereg, args) -> int:
         print("  %d celda(s) excedieron el límite de tool calls. El CLI no lo puede"
               % excedidas)
         print("  imponer (no expone `--max-turns`): se midió, no se cortó.")
+    if timeouts:
+        print()
+        print("  %d celda(s) no terminaron por timeout: el agente no llegó a completar"
+              % timeouts)
+        print("  la tarea. Cuentan como no resueltas igual que un fallo, pero no es lo")
+        print("  mismo — no se sabe si las habría resuelto con más tiempo. Buscá "
+              "[TIMEOUT] abajo.")
 
     print()
     print("corridas individuales:")
     for record in registros:
+        detalle = record.get("error") or ""
+        if record.get("timed_out"):
+            detalle = "[TIMEOUT] %s" % detalle
         print("  %-3s c%d %-6s %-8s gate %s→%s  resuelto=%-5s %s" % (
             record["row"], record["repeat"], record["task"], record["phase"],
             record.get("gate_before"), record.get("gate_after"), record.get("resolved"),
-            record.get("error") or ""))
+            detalle))
 
     print()
     print("regla de decisión (PREREG §1): %s" % veredicto["regla"])
@@ -1194,12 +1224,15 @@ def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
     finally:
         conn.close()
 
+    next_run = getattr(chosen, "next_run", None)
+
     if args.json:
         json.dump({
             "backend_elegido": chosen.name,
             "instalados": [{"backend": b.name, "unit": str(b.unit_path)} for b in instalados],
             "entorno": sched.environment(),
             "corridas": [dict(row) for row in runs],
+            "proxima_corrida": next_run().isoformat() if next_run else None,
         }, sys.stdout, indent=2, ensure_ascii=False)
         sys.stdout.write("\n")
         return 0 if instalados else 1
@@ -1212,6 +1245,8 @@ def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
                                  " (autodetectado)" if cfg.get("scheduler_backend", "auto")
                                  == "auto" else " (fijado en la config)"))
     print("corrida    : %s" % chosen.describe())
+    if next_run:
+        print("próxima    : %s" % next_run().strftime("%Y-%m-%d %H:%M"))
     print("comando    : %s" % " ".join(chosen.command()))
     if instalados:
         for item in instalados:
@@ -1587,6 +1622,9 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("dream", help="consolidar trayectorias cerradas con el modelo local (M3-a)")
     p.add_argument("--lookback-days", type=int, default=None)
+    p.add_argument("--max-groups", type=int, default=None,
+                   help="consolidar como mucho N grupos esta corrida: cada grupo llama"
+                        " al modelo y, con el backend claude-code, cobra (ADR-003)")
     p.add_argument("--model", help="comando del modelo local (por defecto, autodetección)")
     p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
     p.add_argument("--dry-run", action="store_true", help="no escribir: mostrar qué haría")

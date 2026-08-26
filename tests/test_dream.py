@@ -99,6 +99,52 @@ class DreamTest(IsolatedStoreTest):
         self.assertIsNone(row["verified_json"], "verify es M5 y no existe")
         self.assertEqual(len(report["candidates"]), 1)
 
+    def test_la_candidata_registra_con_que_modelo_se_consolido(self):
+        """Condición de éxito 3: `why` no sólo reconstruye el patrón, también con qué
+        modelo se abstrajo. Sin backend que reporte costo, el modelo queda igual."""
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(BUENA))
+        row = self.row(tid)
+        self.assertEqual(row["consolidation_model"], "fake")
+        self.assertIsNone(row["consolidation_cost_usd"],
+                          "FakeModel no reporta costo: no hay que inventarle uno")
+
+    def test_la_candidata_registra_cuanto_costo_consolidarla(self):
+        """El costo por trayectoria, no sólo el total de la corrida (spec §1.3 cond. 3)."""
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "modelo.sh"
+        respuesta = json.dumps({"total_cost_usd": 0.25, "num_turns": 1,
+                                "result": json.dumps(BUENA)})
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\n%s\nFIN\n" % respuesta, encoding="utf-8")
+        falso.chmod(0o755)
+
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli.main(["dream", "--model", str(falso)])
+        self.assertEqual(code, 0, err.getvalue())
+
+        row = self.row(tid)
+        self.assertEqual(row["consolidation_model"], str(falso))
+        self.assertAlmostEqual(row["consolidation_cost_usd"], 0.25, places=4)
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(cli.main(["why", tid[:8]]), 0)
+        texto = out.getvalue()
+        self.assertIn(str(falso), texto)
+        self.assertIn("USD 0.2500", texto)
+
     def test_dream_puebla_la_hipotesis_que_la_captura_no_puede(self):
         """`hypothesis` nunca se poblaba: la captura no persiste texto del prompt.
 
@@ -164,6 +210,33 @@ class DreamTest(IsolatedStoreTest):
             self.assertEqual([len(g) for g in dream.groups(conn, lookback_days=3650)], [2, 1])
         finally:
             conn.close()
+
+    def test_max_groups_limita_grupos_consolidados_por_corrida(self):
+        """Cada grupo llama al modelo y, con `claude-code`, cobra (ADR-003): una corrida
+        no tiene por qué pagar por todos los grupos del período de una vez."""
+        conn = store.connect()
+        try:
+            self.seed(conn, task_type="debug_test_failure")
+            self.seed(conn, task_type="refactor")
+            self.seed(conn, task_type="add_feature")
+        finally:
+            conn.close()
+        report = self.run_dream(FakeModel(BUENA), max_groups=2)
+        self.assertEqual(report["groups"], 2)
+        self.assertEqual(report["groups_total"], 3)
+        self.assertEqual(report["groups_skipped_by_limit"], 1)
+        self.assertEqual(len(report["candidates"]), 2)
+
+    def test_sin_max_groups_consolida_todo_como_antes(self):
+        conn = store.connect()
+        try:
+            self.seed(conn, task_type="debug_test_failure")
+            self.seed(conn, task_type="refactor")
+        finally:
+            conn.close()
+        report = self.run_dream(FakeModel(BUENA))
+        self.assertEqual(report["groups"], 2)
+        self.assertEqual(report["groups_skipped_by_limit"], 0)
 
     def test_dry_run_no_escribe(self):
         conn = store.connect()
@@ -306,6 +379,27 @@ class DreamTest(IsolatedStoreTest):
         self.assertIn("no hay fallback remoto", err.getvalue())
         self.assertEqual(self.row(tid)["status"], "closed",
                          "sin modelo no se consolida por heurística")
+
+    def test_max_groups_llega_desde_la_cli_a_consolidate(self):
+        conn = store.connect()
+        try:
+            self.seed(conn)
+        finally:
+            conn.close()
+        recibido = {}
+        original = dream.consolidate
+
+        def espia(conn_, model, **kwargs):
+            recibido.update(kwargs)
+            return original(conn_, model, **kwargs)
+
+        dream.consolidate = espia
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                cli.main(["dream", "--model", "/bin/echo", "--max-groups", "1"])
+        finally:
+            dream.consolidate = original
+        self.assertEqual(recibido.get("max_groups"), 1)
 
     def test_un_comando_de_modelo_inexistente_tambien_sale_2(self):
         conn = store.connect()
