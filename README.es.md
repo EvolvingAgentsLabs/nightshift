@@ -101,6 +101,9 @@ de correr la cosa:
   Es señal de sellado, no fuente de datos.
 - `Stop` dispara al final de **cada turno**, no de la sesión. Sella el turno;
   `SessionEnd` cierra la trayectoria.
+- `SessionStart` corre **antes** de que escribas, así que ahí el tipo de tarea todavía es
+  `general`. El retrieval por estructura se rehace en el primer prompt que clasifica la
+  tarea, sin repetir nada de lo ya inyectado (spec §5.7).
 
 ### Qué guarda, y dónde
 
@@ -148,7 +151,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 |---|---|---|
 | M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
-| **M2** 🟡 | Retrieve: inyección estructural en `SessionStart` | Code done. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
+| **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 | Dream `consolidate` + scheduler pluggable (`launchd`/`systemd`/`loop`) | 3 noches seguidas sin intervención |
 | M4 | **Benchmark — go/no-go** | ≥ umbral pre-registrado en ≥ 2 de A/C/D, cero regresión frente a S0 |
 | M5 | Dream `verify` (worktree efímero + gate). **Sólo si M4 pasa** | Precisión de `procedure` > `candidate` en re-corrida del benchmark |

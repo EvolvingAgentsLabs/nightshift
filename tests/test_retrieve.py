@@ -9,18 +9,35 @@ FP = "f" * 64
 
 
 class RetrieveTest(IsolatedStoreTest):
-    def seed(self, *, task_type="debug_test_failure", fingerprint=FP, result="tests_passed"):
+    def seed(self, *, task_type="debug_test_failure", fingerprint=FP, result="tests_passed",
+             decisive=True):
         conn = store.connect()
         try:
             tid = store.open_trajectory(conn, session_id="vieja", repo_fingerprint=fingerprint,
                                         task_type=task_type, base_commit="abc1234",
                                         redaction={"redactor_version": "0.1.0"})
             store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
-                              error_message="UnicodeDecodeError en el borde", decisive=True)
+                              error_message="UnicodeDecodeError en el borde", decisive=decisive)
             store.close_trajectory(conn, tid, result=result)
             return tid
         finally:
             conn.close()
+
+    def fixed_fingerprint(self):
+        """Fija el fingerprint del repo para que la sesión de test matchee lo sembrado."""
+        import nightshift.context as context
+        original = context.repo_fingerprint
+        context.repo_fingerprint = lambda cwd: FP
+
+        class _Restore:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                context.repo_fingerprint = original
+                return False
+
+        return _Restore()
 
     def test_rankea_mismo_tipo_de_tarea_por_encima(self):
         mismo = self.seed(task_type="debug_test_failure")
@@ -80,6 +97,91 @@ class RetrieveTest(IsolatedStoreTest):
             back = store.injections_of_source(conn, source)
             self.assertEqual(len(back), 1)
             self.assertIsNotNone(store.get_trajectory(conn, source[:8]))
+        finally:
+            conn.close()
+
+    def test_general_no_cuenta_como_mismo_tipo_de_tarea(self):
+        """`general` es "sin clasificar", no un tipo. Contarlo mentía en el `why`."""
+        self.seed(task_type="general")
+        conn = store.connect()
+        try:
+            scored = retrieve.candidates(conn, task_type="general", repo_fingerprint=FP,
+                                         cfg=config.load())
+            self.assertTrue(scored, "sigue siendo candidata por repo y recencia")
+            self.assertNotIn("same_task_type", scored[0][1])
+        finally:
+            conn.close()
+
+    def test_retrieval_por_tipo_de_tarea_en_el_primer_prompt(self):
+        """Gate de T2: `SessionStart` no puede rankear por tipo, el primer prompt sí.
+
+        Se siembran tres trayectorias de otro tipo que llenan el cupo de `SessionStart`
+        (que sólo puede rankear por repo y recencia) y una de debugging que se queda
+        afuera. Cuando el prompt clasifica la tarea, la de debugging entra — y ninguna
+        se inyecta dos veces.
+        """
+        for _ in range(3):
+            self.seed(task_type="docs", result="tests_passed")
+        debug = self.seed(task_type="debug_test_failure", result="unknown", decisive=False)
+
+        with self.fixed_fingerprint():
+            primero, _ = hook.dispatch("SessionStart", {"session_id": "s", "cwd": "."})
+            self.assertNotIn(debug[:8], primero, "sin tipo de tarea no puede elegirla")
+            self.assertNotIn("same_task_type", primero)
+
+            segundo, mensaje = hook.dispatch("UserPromptSubmit", {
+                "session_id": "s", "cwd": ".",
+                "user_input": "los tests fallan con UnicodeDecodeError"})
+
+        self.assertIn(debug[:8], segundo, "el prompt clasificó la tarea: ahora sí aplica")
+        self.assertIn("debug_test_failure", mensaje)
+
+        conn = store.connect()
+        try:
+            rows = store.injections_for_session(conn, "s")
+            segunda = [r for r in rows if r["source_trajectory"] == debug]
+            self.assertEqual(len(segunda), 1)
+            self.assertIn("same_task_type", segunda[0]["reason"])
+            fuentes = [r["source_trajectory"] for r in rows]
+            self.assertEqual(len(fuentes), len(set(fuentes)),
+                             "ninguna trayectoria se inyecta dos veces en la misma sesión")
+            self.assertEqual(store.active_trajectory(conn, "s")["task_type"],
+                             "debug_test_failure")
+        finally:
+            conn.close()
+
+    def test_no_se_reinyecta_lo_que_ya_se_dijo(self):
+        source = self.seed(task_type="debug_test_failure")
+        with self.fixed_fingerprint():
+            primero, _ = hook.dispatch("SessionStart", {"session_id": "s2", "cwd": "."})
+            self.assertIn(source[:8], primero)
+            segundo = hook.dispatch("UserPromptSubmit", {
+                "session_id": "s2", "cwd": ".",
+                "user_input": "los tests fallan con UnicodeDecodeError"})[0]
+        self.assertEqual(segundo, "", "ya se había inyectado en SessionStart")
+        conn = store.connect()
+        try:
+            self.assertEqual(len(store.injections_for_session(conn, "s2")), 1)
+        finally:
+            conn.close()
+
+    def test_solo_inyecta_una_vez_por_sesion_aunque_haya_mas_prompts(self):
+        self.seed(task_type="docs")
+        debug = self.seed(task_type="debug_test_failure")
+        with self.fixed_fingerprint():
+            hook.dispatch("SessionStart", {"session_id": "s3", "cwd": "."})
+            hook.dispatch("UserPromptSubmit", {"session_id": "s3", "cwd": ".",
+                                               "user_input": "los tests fallan"})
+            tercero = hook.dispatch("UserPromptSubmit", {
+                "session_id": "s3", "cwd": ".",
+                "user_input": "y ahora este otro test también falla"})[0]
+        self.assertEqual(tercero, "", "el tipo de tarea ya dejó de ser general una vez")
+        conn = store.connect()
+        try:
+            rows = store.injections_for_session(conn, "s3")
+            fuentes = [r["source_trajectory"] for r in rows]
+            self.assertEqual(len(fuentes), len(set(fuentes)))
+            self.assertIn(debug, fuentes)
         finally:
             conn.close()
 

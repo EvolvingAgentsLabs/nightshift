@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from . import store
+from . import context, store
 
 # Pesos del ranking. Determinista y auditable: `why` los reimprime tal cual.
 W_SAME_TASK = 2.0
@@ -49,7 +49,12 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None):
 
         reasons = []
         score = 0.0
-        if row["task_type"] == task_type:
+        # `general` no es un tipo de tarea: es "todavía sin clasificar". Contarlo como
+        # coincidencia hacía que `SessionStart` — que corre antes de que el usuario
+        # escriba — reportara `same_task_type` emparejando dos trayectorias sin
+        # clasificar. Parecía retrieval estructural y no lo era (spec §5.7).
+        classified = task_type != context.DEFAULT_TASK_TYPE
+        if classified and row["task_type"] == task_type:
             score += W_SAME_TASK
             reasons.append("same_task_type")
         if same_repo:
@@ -78,19 +83,33 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None):
     return scored
 
 
-def render(conn, scored, *, max_injected, native_memory):
-    """Texto que se inyecta como additionalContext. Vacío si no hay nada que decir."""
+def render(conn, scored, *, max_injected, native_memory, task_type=None):
+    """Texto que se inyecta como additionalContext. Vacío si no hay nada que decir.
+
+    `task_type` sólo cambia cómo se presenta el material: decir "del mismo tipo de
+    tarea" cuando el tipo todavía es `general` sería describir un ranking que no ocurrió.
+    """
     chosen = scored[:max_injected]
     if not chosen:
         return "", []
 
+    classified = task_type and task_type != context.DEFAULT_TASK_TYPE
+    if classified:
+        origen = ["Trayectorias previas del mismo tipo de tarea (`%s`)." % task_type]
+    else:
+        origen = [
+            "Trayectorias recientes de este repo. Todavía no hay tipo de tarea:",
+            "`SessionStart` corre antes de que escribas, así que esto se rankeó por repo y",
+            "recencia, no por estructura.",
+        ]
+
     lines = [
         "## nightshift — memoria procedimental (M2, trayectorias crudas)",
         "",
-        "Trayectorias previas del mismo tipo de tarea. **Ninguna está verificada**: dream",
-        "fase 2 (`verify`) todavía no existe, así que esto es evidencia débil — tratalas",
-        "como pistas, no como hechos. Contradecirlas con lo que veas en el repo es lo",
-        "correcto, no un error.",
+    ] + origen + [
+        "**Ninguna está verificada**: dream fase 2 (`verify`) todavía no existe, así que",
+        "esto es evidencia débil — tratalas como pistas, no como hechos. Contradecirlas",
+        "con lo que veas en el repo es lo correcto, no un error.",
         "",
     ]
     if native_memory:
