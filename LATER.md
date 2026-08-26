@@ -48,6 +48,26 @@ de M1 se cuentan **desde el fix**, no desde el principio.
 
 ---
 
+## Deuda de proceso: `git add -A` metió los experimentos en otro commit
+
+El commit `d6835c2` dice en su mensaje que arregla un mensaje de error, y contiene además
+los tres experimentos y su documentación: 580 líneas que no menciona. Pasó por un
+`git add -A` con trabajo sin commitear en el árbol.
+
+Importa porque este repo tiene una regla explícita al respecto: *"¿Estoy describiendo lo
+que construí, o lo que quería construir?"*. Un mensaje que no describe lo que el commit
+contiene rompe el registro para cualquiera que lo lea después.
+
+No se reescribió la historia: `main` es compartida. Queda anotado acá, y los experimentos
+quedaron descritos en el commit siguiente.
+
+**Acción pendiente:** ninguna sobre el código. Sobre el proceso: `git add -A` cuando hay
+trabajo a medias en el árbol mete lo que encuentra, y los dos errores de proceso de esta
+sesión salieron del mismo lugar — comandos que hacen algo razonable con lo que hay en vez
+de fallar.
+
+---
+
 ## Deuda de proceso: el adaptador del agente entró sin rama ni PR
 
 El commit `5f9a446` (adaptador del agente para M4) se pusheó **directo a `main`**. La
