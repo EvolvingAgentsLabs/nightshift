@@ -86,7 +86,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 | Retención y tamaño del store | Sin política. Una trayectoria por sesión y hasta 400 pasos cada una crece sin techo. |
 | Función de ranking y peso exacto de `candidate` vs `procedure` | Spec §6.3 fija el orden (candidate < procedure); el número sale de datos. |
 | Cómo se usa `MEMORY.md` como señal de retrieval | Hoy sólo se detecta **si existe**, y si existe el texto inyectado lo dice. No se lee el contenido. Qué señal extraer se decide con memoria nativa real delante. |
-| Transferencia cross-repo de verdad | `cross_repo` existe en la config y está **apagado**: sin `abstraction` (que produce dream) cruzar de repo transfiere detalle, no patrón. La capacidad C no está entregada. |
+| Transferencia cross-repo de verdad | `cross_repo` sigue **apagado** por defecto, pero el camino ya es correcto: sólo cruzan trayectorias con `abstraction` (que ahora produce dream) y de ellas se emite **sólo** el patrón, nunca los pasos. Falta la decisión de encenderlo y la evidencia de M4 de que transferir sirve. La capacidad C no está entregada. |
 | ~~Plugin vs slash commands sueltos~~ | **Resuelto**: plugin. Las skills quedan namespaced como `/nightshift:<skill>`, no `/nightshift <sub>` como suponía el plan. Spec §5.5 enmendada. |
 
 ## Diferido hasta M3 (Dream + scheduler)

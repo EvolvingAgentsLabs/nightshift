@@ -204,6 +204,12 @@ discrepancia, **gana el JSON Schema**.
 que no mencionan el repo. El schema **rechaza** secuencias tipo path en ese campo
 (`/algo/`, `~/`, `../`): no como sustituto del redactor, sino como última red.
 
+Que una trayectoria de otro repo sea *elegible* y que se emita *entera* son dos cosas
+distintas, y confundirlas fue un bug real: el ranking exigía `abstraction` para cruzar de
+repo, y el texto inyectado igual traía los pasos crudos de ese repo — nombres de archivo,
+comandos, mensajes de error. Cuando la trayectoria es de otro repo se emite la abstracción
+y nada más. La regla es sobre lo que sale, no sólo sobre lo que se elige.
+
 El mismo campo es lo que hace la trayectoria portable entre harnesses: `steps[].tool`
 se normaliza a un vocabulario propio de nightshift (`read_file`, `edit_file`,
 `run_shell`, `search`, …) y el nombre nativo del harness queda en
@@ -598,3 +604,5 @@ la spec y el benchmark negativo son publicables.
 | 6.1 | Dream fase 1 implementado: agrupación determinista por tipo de tarea, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor | Agrupar con un LLM es irreproducible; y una abstracción que no valida es una fuga cross-repo esperando |
 | 6.3 | El texto inyectado dice de cada trayectoria si es cruda, `candidate` o verificada | "El agente debe poder distinguir 'esto se probó' de 'esto pareció funcionar una vez'" exige que el texto lo diga |
 | 7.1 | Scheduler implementado; instalar y activar son pasos separados, y cada corrida queda registrada | Cargar una unidad en el gestor de arranque no es reversible desde un test; y un timer sin corridas registradas no es verificable |
+| 4.4 | De otro repo se emite **sólo** la abstracción, nunca los pasos | El gate de cross-repo estaba en el ranking y no en la emisión: encender `cross_repo` hubiera cruzado detalle de repo |
+| 9 | `why` muestra la abstracción y los enlaces de contradicción | Una `candidate` se inyecta por su patrón; un `why` que no lo muestra no reconstruye el origen de lo inyectado |

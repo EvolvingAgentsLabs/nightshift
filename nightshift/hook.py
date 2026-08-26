@@ -111,10 +111,11 @@ def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
     """
     cwd = payload.get("cwd") or "."
     session_id = payload.get("session_id")
+    fingerprint = context.repo_fingerprint(cwd)
     scored = retrieve.candidates(
         conn,
         task_type=task_type,
-        repo_fingerprint=context.repo_fingerprint(cwd),
+        repo_fingerprint=fingerprint,
         cfg=cfg,
         exclude_id=tid,
     )
@@ -123,7 +124,7 @@ def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
         scored = [item for item in scored if item[2]["id"] not in ya]
     text, chosen = retrieve.render(conn, scored, max_injected=cfg.get("max_injected", 3),
                                    native_memory=context.memory_signal(cwd),
-                                   task_type=task_type)
+                                   task_type=task_type, repo_fingerprint=fingerprint)
     for rank, (score, reasons, source) in enumerate(chosen, start=1):
         store.record_injection(conn, session_id=session_id, source_trajectory=source["id"],
                                rank=rank, score=score, reason=reasons, into_trajectory=tid)

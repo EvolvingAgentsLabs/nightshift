@@ -84,11 +84,17 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None):
     return scored
 
 
-def render(conn, scored, *, max_injected, native_memory, task_type=None):
+def render(conn, scored, *, max_injected, native_memory, task_type=None,
+           repo_fingerprint=None):
     """Texto que se inyecta como additionalContext. Vacío si no hay nada que decir.
 
     `task_type` sólo cambia cómo se presenta el material: decir "del mismo tipo de
     tarea" cuando el tipo todavía es `general` sería describir un ranking que no ocurrió.
+
+    `repo_fingerprint` decide **cuánto** se muestra de cada trayectoria. De otro repo sale
+    la abstracción y nada más: los pasos traen nombres de archivo, comandos y mensajes de
+    error de ese repo, y "la abstracción es lo único que puede cruzar de repo A a repo B"
+    (spec §4.2) es una regla sobre lo que se emite, no sólo sobre lo que se elige.
     """
     chosen = scored[:max_injected]
     if not chosen:
@@ -122,6 +128,9 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None):
         short = row["id"][:8]
         etiqueta = {"candidate": "consolidada por dream, SIN VERIFICAR",
                     "procedure": "verificada"}.get(row["status"], "trayectoria cruda")
+        otro_repo = bool(repo_fingerprint) and row["repo_fingerprint"] != repo_fingerprint
+        if otro_repo:
+            etiqueta += ", de otro repo"
         lines.append("### %d. `%s` — %s · %s (score %.2f · %s)"
                      % (rank, short, row["task_type"], etiqueta, score, reasons))
         # Una `candidate` trae el patrón abstraído; una cruda, sólo sus pasos. El agente
@@ -135,6 +144,11 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None):
                 lines.append("- señal decisiva del patrón: %s" % abstraction["decisive_signal"])
             for item in json.loads(row["valid_when_json"] or "[]")[:3]:
                 lines.append("- aplica cuando: %s" % item.get("condition", ""))
+        if otro_repo:
+            # Nada de pasos: de otro repo cruza el patrón, no el detalle.
+            lines.append("- sólo el patrón: los pasos son de otro repositorio y no cruzan.")
+            lines.append("")
+            continue
         if row["hypothesis"]:
             lines.append("- hipótesis: %s" % row["hypothesis"])
         steps = store.steps_of(conn, row["id"])

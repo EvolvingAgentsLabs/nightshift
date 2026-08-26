@@ -96,6 +96,34 @@ def cmd_why(args) -> int:
         print("  verificada    : %s" % ("sí" if row["verified_json"] else
                                         "no — dream fase 2 no existe todavía (M5)"))
         print("  redacción     : %s" % row["redaction_json"])
+
+        # Una `candidate` se inyecta por su patrón, no por sus pasos: si `why` no muestra
+        # el patrón, no está reconstruyendo el origen de lo que se inyectó (condición de
+        # éxito 3).
+        if row["abstraction_json"]:
+            abstraction = json.loads(row["abstraction_json"])
+            print()
+            print("abstracción (dream fase 1, sin verificar):")
+            print("  patrón        : %s" % abstraction.get("pattern", "—"))
+            if abstraction.get("decisive_signal"):
+                print("  señal decisiva: %s" % abstraction["decisive_signal"])
+            for señal in abstraction.get("signals", []):
+                print("  señal         : %s" % señal)
+            for item in json.loads(row["valid_when_json"] or "[]"):
+                print("  aplica cuando : %s (%s)" % (item.get("condition", ""),
+                                                     item.get("source", "inferred")))
+        if row["superseded_by"]:
+            print()
+            print("contradicha por %s — esta trayectoria sobrevive enlazada, no se borró."
+                  % row["superseded_by"][:8])
+            print("  `/nightshift:why %s` muestra la sucesora." % row["superseded_by"][:8])
+        supersedidas = conn.execute(
+            "SELECT id FROM trajectories WHERE superseded_by = ?", (row["id"],)).fetchall()
+        if supersedidas:
+            print()
+            print("contradice a %d trayectoria(s) anterior(es):" % len(supersedidas))
+            for item in supersedidas:
+                print("  %s  `/nightshift:why %s`" % (item["id"][:8], item["id"][:8]))
         print()
         print("pasos:")
         for step in store.steps_of(conn, row["id"]):
@@ -689,6 +717,27 @@ def run_doctor() -> list[dict]:
                          red.text(canary) == out, "misma entrada, misma salida"))
     denied = red.is_denied("/home/x/proj/.env")
     checks.append(_check("deny_paths bloquea .env", denied, "/home/x/proj/.env"))
+
+    # El gate de M1 hecho invariante de runtime: el store persistido no puede tener
+    # fugas. `nightshift audit` es el reporte; acá es una aserción más del doctor.
+    try:
+        from . import audit as audit_mod
+
+        conn = store.connect()
+        try:
+            reporte = audit_mod.audit_store(
+                conn, redactor=Redactor(deny_paths=cfg["deny_paths"],
+                                        home_dir=str(Path.home())),
+                home_dir=str(Path.home()))
+        finally:
+            conn.close()
+        hallazgos = reporte["findings"]
+        checks.append(_check(
+            "store sin fugas (audit)", not hallazgos,
+            "%d campo(s) revisados" % reporte["fields_scanned"] if not hallazgos
+            else "%d hallazgo(s): corré `nightshift audit`" % len(hallazgos)))
+    except Exception as exc:
+        checks.append(_check("store sin fugas (audit)", False, str(exc)))
 
     manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
     hooks = PLUGIN_ROOT / "hooks" / "hooks.json"
