@@ -157,6 +157,19 @@ la validez que no estaba en §5.
 
 **Gate:** `bench rehearse` sale 0 sobre las tres familias.
 
+### 1.6 El presupuesto es tiempo, no dinero — decidido por Matías, 2026-08-27
+
+Medido sobre las 39 celdas de los tres ensayos: mediana 37,8 s por celda, p90 70,5 s.
+**Las 102 celdas entran en 1,1 h en serie; 2,0 h con el p90 y 2,8 h en el peor caso
+observado.** M4 entero entra en una noche sin paralelismo y sin nadie mirando.
+
+La factibilidad no es el cuello de botella. El pre-registro sí.
+
+El runner lo defiende en vez de sólo documentarlo: `bench plan` proyecta las horas antes
+de arrancar con datos medidos, `--budget-minutes` corta al terminar una repetición, y la
+matriz pasó a ir **repetición → fila** para que cortar deje las dos filas con el mismo n.
+Ver PREREG §2.1.
+
 ## 5. Fase 2 — correr M4
 
 ### 2.0 Antes de arrancar

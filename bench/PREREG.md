@@ -68,6 +68,43 @@ comparable con la anterior. Ver ADR-003, que es lo que hizo visible la distinci�
 - Límite de tool calls por tarea: `TODO(Matias)`
 - Presupuesto de wall-clock por tarea: `TODO(Matias)`
 
+### 2.1 En qué se mide el presupuesto — decidido por Matías, 2026-08-27
+
+**En tiempo de pared, y el criterio es la factibilidad por el camino directo.** No en
+dinero: lo que el CLI reporta como costo viene a precio de lista (`costBasis: "list"`) y
+con una suscripción de Claude Code no se factura, así que un tope en dólares no ataja
+nada real. Los tokens miden consumo, pero no responden la pregunta que decide si M4 se
+puede correr, que es si entra en una ventana sin nadie mirando.
+
+Lo medido sobre 39 celdas ya corridas con agentes de verdad (los ensayos de las tres
+familias, 2026-08-27):
+
+| | por celda | las 102 celdas |
+|---|---|---|
+| mediana | 37,8 s | **1,1 h** |
+| media | 43,3 s | 1,2 h |
+| p90 | 70,5 s | 2,0 h |
+| máximo observado | 97,8 s | 2,8 h |
+
+**M4 entero entra en una noche, en serie, sin paralelismo.** La factibilidad no es el
+cuello de botella: el pre-registro sí.
+
+Lo que falta para cerrar el número —el tope por tarea, y si hay un tope para la corrida
+entera— sigue abierto en la lista de arriba. Lo que ya no está en discusión es la unidad.
+
+**Qué hace el runner con esto**, para que la decisión no viva sólo en un documento:
+
+- `bench plan` proyecta las horas antes de arrancar, con la mediana y el p90 de las
+  corridas que ya existen. Sin corridas previas lo dice en vez de estimar.
+- `bench run --budget-minutes N` corta al agotarse la ventana, **al terminar una
+  repetición**, nunca en el medio.
+- La matriz va **repetición → fila** para que ese corte sea legítimo: las dos filas
+  quedan con el mismo n. Con el orden anterior —fila → repetición— cortar dejaba S0
+  entera y S1 a la mitad, que no es un experimento más chico sino uno torcido.
+- Una corrida incompleta se lee hasta la última repetición completa en todas las filas;
+  las celdas sueltas de la siguiente se descartan. Si no hay ninguna, no hay nada que
+  comparar y el veredicto es indecidible, que no es no-go y sobre todo no es go.
+
 ## 3. Familias de tareas
 
 ### A — Bug recurrente variado  *(capacidad A: memoria procedimental)*

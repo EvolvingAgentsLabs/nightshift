@@ -439,6 +439,72 @@ class CliTest(IsolatedStoreTest):
                               "una cifra en USD sin decir que es a precio de lista se "
                               "lee como una factura")
 
+    def test_el_presupuesto_corta_al_terminar_una_repeticion(self):
+        """El presupuesto es tiempo de pared, y dónde corta decide si sirve lo corrido.
+
+        La matriz va repetición → fila justamente para esto: cortar al terminar una
+        repetición deja las dos filas con el mismo n. Con el orden por fila —que es como
+        estaba— cortar dejaba S0 entera y S1 a la mitad, que no es un experimento más
+        chico sino uno torcido.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        lento = Path(tmp.name) / "agente.sh"
+        lento.write_text("#!/bin/sh\nsleep 1\ncat <<'FIN'\n"
+                         'NIGHTSHIFT_BENCH {"tool_calls": 5}\n'
+                         "FIN\n", encoding="utf-8")
+        lento.chmod(0o755)
+
+        code, out, err = self.run_cli(
+            ["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(lento), "--rows", "S0,S1", "--repeats", "3",
+             "--timeout", "60", "--budget-minutes", "0.03"])
+        self.assertIn(code, (0, 1), err)
+        self.assertIn("presupuesto", out)
+        self.assertIn("INCOMPLETA", out)
+
+        # Lo que importa: las dos filas quedaron con las mismas repeticiones.
+        corrida = sorted((Path(self.home) / "bench").glob("*/results.jsonl"))[-1]
+        filas = [json.loads(l) for l in corrida.read_text(encoding="utf-8").splitlines()
+                 if l.strip()]
+        meta = json.loads((corrida.parent / "meta.json").read_text(encoding="utf-8"))
+        completas = meta["repeats_complete"]
+        self.assertGreater(completas, 0, "no llegó a completar ni una repetición")
+        por_fila = {}
+        for r in filas:
+            if r["repeat"] <= completas:
+                por_fila.setdefault(r["row"], 0)
+                por_fila[r["row"]] += 1
+        self.assertEqual(len(set(por_fila.values())), 1,
+                         "los brazos quedaron con distinto n: %r" % por_fila)
+
+    def test_una_corrida_incompleta_no_decide(self):
+        """Media matriz no es media respuesta: es ninguna."""
+        from nightshift import bench as bench_mod
+
+        registros = [{"row": "S0", "repeat": 1}, {"row": "S1", "repeat": 1},
+                     {"row": "S0", "repeat": 2}]          # a S1 le falta la 2
+        estado = bench_mod.completeness(registros, rows=("S0", "S1"), repeats=3)
+        self.assertEqual(estado["repeats_complete"], 1)
+        self.assertFalse(estado["complete"])
+        self.assertEqual(len(estado["usable_records"]), 2,
+                         "la celda suelta de la repetición 2 tiene que quedar afuera")
+
+    def test_la_matriz_va_por_repeticion_no_por_fila(self):
+        """Si vuelve el orden por fila, el corte por presupuesto sesga sin avisar."""
+        from nightshift import bench as bench_mod
+
+        fixture = bench_mod.load_fixture(str(FIXTURES / "fixture-a.json"))
+        celdas = bench_mod.matrix(fixture, rows=("S0", "S1"), repeats=2)
+        # La primera repetición tiene que contener las dos filas antes de que empiece
+        # la segunda.
+        primera = [c for c in celdas if c["repeat"] == 1]
+        self.assertEqual({c["row"] for c in primera}, {"S0", "S1"})
+        self.assertEqual(celdas[0]["repeat"], 1)
+        self.assertEqual(celdas[-1]["repeat"], 2)
+
     def test_el_ensayo_avisa_si_el_tratamiento_no_se_aplico(self):
         """Una fila S1 sin memoria no es "nightshift perdió": es que no participó.
 
