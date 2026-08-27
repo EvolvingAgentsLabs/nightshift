@@ -40,6 +40,34 @@ flowchart LR
   style P stroke-dasharray: 5 5
 ```
 
+## The three ideas
+
+**CTE — the chain of thought *is* the chain of execution.** For a coding agent these are
+not two things. The reasoning that survives is not an internal monologue, it is the
+sequence that touched the filesystem: hypothesis → command → error → correction →
+decisive signal → fix. That chain is what gets captured, redacted, as a trajectory. The
+spec calls it *CTE capture* in the capability matrix (§1.2).
+
+**Run the chain forward, not backward.** A chain of thought normally explains something
+that already happened. Dream walks it the other way — trajectory → mechanism →
+abstraction → **conjecture** — and projects symptoms nobody has observed. That is what
+lets memory latch onto a problem *before* its symptom has appeared once. Projections are
+stored separately, weighted at exactly half, and always announced as conjecture
+([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). If that boundary blurs, this stops
+being memory.
+
+**Imagine instead of think.** The consolidation prompt opens by refusing to reason:
+*"don't reason yet — find the image."* Some explanations only land when someone draws
+them **well**, and the right drawing does not add information, it removes what is
+redundant. The DFT is not a sum of exponentials: it is winding a signal around a circle
+at each speed and watching where the center of mass lands. Convolution is flipping one,
+sliding it, and recording the overlap. The model is asked for **the shortest image that
+makes the invariant obvious**, and only then to abstract from the drawing.
+
+The bet is falsifiable — *a drawing of a mechanism is invariant across symptoms in a way
+prose is not* — and the cost is measured, not hidden: asking for the canonical
+visualization nearly **tripled** output tokens per group, 1,715 → 4,866.
+
 ## What it is not
 
 Claude Code ships **Auto Memory** (per-repo declarative notes) and **Auto Dream**
