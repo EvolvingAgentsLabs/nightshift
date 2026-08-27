@@ -416,29 +416,52 @@ def describe(conn, row) -> str:
 # para adelante y no sólo para atrás — y es también lo más fácil de convertir en
 # fabricación, así que lo proyectado se guarda, se pesa y se muestra SIEMPRE separado de
 # lo observado.
-IDEATE_PREFIX = """Antes de responder, IDEÁ. No razones todavía: dibujá.
+IDEATE_PREFIX = """Antes de responder, IDEÁ. No razones todavía: buscá la imagen.
 
-Describí el mecanismo que falla como si tuvieras que dibujarlo para alguien que no leyó
-el código — una escena, un diagrama, dos o tres cuadros de animación. Qué entra, qué
-forma tiene, por dónde pasa, en qué se convierte, dónde deja de coincidir con lo que el
-resto del sistema espera.
+Hay explicaciones que sólo se entienden cuando alguien las dibuja bien, y el dibujo
+correcto hace obvio lo que la definición esconde:
+
+- **La transformada discreta de Fourier** no es una sumatoria con exponenciales: es
+  enrollar la señal alrededor de un círculo a cada velocidad y mirar dónde queda el
+  centro de masa. Si la señal tiene esa frecuencia adentro, el centro se corre del
+  origen; si no, se queda ahí. Todo lo demás es contabilidad.
+- **La convolución** es dar vuelta una de las dos, deslizarla sobre la otra, y anotar
+  cuánto se solapan en cada posición. La curva que traza ese solapamiento es el
+  resultado.
+- **Una integral** es una aplicación que acumula área: rectángulos que se van sumando
+  bajo la curva y se afinan hasta que el escalón deja de notarse.
+- **La transformada Z** es una superficie sobre el plano: los polos son postes que la
+  levantan, los ceros la clavan al piso, y la respuesta en frecuencia es simplemente la
+  altura del terreno cuando caminás el círculo unidad.
+
+Ninguna de esas imágenes agrega información: sacan la que sobra. Eso es lo que tenés que
+hacer con el mecanismo que falla acá.
+
+Buscá **la imagen más corta que vuelve obvio el invariante**. Qué objeto entra, qué forma
+tiene, por dónde pasa, en qué se convierte, y en qué cuadro exacto deja de coincidir con
+lo que el resto del sistema espera. Si el dibujo correcto existe, el síntoma pasa a ser
+una consecuencia evidente en vez de un dato suelto.
 
 Reglas de la ideación:
 
 - Dibujá el MECANISMO, no el síntoma. El síntoma es dónde se vio el humo; el mecanismo es
   qué se está quemando. Dos fallas con el mismo dibujo son la misma falla.
-- Usá el vocabulario del dibujo: formas, recorridos, antes y después, qué se conserva y
-  qué se pierde en cada paso. Si algo cambia de forma sin que nadie lo mire, ese es el
-  cuadro que importa.
-- Si el mecanismo se parece al de otro dominio —una señal que atraviesa un filtro y sale
-  deformada, dos llaves que abren la misma cerradura, un fluido que se escapa por una
-  junta— decilo. Esa analogía es el puente, no una decoración.
-- Tres a seis oraciones. Es un boceto, no un tratado.
+- Buscá la **magnitud conservada** y la que se pierde. Como en la DFT: lo que importa no
+  es cada muestra, es adónde va el centro de masa. ¿Qué se conserva a lo largo de todo el
+  recorrido y qué se pierde sin que ninguna etapa se queje?
+- Si el mecanismo ya tiene una imagen canónica en otro dominio —una señal que atraviesa un
+  filtro y sale deformada, dos llaves que abren la misma cerradura, un fluido que se
+  escapa por una junta, un cambio de coordenadas que hace desaparecer un término— usala.
+  Esa analogía es el puente hacia todo lo que ya se sabe de ese dominio, no una
+  decoración.
+- Es un boceto, no un tratado: la imagen más corta que sirva. Si necesitás muchas
+  oraciones, todavía no encontraste la buena.
 
-Y del dibujo, PROYECTÁ: en qué otras formas se va a manifestar este mismo mecanismo,
-que en estas trayectorias no se vieron. Un síntoma proyectado es una conjetura, no una
-observación, y se va a guardar y mostrar como tal. Proyectá sólo lo que el dibujo
-implica; si no implica nada más, no proyectes.
+Y del dibujo, PROYECTÁ: en qué otras formas se va a manifestar este mismo mecanismo, que
+en estas trayectorias no se vieron. Con la imagen correcta esto no es adivinar — es leer
+del dibujo qué otros cuadros son posibles. Un síntoma proyectado es igual una conjetura,
+no una observación, y se va a guardar y mostrar como tal. Si el dibujo no implica nada
+más, no proyectes.
 
 Escribí la ideación entre <ideacion> y </ideacion>. Después, y sólo después, el JSON.
 
