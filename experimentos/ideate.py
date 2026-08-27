@@ -1,48 +1,26 @@
 """Consolida el mismo corpus dos veces: prompt actual vs prompt con un bloque `ideate`.
 
 La única variable es el prompt. Las trayectorias son las mismas, el modelo es el mismo y
-el corpus se arma con `dream.build_prompt`, que es el que usa el plugin de verdad — así
-el brazo de control **es** el comportamiento actual, no una reconstrucción parecida.
+los dos corpus salen de `dream.build_prompt`, que es el que usa el plugin de verdad — así
+el brazo ideado **es** el comportamiento actual, no una reconstrucción parecida.
 
 El bloque `ideate` pide lo que pidió Matías: idear antes de razonar, en imágenes. No como
 adorno — la hipótesis es que **el dibujo de un mecanismo es invariante entre síntomas de
 un modo que la prosa no lo es**, y que abstraer desde el dibujo produce un patrón que
 transfiere a un síntoma que no se vio.
 
-Esto vive en `experimentos/` y no en `nightshift/` a propósito. Si resulta que sirve,
-entra al plugin por el camino normal.
+**Entró al plugin.** El bloque de ideación ya no vive acá: es `dream.IDEATE_PREFIX`, y
+`consolidate` lo antepone siempre (ADR-004, enmienda 0.3.7). Este script conserva una sola
+cosa que el plugin ya no tiene — el **brazo de control**, `build_prompt(..., ideate=False)`
+— porque sin control no se puede volver a medir la diferencia. Que el control sea
+alcanzable desde acá no lo vuelve una opción del producto: en el plugin no hay ninguna
+ruta que apague la ideación.
 """
 
 import argparse
 import json
 import subprocess
 import sys
-
-IDEATE = """Antes de responder, IDEÁ. No razones todavía: dibujá.
-
-Describí el mecanismo que está fallando como si tuvieras que dibujarlo para alguien que
-no leyó el código — una escena, un diagrama, una animación de dos o tres cuadros. Qué
-objeto entra, qué forma tiene, por dónde pasa, en qué se convierte, dónde deja de
-coincidir con lo que el resto del sistema espera.
-
-Reglas de la ideación:
-
-- Dibujá el MECANISMO, no el síntoma. El síntoma es dónde se vio el humo; el mecanismo es
-  qué se está quemando. Dos fallas con el mismo dibujo son la misma falla.
-- Usá el vocabulario del dibujo: formas, recorridos, antes y después, qué se conserva y
-  qué se pierde en cada paso. Si algo cambia de forma sin que nadie lo mire, ese es el
-  cuadro que importa.
-- Si el mecanismo se parece al de otro dominio —una señal que atraviesa un filtro y sale
-  deformada, dos llaves que abren la misma cerradura, un fluido que se escapa por una
-  junta— decilo. Esa analogía es el puente, no una decoración.
-- Tres a seis oraciones. Es un boceto, no un tratado.
-
-Escribí la ideación primero, en prosa, entre las marcas <ideacion> y </ideacion>.
-Después, y sólo después, el JSON que se te pide abajo.
-
----
-
-"""
 
 
 def consolidar(comando, prompt):
@@ -68,14 +46,19 @@ def main():
     if not grupos:
         raise SystemExit("no hay trayectorias cerradas que consolidar")
     grupo = max(grupos, key=len)
-    corpus = dream.build_prompt(conn, grupo)
+    # El control es el prompt **sin** idear, que en el plugin ya no es alcanzable: hay
+    # que pedirlo explícitamente. El brazo ideado usa el mismo bloque que corre en
+    # producción — no una copia parecida — que es la única forma de que este experimento
+    # siga midiendo lo que el plugin hace.
+    corpus = dream.build_prompt(conn, grupo, ideate=False)
+    ideado = dream.build_prompt(conn, grupo, ideate=True)
     print("  corpus: %d trayectoria(s) del mismo tipo de tarea" % len(grupo))
 
     import shutil
     comando = [shutil.which("claude"), "-p", "--output-format", "json",
                "--model", args.modelo]
 
-    for brazo, prompt in (("control", corpus), ("ideado", IDEATE + corpus)):
+    for brazo, prompt in (("control", corpus), ("ideado", ideado)):
         crudo = consolidar(comando, prompt)
         # El bloque de ideación es prosa antes del JSON; `extract_json` lo saltea igual.
         ideacion = ""

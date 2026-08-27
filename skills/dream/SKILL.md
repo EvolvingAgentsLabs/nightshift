@@ -5,8 +5,10 @@ disable-model-invocation: true
 
 # /nightshift:dream
 
-Fase 1 de dream — `consolidate`. **La fase 2 (`verify`) no existe:** es M5 y está
-bloqueada hasta el veredicto de M4, así que nada llega a `procedure`.
+Fase 1 de dream — `consolidate`. **La fase 2 (`verify`) no existe:** es M5 y sigue
+prohibida, así que nada llega a `procedure`. `consolidate` **idea siempre**: dibuja el
+mecanismo, abstrae desde el dibujo y proyecta síntomas que nadie observó — y lo proyectado
+se anuncia como conjetura en cada lugar donde aparece.
 
 Corré el CLI y reportá su salida:
 

@@ -627,7 +627,9 @@ Trayectoria que la REEMPLAZÓ:
 """
 
 
-def build_contrast_prompt(conn, old_row, new_row, *, ideate=False) -> str:
+def build_contrast_prompt(conn, old_row, new_row, *, ideate=True) -> str:
+    """El contraste también se idea. `ideate=False` existe sólo para el brazo de control
+    de `experimentos/ideate.py`: en el plugin no hay ninguna ruta que lo apague."""
     cuerpo = CONTRAST_PROMPT % (describe(conn, old_row), describe(conn, new_row))
     return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
 
@@ -664,7 +666,13 @@ def validate_contrast(data, *, redactor, home_dir):
     return salida, []
 
 
-def build_prompt(conn, group, *, ideate=False) -> str:
+def build_prompt(conn, group, *, ideate=True) -> str:
+    """El prompt de consolidación. **Idear es el default y no hay config que lo apague.**
+
+    `ideate=False` sobrevive por una sola razón: `experimentos/ideate.py` necesita el
+    brazo de control para poder volver a medir la diferencia. Que el control sea
+    alcanzable desde un experimento no lo vuelve una opción del producto.
+    """
     partes = [describe(conn, row) for row in group[:MAX_TRAYECTORIAS_POR_GRUPO]]
     cuerpo = PROMPT % "\n".join(partes)
     return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
@@ -812,12 +820,22 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                         home_dir=cfg.get("_home_dir"))
     home_dir = cfg.get("_home_dir")
     say = log or (lambda _message: None)
-    # Estrategia de consolidación (ADR-004). `observed` es lo de siempre: abstraer lo que
-    # las trayectorias muestran. `ideate` antepone el bloque de ideación y pide además
-    # síntomas proyectados. Es una **constante del experimento**, no una preferencia:
-    # una corrida de M4 con una estrategia no es comparable con otra, y por eso PREREG
-    # exige declarar cuál se congeló.
-    idear = cfg.get("consolidation_strategy", "observed") == "ideate"
+    # **Idear es el flujo, no una estrategia entre dos** (ADR-004, enmienda 0.3.7).
+    #
+    # Hasta acá `consolidation_strategy` elegía entre `observed` —abstraer lo que las
+    # trayectorias muestran— e `ideate` —dibujar el mecanismo, abstraer desde el dibujo y
+    # proyectar los síntomas que nadie vio. El interruptor ya no existe: `consolidate`
+    # idea siempre, y no hay clave de config que lo apague.
+    #
+    # El motivo es que las dos ramas no consolidan lo mismo con más o menos detalle:
+    # `observed` no puede producir `projected_signals`, y sin proyecciones el retrieval
+    # sólo puede engancharse con un síntoma **después** de que se vio una vez. Dejar eso
+    # detrás de una clave de config era dejar la capacidad entera detrás de un default.
+    #
+    # El brazo de control no se pierde: `build_prompt(..., ideate=False)` sigue existiendo
+    # para `experimentos/ideate.py`, que es donde se mide la diferencia. Lo que se perdió
+    # es la posibilidad de que una corrida del plugin no idee sin que nadie lo note.
+    idear = True
 
     todos = groups(conn, lookback_days=lookback)
     limitados = todos[:max_groups] if max_groups is not None else todos
@@ -826,7 +844,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
                "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
-               "strategy": "ideate" if idear else "observed",
+               "strategy": "ideate",
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 

@@ -4,8 +4,36 @@
 |---|---|
 | Escrito | 2026-08-26 |
 | Reordenado | 2026-08-27, después de encontrar tres defectos en el brazo S1 (§2.5) |
+| **Estado** | **PAUSADO — 2026-08-27, por el pivot de [`HANDOFF.md` §0-bis](HANDOFF.md#0-bis-el-pivot-del-2026-08-27--las-tres-ideas)** |
 | Reemplaza | nada. Complementa `PLAN-v0.3.md` (alcance) y `HANDOFF.md` (cola) |
 | Alcance | desde el estado de hoy hasta que M4 diga go o no-go, y qué pasa después |
+
+> ## ⏸ Este plan está pausado
+>
+> **Decidido por Matías el 2026-08-27.** El camino crítico de este documento —congelar el
+> pre-registro, la revisión de ADR-001, las cinco sesiones, las tres noches, correr las 102
+> celdas— **salió del camino crítico del proyecto**. El objetivo pasó a ser las tres ideas
+> y el gate pasó a ser el dogfooding: `HANDOFF.md` §0-bis.
+>
+> **Qué significa "pausado", con precisión, porque es la clase de frase que después se
+> cita mal:**
+>
+> - **No se descartó nada de lo construido.** El runner (`nightshift bench`), los tres
+>   repos fixture y el adaptador siguen en el repo y siguen pasando sus gates
+>   (`make bench-selftest`, `make bench-fixtures`).
+> - **Los `TODO(Matias)` de `bench/PREREG.md` siguen sin resolver, y siguen siendo de
+>   Matías.** Pausar el benchmark no completa el pre-registro. Completar un `TODO(Matias)`
+>   sigue siendo una violación, no una ayuda.
+> - **M4 sigue sin resultados**, y por lo tanto **la pregunta que este plan iba a
+>   responder sigue sin respuesta**: nadie midió si recordar *cómo se averiguó* algo mejora
+>   el trabajo de un agente. El dogfooding no la responde — mide que la máquina corre sobre
+>   su propio material, no que sirva. Si algún texto del proyecto sugiere lo contrario,
+>   está mintiendo.
+> - **Si el pre-registro se congela algún día, M4 corre sin escribir una línea de código.**
+>   Ese sigue siendo el estado, y es el motivo por el que este documento no se borra.
+>
+> Lo que sigue debajo es válido como descripción del benchmark y de lo que costaría
+> correrlo. **No es la cola de trabajo.** La cola está en `HANDOFF.md`.
 
 ## 0. El objetivo, dicho sin adornos
 

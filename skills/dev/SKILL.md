@@ -21,7 +21,10 @@ nightshift dev
 - **Claude Code never sets benchmark thresholds.** It reads them from `bench/PREREG.md`.
   Filling in a `TODO(Matias)` is a violation, not a favour.
 - Forbidden: writing under `~/.claude/projects/*/memory/`; remote API dependencies;
-  any third-party import; starting M5 before M4's verdict; opening the OpenCode adapter.
+  any third-party import; starting M5; opening the OpenCode adapter.
+- **The pivot of 2026-08-27** (`doc/HANDOFF.md` §0-bis) took M4 and the human gates off
+  the critical path. Paused is not closed: nobody has measured yet that procedural memory
+  helps. The gate is now `make dogfood`.
 
 ## The loop when you change plugin code
 

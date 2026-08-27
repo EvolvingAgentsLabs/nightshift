@@ -78,8 +78,16 @@ anticipa en qué otras formas se va a manifestar. Esos síntomas proyectados ent
 retrieval, así que la memoria puede engancharse con un problema **antes de que su síntoma
 se haya visto una vez**.
 
-`consolidation_strategy` en la config elige: `observed` es el comportamiento anterior,
-`ideate` es el nuevo, y es el default.
+`consolidation_strategy` en la config elegía: `observed` era el comportamiento anterior,
+`ideate` el nuevo, y el default.
+
+**Actualizado el 2026-08-27 (enmienda 0.3.7 de la spec): la clave ya no existe.**
+`consolidate` idea siempre. El motivo es que `observed` **no puede** producir
+`projected_signals`, así que la única capacidad que engancha con un problema antes de que
+su síntoma se haya visto una vez quedaba detrás de un default. El brazo de control
+sobrevive como `build_prompt(..., ideate=False)`, alcanzable sólo desde
+`experimentos/ideate.py`: sin control no se puede volver a medir la diferencia, pero que
+el control exista no lo vuelve una opción del producto.
 
 Se acepta con la evidencia que hay, que es de n=1 y no alcanza para afirmar que funciona.
 Lo que la sostiene no es el resultado del experimento 04 sino el agujero que tapa: sin
@@ -108,6 +116,17 @@ La frontera se defiende en código, en los cuatro lugares donde puede borrarse:
 **Y cambia qué es el brazo S1 de M4.** Una corrida con `observed` y otra con `ideate` no
 son comparables. Por eso la estrategia es una **constante del experimento** —está en
 PREREG §2 y hay que congelarla como cualquier otra— y no una preferencia del usuario.
+Desde la enmienda 0.3.7 la constante está fijada por el código en `ideate`: si M4 llegara
+a correr, ése es el valor que hay que escribir en el pre-registro, y congelarlo en
+`observed` exigiría volver a abrir el interruptor a propósito.
+
+**Y una tercera consecuencia, medida después (enmienda 0.3.7).** Proyectar no alcanza si
+lo proyectado llega último: sobre el store real, la única fila que enganchaba por síntoma
+proyectado quedaba tercera de tres, detrás de dos trayectorias en verde que no compartían
+una palabra con el prompt. Un enganche con el prompt ahora ordena antes que cualquier
+puntaje sin enganche. La mitad del peso de `W_PROJECTED_MATCH` **no cambió** —lo proyectado
+sigue valiendo la mitad de lo observado y el test lo fija— porque esa mitad decide entre
+dos filas que las dos enganchan, no si la conjetura llega o no llega.
 
 ## Alternativas consideradas
 
