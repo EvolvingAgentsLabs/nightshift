@@ -149,20 +149,34 @@ def main(argv):
     # sin mirar quién resolvió. La familia C con `cross_repo` apagado es exactamente ese
     # caso: las celdas terminan bien y no reciben nada.
     inyectadas = None
+    detalle = None
     if fila == "S1":
         inyectadas = 0
+        detalle = []
         try:
             import sqlite3
 
             db = store / "trajectories.sqlite3"
             if db.is_file():
                 conexion = sqlite3.connect(str(db))
-                inyectadas = conexion.execute(
-                    "SELECT COUNT(*) FROM injections WHERE session_id = ?",
-                    (sesion,)).fetchone()[0]
+                filas = conexion.execute(
+                    "SELECT source_trajectory, rank, score, reason FROM injections"
+                    " WHERE session_id = ? ORDER BY rank", (sesion,)).fetchall()
+                inyectadas = len(filas)
+                # **Qué** se inyectó, no sólo cuántas. Sin esto, un no-go de M4 no se
+                # puede leer: con el conteo se distingue "S1 no participó" de "S1 perdió",
+                # y hace falta el motivo para distinguir además "recuperó lo que no era".
+                # Es la primera objeción de la revisión externa: descartar fallo de recall
+                # antes de descartar la hipótesis.
+                #
+                # Va el id de la trayectoria origen y el motivo del ranking. Nada del
+                # contenido: el registro del benchmark no es un lugar donde volcar memoria.
+                detalle = [{"source": f[0], "rank": f[1], "score": round(f[2], 3),
+                            "reason": f[3]} for f in filas]
                 conexion.close()
         except Exception:
             inyectadas = None
+            detalle = None
 
     # Tokens, que es lo que una suscripción consume de verdad. El `total_cost_usd` que
     # devuelve el CLI viene con `costBasis: "list"`: es la valorización a precio de lista
@@ -179,6 +193,7 @@ def main(argv):
         "input_tokens": entrada,
         "output_tokens": salida_tok,
         "injections": inyectadas,
+        "injected": detalle,
         "tool_calls": len(contador),
         "num_turns": (resultado or {}).get("num_turns"),
         "session_id": sesion,

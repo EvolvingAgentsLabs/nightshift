@@ -527,6 +527,36 @@ class CliTest(IsolatedStoreTest):
         self.assertIn("el tratamiento no se aplicó", out)
         self.assertNotIn("resuelto", out, "y sigue sin decir el resultado")
 
+    def test_el_resumen_dice_por_que_se_inyecto_lo_que_se_inyecto(self):
+        """Antes de concluir que la memoria no sirve, hay que descartar que falló el recall.
+
+        Con el conteo de inyecciones se distingue "S1 no participó" de "S1 perdió". Con el
+        **motivo** se distingue además "S1 recuperó lo que no era", que es la única de las
+        tres que un no-go no puede dejar sin responder.
+        """
+        registros = [
+            {"family": "A", "row": "S1", "repeat": 1, "task": "t1", "phase": "measure",
+             "resolved": True, "tool_calls": 7, "input_tokens": 30000,
+             "injected": [{"source": "abc", "rank": 1, "score": 1.5,
+                           "reason": "same_repo,failure_match"}]},
+            {"family": "A", "row": "S1", "repeat": 2, "task": "t1", "phase": "measure",
+             "resolved": False, "tool_calls": 9, "input_tokens": 50000,
+             "injected": [{"source": "abc", "rank": 1, "score": 0.9,
+                           "reason": "same_repo"}]},
+        ]
+        resumen = bench.summarize(registros)
+        celda = resumen[("A", "S1")]
+        self.assertEqual(celda["injection_reasons"]["same_repo"], 2)
+        self.assertEqual(celda["injection_reasons"]["failure_match"], 1)
+        self.assertEqual(celda["input_tokens_median"], 40000)
+
+    def test_los_tokens_se_reportan_y_no_deciden(self):
+        """Reportar el costo de contexto es información; convertirlo en umbral es de PREREG."""
+        for spec in bench.PRIMARY.values():
+            self.assertNotIn("token", spec["metric"],
+                             "la regla de decisión no puede mirar tokens sin un umbral "
+                             "pre-registrado")
+
     def test_el_ensayo_se_niega_a_ser_la_corrida(self):
         """Un ensayo queda marcado en su registro y `report` no lo confunde."""
         import tempfile

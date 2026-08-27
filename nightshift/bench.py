@@ -448,7 +448,7 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
         # 102 celdas cuyo costo nadie anotó no se puede volver a justificar.
         for clave in ("tool_calls", "num_turns", "cost_usd", "list_price_usd",
                       "input_tokens", "output_tokens", "tool_limit",
-                      "tool_limit_exceeded", "injections"):
+                      "tool_limit_exceeded", "injections", "injected"):
             if clave in metricas:
                 registro[clave] = metricas[clave]
         if metricas.get("session_id"):
@@ -627,7 +627,7 @@ def summarize(records) -> dict:
         celda = resumen.setdefault(clave, {"repeats": {}, "n": 0})
         repeticion = celda["repeats"].setdefault(record["repeat"],
                                                  {"resolved": [], "tool_calls": [],
-                                                  "false_stale": []})
+                                                  "false_stale": [], "input_tokens": []})
         celda["n"] += 1
         valorizado = record.get("list_price_usd") or record.get("cost_usd")
         if valorizado is not None:
@@ -646,14 +646,28 @@ def summarize(records) -> dict:
             repeticion["tool_calls"].append(float(record["tool_calls"]))
         if record.get("false_stale_ratio") is not None:
             repeticion["false_stale"].append(float(record["false_stale_ratio"]))
+        # El contexto que costó la tarea. **No entra en la regla de decisión** —eso es un
+        # umbral y los umbrales son de PREREG— pero se reporta S0 contra S1: una memoria
+        # que resuelve igual y gasta el doble de contexto no es un empate, y sin este
+        # número el reporte la presentaría como tal.
+        if record.get("input_tokens") is not None:
+            repeticion["input_tokens"].append(float(record["input_tokens"]))
+        # Y qué se le inyectó a la celda. Se acumula el motivo, no el contenido: sirve
+        # para separar "S1 no participó" de "S1 recuperó lo que no era".
+        for item in record.get("injected") or []:
+            celda.setdefault("reasons", {})
+            for motivo in str(item.get("reason", "")).split(","):
+                if motivo:
+                    celda["reasons"][motivo] = celda["reasons"].get(motivo, 0) + 1
 
     salida = {}
     for (family, row), celda in resumen.items():
-        tasas, calls, falsas = [], [], []
+        tasas, calls, falsas, tokens = [], [], [], []
         for repeticion in celda["repeats"].values():
             if repeticion["resolved"]:
                 tasas.append(sum(repeticion["resolved"]) / len(repeticion["resolved"]))
             calls.extend(repeticion["tool_calls"])
+            tokens.extend(repeticion.get("input_tokens") or [])
             if repeticion["false_stale"]:
                 falsas.append(sum(repeticion["false_stale"]) / len(repeticion["false_stale"]))
         salida[(family, row)] = {
@@ -663,6 +677,8 @@ def summarize(records) -> dict:
             "tool_calls_median": median(calls),
             "false_stale_ratio": median(falsas),
             "false_stale_range": [min(falsas), max(falsas)] if falsas else None,
+            "input_tokens_median": median(tokens),
+            "injection_reasons": celda.get("reasons") or {},
             "cost_usd": celda.get("cost_usd"),
             "limit_exceeded": celda.get("limit_exceeded", 0),
             "timed_out": celda.get("timed_out", 0),

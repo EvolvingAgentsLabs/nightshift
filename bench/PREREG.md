@@ -74,6 +74,18 @@ comparable con la anterior. Ver ADR-003, que es lo que hizo visible la distinci�
   es comparable con otra, y la que se congele acá es la que define qué se midió. El
   default del código es `ideate`; congelar el pre-registro con `observed` es una decisión
   válida y hay que escribirla, no dejarla implícita en la config.
+- **Configuración de retrieval** — `max_injected`, `cross_repo`, y si se pre-registra el
+  commit de la función de ranking (`retrieve.W_*`): `TODO(Matias)`
+
+  Decide **qué se inyecta**, que es el tratamiento mismo. Es la misma clase de constante
+  que el modelo de consolidación y la `consolidation_strategy`: dos corridas de `S1` con
+  distinta configuración de retrieval no son comparables entre sí.
+
+  No es una hipótesis. El 2026-08-27 el ranking cambió tres veces en una sesión —enganche
+  por el fallo observado, la precondición como clave, y la bandera `decisive` apretada— y
+  nada en este pre-registro habría dejado constancia de que el brazo `S1` cambió. La
+  familia C lo tenía ya a la vista por otro lado: con `cross_repo` apagado, la fila `S1`
+  llega al repo B con **cero** memorias, así que ese valor decide si la familia mide algo.
 - Seed del set de tareas: `TODO(Matias)`
 - Límite de tool calls por tarea: `TODO(Matias)`
 - Presupuesto de wall-clock por tarea: `TODO(Matias)`

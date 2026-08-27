@@ -38,9 +38,10 @@ Arrancá con `nightshift dev`.
 | Dream fase 1 — `consolidate`, con ideación y proyección | `nightshift/dream.py` |
 | Contraste entre una alternativa descartada y la que la reemplazó | `nightshift/dream.py`, `store.mark_superseded` |
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
+| Cohorte de captura: `status` no promedia entre generaciones | `store.COHORTE_DE_CAPTURA` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 280 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 288 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -53,7 +54,7 @@ ni en el README, ni en un commit, ni en una demo.
 
 ### Bloqueado por una persona, no por vos
 
-- **M4 (benchmark go/no-go)** — lee umbrales de `bench/PREREG.md`, donde hay 21
+- **M4 (benchmark go/no-go)** — lee umbrales de `bench/PREREG.md`, donde hay 22
   `TODO(Matias)`. **Completar uno es una violación, no una ayuda.** Podés construir el
   runner del benchmark; no podés inventar los números que decide.
 - **M5 (verify)** — prohibido empezarlo antes del veredicto de M4. No es una
@@ -164,7 +165,7 @@ instrumento con el que aparecieron. Y [PLAN-M4 §10](PLAN-M4.md#10-preguntas-abi
 tiene ocho preguntas para Matías; descartar una es una respuesta.
 
 [`PLAN-M4.md`](PLAN-M4.md) tiene el detalle: el camino crítico y su orden (por qué la
-revisión de ADR-001 va **antes** de congelar el pre-registro), los 21 `TODO(Matias)`
+revisión de ADR-001 va **antes** de congelar el pre-registro), los 22 `TODO(Matias)`
 agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (102 celdas,
 ~1,1 h medidas), los riesgos con su evidencia, y qué pasa con cada veredicto posible.
 
@@ -193,12 +194,12 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 ### Bloqueado — no empieces
 
 - **M4.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
-  correr**: `bench/PREREG.md` sigue en borrador con 21 `TODO(Matias)`. **Los tres repos
+  correr**: `bench/PREREG.md` sigue en borrador con 22 `TODO(Matias)`. **Los tres repos
   fixture también están construidos** (`bench/fixtures/familia-{a,c,d}/`, verificados con
   `make bench-fixtures`). Lo que falta no es código: son los umbrales, el modelo, el seed,
   el protocolo de reset entre corridas, y congelar los identificadores de los fixtures.
   Los fija Matías. Completar un `TODO(Matias)` es una violación, no una ayuda.
-  `nightshift bench check` lista los 20 con sección y línea.
+  `nightshift bench check` lista los 22 con sección y línea.
 
   El adaptador que lanza el agente en cada celda también está
   (`bench/agentes/correr-agente.py`) y se niega a correr sin el modelo, el límite de tool
@@ -238,7 +239,7 @@ Una sesión larga de desarrollo. Lo que hay que saber para no re-derivarlo:
 | **La matriz va repetición → fila** | Para que cortar por presupuesto deje los dos brazos con el mismo n. Con el orden anterior, una corrida cortada era un experimento torcido, no uno más chico. |
 | **Los dólares no son una factura** | El CLI reporta a precio de lista (`costBasis: "list"`); con suscripción no se factura. Los tokens son la unidad. Hay un test que falla si alguna línea con `USD` no lo dice. |
 | **El retrieval de lo crudo no miraba el prompt** (spec §5.10) | Medido: dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores. Sin abstracción no había enganche por síntoma, así que un síntoma **proyectado** por el modelo pesaba 0.75 y un fallo **observado** pesaba cero. Ahora una trayectoria cruda engancha por los errores de sus pasos `tool_failure`, con el motivo `failure_match`. Sólo fallos: `decisive` marca también los tests en verde, y son el 38% de los pasos. |
-| **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y sube los `TODO(Matias)` a 21. |
+| **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y subió los `TODO(Matias)` a 21; la configuración de retrieval los llevó a 22. |
 
 ### Lo primero que tiene que mirar la sesión que sigue
 

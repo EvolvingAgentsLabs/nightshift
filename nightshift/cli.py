@@ -63,7 +63,8 @@ def cmd_status(args) -> int:
         calidad = store.capture_quality(conn)
         if calidad["tool_steps"]:
             print()
-            print("calidad de la captura (últimas %d trayectorias):" % calidad["trajectories"])
+            print("calidad de la captura (cohorte %d · últimas %d trayectorias):"
+                  % (calidad["cohort"], calidad["trajectories"]))
             print("  %-11s %d" % ("pasos tool", calidad["tool_steps"]))
             print("  %-11s %d (%.0f%%)" % ("sin contenido", calidad["hollow"],
                                              100 * calidad["hollow_ratio"]))
@@ -79,8 +80,19 @@ def cmd_status(args) -> int:
                 print("  %d trayectoria(s) con pasos y ninguno con contenido: %s"
                       % (len(calidad["broken"]),
                          ", ".join(t[:8] for t in calidad["broken"][:4])))
-                print("  (las anteriores al 2026-08-26 son cascarón por el bug de los")
-                print("   campos del payload; ver LATER.md)")
+            if calidad["other_cohorts"]:
+                # Se cuentan y no se promedian: son de otra generación del código de
+                # captura, así que su porcentaje no habla de la captura de ahora.
+                print("  %d trayectoria(s) de cohortes anteriores, no promediadas"
+                      % calidad["other_cohorts"])
+                print("  (las anteriores al 2026-08-27 no declaran cohorte: incluyen el")
+                print("   cascarón del bug de los campos del payload; ver LATER.md)")
+        elif calidad.get("other_cohorts"):
+            print()
+            print("calidad de la captura: todavía no hay trayectorias de la cohorte %d."
+                  % calidad["cohort"])
+            print("  %d de cohortes anteriores, que no dicen nada de la captura de ahora."
+                  % calidad["other_cohorts"])
         print()
         from . import dream as dream_mod
 
@@ -1163,8 +1175,9 @@ def _render_report(registros, prereg, args) -> int:
 
     print()
     print("resultados (mediana por celda; se publican todas las corridas, PREREG §4):")
-    print("  %-8s %-4s %-6s %-8s %-16s %-10s %s" % ("familia", "fila", "corr.", "tareas",
-                                                    "resolución", "tool calls", "uso (lista)"))
+    print("  %-8s %-4s %-6s %-8s %-16s %-10s %-12s %s"
+          % ("familia", "fila", "corr.", "tareas", "resolución", "tool calls",
+             "tok entrada", "uso (lista)"))
     costo_total = 0.0
     excedidas = 0
     timeouts = 0
@@ -1174,11 +1187,13 @@ def _render_report(registros, prereg, args) -> int:
         costo_total += item["cost_usd"] or 0.0
         excedidas += item["limit_exceeded"]
         timeouts += item["timed_out"]
-        print("  %-8s %-4s %-6d %-8d %-16s %-10s %s" % (
+        print("  %-8s %-4s %-6d %-8d %-16s %-10s %-12s %s" % (
             item["family"], item["row"], item["runs"], item["n"],
             "—" if item["resolution_rate"] is None else "%.2f [%.2f–%.2f]" % (
                 item["resolution_rate"], rango[0], rango[1]),
             "—" if item["tool_calls_median"] is None else "%.1f" % item["tool_calls_median"],
+            "—" if item.get("input_tokens_median") is None
+            else "{:,.0f}".format(item["input_tokens_median"]),
             "—" if item["cost_usd"] is None else "%.2f" % item["cost_usd"]))
     if costo_total:
         print("  %-8s %s" % ("total", "USD %.2f a precio de lista" % costo_total))
@@ -1194,6 +1209,28 @@ def _render_report(registros, prereg, args) -> int:
         print("  la tarea. Cuentan como no resueltas igual que un fallo, pero no es lo")
         print("  mismo — no se sabe si las habría resuelto con más tiempo. Buscá "
               "[TIMEOUT] abajo.")
+
+    # Los tokens se reportan y **no deciden**: la regla de PREREG §1 no los mira, y
+    # agregarlos a la decisión sería fijar un umbral, que no es de este runner. Están acá
+    # porque una memoria que resuelve igual y gasta el doble de contexto no es un empate,
+    # y sin el número el reporte la presentaría como tal.
+    if any(item.get("input_tokens_median") is not None for item in resumen.values()):
+        print("  (los tokens de entrada se reportan, no entran en la regla de decisión)")
+
+    # Y por qué el retrieval trajo lo que trajo. Sirve para lo que la revisión externa
+    # pidió: antes de concluir que la memoria procedimental no sirve, descartar que el
+    # problema fuera de recuperación.
+    motivos = {}
+    for item in resumen.values():
+        for motivo, veces in (item.get("injection_reasons") or {}).items():
+            motivos[motivo] = motivos.get(motivo, 0) + veces
+    if motivos:
+        print()
+        print("por qué se inyectó lo que se inyectó (motivos del ranking, S1):")
+        for motivo, veces in sorted(motivos.items(), key=lambda kv: -kv[1]):
+            print("  %-22s %d" % (motivo, veces))
+        print("  un no-go con sólo `same_repo` y recencia es un fallo de recuperación,")
+        print("  no evidencia contra la hipótesis.")
 
     print()
     print("corridas individuales:")
@@ -1635,7 +1672,14 @@ def run_doctor() -> list[dict]:
         finally:
             conn.close()
         ultima = calidad["latest"]
-        if not ultima:
+        if not ultima and calidad.get("other_cohorts"):
+            # No es lo mismo "el store está vacío" que "todo lo que hay es de otra
+            # generación del código de captura". Lo segundo se dice, porque significa que
+            # el plugin **no capturó nada desde el último cambio de captura**.
+            detalle = ("ninguna trayectoria de la cohorte %d todavía; hay %d de cohortes "
+                       "anteriores" % (calidad["cohort"], calidad["other_cohorts"]))
+            ok = True
+        elif not ultima:
             detalle, ok = "todavía no hay una trayectoria con pasos de tool", True
         elif not ultima["healthy"]:
             # El doctor afirma sobre el presente. Que haya trayectorias viejas rotas es

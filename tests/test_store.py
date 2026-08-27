@@ -132,6 +132,49 @@ class StoreTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_la_calidad_no_promedia_entre_cohortes_de_captura(self):
+        """El 52% que reportaba el store real era un promedio entre generaciones.
+
+        Mezclaba trayectorias escritas antes y después del arreglo de los campos del
+        payload mientras la última iba 1 de 52. Una alarma que suena para siempre es donde
+        se esconde la regresión siguiente.
+        """
+        conn = store.connect()
+        try:
+            vieja = store.open_trajectory(conn, session_id="vieja",
+                                          repo_fingerprint="a" * 64, task_type="general")
+            for _ in range(10):
+                store.append_step(conn, vieja, kind="tool_use", tool="run_shell")
+            # Como si la hubiera escrito el código de captura anterior a la cohorte.
+            conn.execute("UPDATE trajectories SET capture_cohort = NULL WHERE id = ?",
+                         (vieja,))
+            conn.commit()
+
+            nueva = store.open_trajectory(conn, session_id="nueva",
+                                          repo_fingerprint="a" * 64, task_type="general")
+            for i in range(4):
+                store.append_step(conn, nueva, kind="tool_use", tool="run_shell",
+                                  result_summary="contenido %d" % i)
+
+            calidad = store.capture_quality(conn)
+            self.assertEqual(calidad["tool_steps"], 4, "los 10 pasos viejos no se cuentan")
+            self.assertEqual(calidad["hollow"], 0)
+            self.assertEqual(calidad["other_cohorts"], 1)
+            self.assertNotIn(vieja, calidad["broken"],
+                             "una trayectoria de otra cohorte no es la captura de ahora")
+        finally:
+            conn.close()
+
+    def test_una_trayectoria_nueva_declara_su_cohorte(self):
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="s", repo_fingerprint="a" * 64,
+                                        task_type="general")
+            fila = store.get_trajectory(conn, tid)
+            self.assertEqual(fila["capture_cohort"], store.COHORTE_DE_CAPTURA)
+        finally:
+            conn.close()
+
     def test_una_trayectoria_vieja_rota_no_deja_el_doctor_en_rojo_para_siempre(self):
         """`status` cuenta la historia; el doctor afirma sobre el presente."""
         conn = store.connect()
