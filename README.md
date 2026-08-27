@@ -5,9 +5,12 @@ A proof of concept, not a product.
 
 *[Léeme en español](README.es.md)*
 
-> **Status: M3 — capture, retrieval and dream phase 1, as a Claude Code plugin.**
-> Everything described below runs. Whether it *helps* is unmeasured: `verify` does not
-> exist, so nothing reaches `procedure` and nothing injected is verified.
+> **Status: M3 built — capture, retrieval and dream phase 1, as a Claude Code plugin.**
+> Everything described below runs, and the code is no longer what blocks the benchmark:
+> the **evidence** is. M1's gate is five real sessions and M3's is three unattended
+> nights, and neither has been collected yet. Whether any of this *helps* is unmeasured:
+> `verify` does not exist, so nothing reaches `procedure` and nothing injected is
+> verified.
 
 ## What it does
 
@@ -79,6 +82,34 @@ Then, inside that session:
 | `/nightshift:doctor` | is capture actually working |
 | `/nightshift:dev` | start a development session on the plugin itself |
 
+## The night it dreamed about itself
+
+On 2026-08-27 the plugin consolidated its own development store and, from the drawing of
+the mechanism, **projected four symptoms nobody had observed** ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)).
+That same afternoon, measuring for an unrelated reason, two of them turned out to be real:
+
+| What dream projected at 15:27 | What was measured hours later |
+|---|---|
+| «Retrieval returns matches by structural shape, unrelated to the content of the work.» | Two prompts describing different symptoms returned the same ranking and the same scores: retrieval of raw trajectories never looked at the prompt |
+| «A manual review of a recent record shows the full structure and every text field blank.» | Dream's own prompt showed six `(no summary)` steps out of a 400-step trajectory that had 177 steps with content |
+
+Three things have to be said about that, or it is a fairy tale:
+
+- **Neither was found *because* of the projection.** Both were written, injected and
+  available, and the work rediscovered them by measuring. A conjecture nobody resolves is
+  not memory — it is a note. That gap is what
+  [`experimentos/preguntar.py`](experimentos/preguntar.py) probes: it shows each
+  projection with options so a person can resolve it, without writing to the store and
+  **without promoting anything** — a human saying yes is not a reproduction against a
+  gate ([ADR-002](doc/adr/ADR-002-verify-gate.md)).
+- **Two other projections were checked and did not hold.** Six projections, two
+  confirmed, two refuted, two open, one store. That is an anecdote with a numerator, not
+  a result.
+- **The same session found three defects in the treatment arm itself** — retrieval
+  ignoring the prompt, dream reading empty steps, the rehearsal blaming dream for its own
+  broken `HOME`. All three were invisible because every hook exits 0 by design. They are
+  fixed; the reason they went unnoticed for weeks is the point.
+
 ## The honest part
 
 The benchmark that would answer *"does remembering how something was figured out improve
@@ -87,12 +118,14 @@ and its agent adapter — and **has never run**, because the pre-registration is
 draft with open decisions. Everything injected today is a `candidate`: abstracted by a
 model, reproduced by nobody.
 
-A rehearsal is not evidence, and a demonstration is not a result.
+A rehearsal is not evidence, and a demonstration is not a result. Neither is a
+projection that came true twice.
 
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the plan and the benchmark
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
+- [`experimentos/preguntar.py`](experimentos/preguntar.py) — human-in-the-loop over what dream only conjectured: read-only on the store, promotes nothing
 - [`LATER.md`](LATER.md) — everything found and not fixed
 
 ## License
