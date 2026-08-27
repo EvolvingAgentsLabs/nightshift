@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS trajectories (
     valid_when_json TEXT,
     consolidation_model TEXT,
     consolidation_cost_usd REAL,
+    ideation TEXT,
+    projected_signals_json TEXT,
     superseded_by TEXT,
     verified_json TEXT,
     injection_weight REAL,
@@ -112,7 +114,8 @@ def now() -> str:
 # ni se reescribe una columna con datos.
 COLUMNAS_AGREGADAS = {
     "runs": [("cost_usd", "REAL")],
-    "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL")],
+    "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL"),
+                     ("ideation", "TEXT"), ("projected_signals_json", "TEXT")],
 }
 
 
@@ -289,11 +292,18 @@ def recent_runs(conn, limit=10):
 
 # ------------------------------------------------------------------- dream (M3)
 def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypothesis=None,
-                         weight=0.6, consolidation_model=None, consolidation_cost_usd=None):
+                         weight=0.6, consolidation_model=None, consolidation_cost_usd=None,
+                         ideation=None, projected_signals=None):
     """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
 
     No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
     inyección baja a propósito respecto de un procedimiento verificado (spec §6.3).
+
+    `ideation` es el boceto del mecanismo del que salió la abstracción, y
+    `projected_signals` son síntomas que este mecanismo **produciría** y que nadie
+    observó. Los dos se guardan aparte de `abstraction` justamente porque no son lo
+    mismo: `signals` se vio, `projected_signals` se anticipó. Mezclarlos sería subir
+    una conjetura a la categoría de observación, y el retrieval las pesa distinto.
 
     `consolidation_model` y `consolidation_cost_usd` son la respuesta a "¿con qué se
     abstrajo esto y cuánto costó?" — sin registrarlos por trayectoria, la condición de
@@ -308,10 +318,13 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
         "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
         " valid_when_json = ?, injection_weight = ?,"
         " hypothesis = COALESCE(hypothesis, ?), consolidation_model = ?,"
-        " consolidation_cost_usd = ? WHERE id = ? AND status = 'closed'",
+        " consolidation_cost_usd = ?, ideation = ?, projected_signals_json = ?"
+        " WHERE id = ? AND status = 'closed'",
         (json.dumps(abstraction, ensure_ascii=False),
          json.dumps(valid_when or [], ensure_ascii=False), weight, hypothesis,
-         consolidation_model, consolidation_cost_usd, trajectory_id))
+         consolidation_model, consolidation_cost_usd, ideation,
+         json.dumps(projected_signals, ensure_ascii=False) if projected_signals else None,
+         trajectory_id))
     conn.commit()
     return conn.execute("SELECT status FROM trajectories WHERE id = ?",
                         (trajectory_id,)).fetchone()["status"]

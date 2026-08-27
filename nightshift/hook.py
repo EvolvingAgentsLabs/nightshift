@@ -169,7 +169,7 @@ def _close_orphans(conn, cfg, session_id):
 
 
 # ---------------------------------------------------------- retrieval e inyección
-def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
+def _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=None):
     """Rankea, renderiza y registra. Lo comparten `SessionStart` y `UserPromptSubmit`.
 
     Nada que ya se haya inyectado en esta sesión se vuelve a inyectar: el retrieval
@@ -185,6 +185,9 @@ def _retrieve_and_inject(conn, payload, cfg, tid, task_type):
         repo_fingerprint=fingerprint,
         cfg=cfg,
         exclude_id=tid,
+        # El texto del prompt sólo existe acá. Se usa para enganchar por síntoma y no se
+        # persiste: lo que queda en el registro es el motivo, no las palabras.
+        prompt=prompt,
     )
     if session_id:
         ya = store.injected_sources(conn, session_id)
@@ -254,7 +257,7 @@ def on_user_prompt_submit(payload, cfg, conn):
     # tipo de tarea, y por lo tanto la primera vez que "retrieve por tipo de tarea"
     # (spec §5.7) puede cumplirse. Ocurre una sola vez: en el próximo prompt el tipo ya
     # no es `general` y esta rama no se vuelve a tomar.
-    text, chosen = _retrieve_and_inject(conn, payload, cfg, tid, task_type)
+    text, chosen = _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=prompt)
     if not chosen:
         return ""
     _log("retrieval por tipo de tarea (%s): %d inyectada(s)" % (task_type, len(chosen)))

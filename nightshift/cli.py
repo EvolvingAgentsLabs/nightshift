@@ -152,11 +152,25 @@ def cmd_why(args) -> int:
                 "USD %.4f a precio de lista" % row["consolidation_cost_usd"]
                 if row["consolidation_cost_usd"] is not None
                 else "no reportado por el backend"))
+            if "ideation" in row.keys() and row["ideation"]:
+                print("  mecanismo     : %s" % row["ideation"])
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
             if abstraction.get("decisive_signal"):
                 print("  señal decisiva: %s" % abstraction["decisive_signal"])
+            proyectadas = []
+            if ("projected_signals_json" in row.keys()
+                    and row["projected_signals_json"]):
+                try:
+                    proyectadas = json.loads(row["projected_signals_json"]) or []
+                except ValueError:
+                    proyectadas = []
             for señal in abstraction.get("signals", []):
                 print("  señal         : %s" % señal)
+            # Lo proyectado va después de lo observado y dice que lo es. `why` existe
+            # para reconstruir de dónde salió una inyección: una conjetura listada como
+            # señal sería una reconstrucción falsa.
+            for señal in proyectadas:
+                print("  anticipada    : %s (conjetura: nadie la observó)" % señal)
             for item in json.loads(row["valid_when_json"] or "[]"):
                 print("  aplica cuando : %s (%s)" % (item.get("condition", ""),
                                                      item.get("source", "inferred")))

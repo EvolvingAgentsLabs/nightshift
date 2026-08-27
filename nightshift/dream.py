@@ -224,10 +224,33 @@ class LocalModel:
     def ask_json(self, prompt: str):
         salida = self.ask(prompt)
         self._anotar_uso(salida)
+        # La ideación viaja como prosa antes del JSON. Se guarda acá y no se devuelve
+        # para no romper la interfaz que usa el resto: un backend que no idea deja
+        # `last_ideation` en None y todo sigue igual.
+        self.last_ideation = extract_ideation(salida)
         data = extract_json(salida)
         if data is None:
             raise DreamError("el modelo no devolvió JSON parseable")
         return data
+
+
+IDEACION_RE = re.compile(r"<ideacion>(.*?)</ideacion>", re.S | re.I)
+
+
+def extract_ideation(salida: str):
+    """El boceto entre las marcas, si el modelo lo escribió.
+
+    El envoltorio del agente trae la respuesta como string JSON, así que los saltos de
+    línea llegan escapados: sin deshacerlos la ideación se guarda con `\n` literales
+    adentro. No es cosmético — ese texto se inyecta.
+    """
+    if not salida:
+        return None
+    match = IDEACION_RE.search(salida.replace("\\n", "\n"))
+    if not match:
+        return None
+    texto = " ".join(match.group(1).split())
+    return texto or None
 
 
 def undo_wrapping(text: str) -> str:
@@ -381,6 +404,48 @@ def describe(conn, row) -> str:
     return "\n".join(lines)
 
 
+# El bloque `ideate`, delante del prompt de consolidación. Ver ADR-004.
+#
+# La hipótesis: **el dibujo de un mecanismo es invariante entre síntomas de un modo que
+# la prosa no lo es.** Diez fallas con una causa compartida se cuentan con diez prosas
+# distintas y —si vale— con el mismo dibujo. Abstraer desde el dibujo tendría que dar un
+# patrón que transfiere a un síntoma que no se vio.
+#
+# La segunda mitad es la proyección: desde el dibujo, anticipar en qué OTRAS formas se
+# va a manifestar el mismo mecanismo. Eso es lo que convierte a dream en algo que mira
+# para adelante y no sólo para atrás — y es también lo más fácil de convertir en
+# fabricación, así que lo proyectado se guarda, se pesa y se muestra SIEMPRE separado de
+# lo observado.
+IDEATE_PREFIX = """Antes de responder, IDEÁ. No razones todavía: dibujá.
+
+Describí el mecanismo que falla como si tuvieras que dibujarlo para alguien que no leyó
+el código — una escena, un diagrama, dos o tres cuadros de animación. Qué entra, qué
+forma tiene, por dónde pasa, en qué se convierte, dónde deja de coincidir con lo que el
+resto del sistema espera.
+
+Reglas de la ideación:
+
+- Dibujá el MECANISMO, no el síntoma. El síntoma es dónde se vio el humo; el mecanismo es
+  qué se está quemando. Dos fallas con el mismo dibujo son la misma falla.
+- Usá el vocabulario del dibujo: formas, recorridos, antes y después, qué se conserva y
+  qué se pierde en cada paso. Si algo cambia de forma sin que nadie lo mire, ese es el
+  cuadro que importa.
+- Si el mecanismo se parece al de otro dominio —una señal que atraviesa un filtro y sale
+  deformada, dos llaves que abren la misma cerradura, un fluido que se escapa por una
+  junta— decilo. Esa analogía es el puente, no una decoración.
+- Tres a seis oraciones. Es un boceto, no un tratado.
+
+Y del dibujo, PROYECTÁ: en qué otras formas se va a manifestar este mismo mecanismo,
+que en estas trayectorias no se vieron. Un síntoma proyectado es una conjetura, no una
+observación, y se va a guardar y mostrar como tal. Proyectá sólo lo que el dibujo
+implica; si no implica nada más, no proyectes.
+
+Escribí la ideación entre <ideacion> y </ideacion>. Después, y sólo después, el JSON.
+
+---
+
+"""
+
 PROMPT = """Sos el consolidador de nightshift. Te doy trayectorias de trabajo ya
 capturadas y redactadas: pasos de herramientas, fallos y señales. Tu única tarea es
 abstraer el patrón que comparten.
@@ -392,7 +457,8 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "hypothesis": "la hipótesis con la que arrancó el trabajo, en una oración",
   "signals": ["señal observable que indica que este patrón aplica"],
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
-  "valid_when": ["precondición bajo la que este procedimiento aplica"]
+  "valid_when": ["precondición bajo la que este procedimiento aplica"],
+  "projected_signals": ["síntoma que este mecanismo produciría y que NADIE observó"]
 }
 
 Reglas duras. Una respuesta que las rompa se descarta:
@@ -405,6 +471,11 @@ Reglas duras. Una respuesta que las rompa se descarta:
 - `hypothesis` es **el primer eslabón de la cadena causal**: con qué se creyó que era el
   problema al empezar, aunque después resultara equivocada. Si de los pasos no se puede
   inferir ninguna, poné null en vez de escribir una obvia.
+- `signals` es lo que SE VIO en estas trayectorias. `projected_signals` es lo que el
+  mismo mecanismo produciría en otra parte y no se vio. Nunca pongas en `signals` algo
+  que no esté en los pasos: la diferencia entre observar y anticipar es la única que
+  hace que esto sea memoria y no adivinación. Si no te pidieron idear, dejá
+  `projected_signals` vacío.
 - Si las trayectorias no comparten ningún patrón útil, devolvé
   {"pattern": null} en lugar de inventar uno.
 
@@ -422,9 +493,10 @@ No expliques el rechazo. Devolvé sólo el JSON corregido.
 """
 
 
-def build_prompt(conn, group) -> str:
+def build_prompt(conn, group, *, ideate=False) -> str:
     partes = [describe(conn, row) for row in group[:MAX_TRAYECTORIAS_POR_GRUPO]]
-    return PROMPT % "\n".join(partes)
+    cuerpo = PROMPT % "\n".join(partes)
+    return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
 
 
 # ---------------------------------------------------------------- validación
@@ -441,10 +513,15 @@ def _leaks(text, field, redactor, home_dir):
     return problemas
 
 
-def validate(data, *, redactor, home_dir):
+def validate(data, *, redactor, home_dir, ideation=None):
     """Devuelve `(abstraction, valid_when, hypothesis, problemas)`.
 
     Con problemas, no se persiste nada.
+
+    `ideation` es el boceto del que salió la abstracción, si se ideó. Pasa por los mismos
+    gates de fuga que todo lo demás: es texto de modelo y se persiste igual. Y vuelve
+    dentro de `abstraction["_ideation"]`, que `consolidate` saca antes de guardar —
+    la clave con guión bajo no llega al JSON persistido.
     """
     problemas = []
     if not isinstance(data, dict):
@@ -490,10 +567,31 @@ def validate(data, *, redactor, home_dir):
     else:
         hypothesis = None
 
+    # Proyectado: lo que este mecanismo produciría y nadie vio. Se valida igual que
+    # `signals` y se guarda aparte, nunca mezclado. Un síntoma anticipado que se cuela
+    # entre los observados deja de ser una conjetura y pasa a ser un dato falso.
+    proyectados = []
+    for item in (data.get("projected_signals") or [])[:MAX_SIGNALS]:
+        if isinstance(item, str) and item.strip():
+            item = " ".join(item.split())
+            problemas.extend(_leaks(item, "projected_signals[]", redactor, home_dir))
+            if item not in signals:      # proyectar algo ya observado no proyecta nada
+                proyectados.append(item)
+
+    if isinstance(ideation, str) and ideation.strip():
+        ideation = " ".join(ideation.split())
+        problemas.extend(_leaks(ideation, "ideation", redactor, home_dir))
+    else:
+        ideation = None
+
     if problemas:
         return None, None, None, problemas
 
     abstraction = {"pattern": pattern}
+    if proyectados:
+        abstraction["_projected_signals"] = proyectados
+    if ideation:
+        abstraction["_ideation"] = ideation
     if signals:
         abstraction["signals"] = signals
     if decisive:
@@ -518,6 +616,12 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                         home_dir=cfg.get("_home_dir"))
     home_dir = cfg.get("_home_dir")
     say = log or (lambda _message: None)
+    # Estrategia de consolidación (ADR-004). `observed` es lo de siempre: abstraer lo que
+    # las trayectorias muestran. `ideate` antepone el bloque de ideación y pide además
+    # síntomas proyectados. Es una **constante del experimento**, no una preferencia:
+    # una corrida de M4 con una estrategia no es comparable con otra, y por eso PREREG
+    # exige declarar cuál se congeló.
+    idear = cfg.get("consolidation_strategy", "observed") == "ideate"
 
     todos = groups(conn, lookback_days=lookback)
     limitados = todos[:max_groups] if max_groups is not None else todos
@@ -526,6 +630,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
                "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
+               "strategy": "ideate" if idear else "observed",
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 
@@ -540,7 +645,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         say("grupo de %d · representante %s (%s)"
             % (len(group), winner["id"][:8], winner["task_type"]))
 
-        prompt = build_prompt(conn, group)
+        prompt = build_prompt(conn, group, ideate=idear)
         abstraction = valid_when = hypothesis = None
         problemas = []
         costo_antes = getattr(model, "total_cost", 0.0) or 0.0
@@ -560,7 +665,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                 say("  intento %d falló: %s" % (intento + 1, exc))
                 continue
             abstraction, valid_when, hypothesis, problemas = validate(
-                data, redactor=redactor, home_dir=home_dir)
+                data, redactor=redactor, home_dir=home_dir,
+                ideation=getattr(model, "last_ideation", None))
             if not problemas:
                 break
             if problemas == [SIN_PATRON]:
@@ -583,13 +689,25 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         # float, y "no reportado" es la lectura correcta por defecto (spec §1.3 cond. 3).
         costo_grupo = (getattr(model, "total_cost", 0.0) or 0.0) - costo_antes
 
+        # Se leen antes de que `promote_to_candidate` las saque del dict.
+        ideacion_del_grupo = abstraction.get("_ideation")
+        proyectados_del_grupo = list(abstraction.get("_projected_signals") or [])
+
         if not dry_run:
+            # Las claves con guión bajo son de transporte: `validate` las usa para
+            # devolver ideación y proyecciones sin estirar la tupla, y acá se sacan
+            # antes de persistir. Lo que se guarda en `abstraction_json` es lo que
+            # define `trajectory.v1` y nada más.
+            ideacion = abstraction.pop("_ideation", None)
+            proyectados = abstraction.pop("_projected_signals", None)
             estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
                                                 valid_when=valid_when,
                                                 hypothesis=hypothesis,
                                                 weight=CANDIDATE_WEIGHT,
                                                 consolidation_model=model.name,
-                                                consolidation_cost_usd=costo_grupo or None)
+                                                consolidation_cost_usd=costo_grupo or None,
+                                                ideation=ideacion,
+                                                projected_signals=proyectados)
             if estado != "candidate":
                 # La promoción exige `closed`. Si la trayectoria cambió de estado entre
                 # que se agrupó y que se promovió, el UPDATE no toca nada — y un reporte
@@ -604,7 +722,9 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                                       "task_type": winner["task_type"],
                                       "pattern": abstraction["pattern"],
                                       "hypothesis": hypothesis,
-                                      "valid_when": len(valid_when)})
+                                      "valid_when": len(valid_when),
+                                      "ideation": ideacion_del_grupo,
+                                      "projected_signals": len(proyectados_del_grupo)})
 
         for old in contradicted_by(conn, group, winner):
             if not dry_run:
