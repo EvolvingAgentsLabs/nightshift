@@ -280,6 +280,9 @@ de `candidate` de arriba.
    por fallo observado, spec §5.10) y nada en el pre-registro habría dejado constancia de
    que el brazo cambió. Anotarlo en PREREG es de Matías: la regla 3 del pre-registro dice
    que Claude Code lee y no propone, así que el agujero se deja escrito acá y no allá.
+7. **Las ocho preguntas de [`PLAN-M4.md` §10](doc/PLAN-M4.md).** Salieron de reordenar el
+   plan el 2026-08-27. Ninguna la puede cerrar un agente: o son decisiones, o cambian qué
+   mide el experimento. Descartar una es una respuesta.
 
 ## Los dólares del benchmark no eran una factura
 

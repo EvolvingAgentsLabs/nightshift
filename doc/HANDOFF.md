@@ -40,7 +40,7 @@ Arrancá con `nightshift dev`.
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 278 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 280 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -155,6 +155,13 @@ sesión real.
 **No cierra ningún gate**, y el motivo está en `LATER.md` §"Sobre el ensayo end-to-end".
 
 ### El plan hasta el veredicto
+
+**Reordenado el 2026-08-27** ([PLAN-M4 §2 y §2.5](PLAN-M4.md#25-fase-05--que-s1-sea-s1)):
+apareció una fase 0.5 —*que S1 sea S1*— delante del congelamiento del pre-registro,
+porque en una sola sesión se encontraron tres defectos en el brazo que M4 mide y los tres
+eran invisibles. Las cinco sesiones reales dejaron de ser un trámite en paralelo: son el
+instrumento con el que aparecieron. Y [PLAN-M4 §10](PLAN-M4.md#10-preguntas-abiertas--para-responder-o-para-descartar)
+tiene ocho preguntas para Matías; descartar una es una respuesta.
 
 [`PLAN-M4.md`](PLAN-M4.md) tiene el detalle: el camino crítico y su orden (por qué la
 revisión de ADR-001 va **antes** de congelar el pre-registro), los 21 `TODO(Matias)`
