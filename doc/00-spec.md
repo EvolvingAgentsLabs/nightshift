@@ -6,8 +6,8 @@
 | Estado | Draft — M0 |
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
-| ADRs vinculados | ADR-001, ADR-002, ADR-003 |
-| Revisión | 0.3.4 — el modelo de dream pasa a Claude Code (ADR-003) |
+| ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005 |
+| Revisión | 0.3.6 — el piso del enganche se parte en destilado y crudo |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -459,6 +459,15 @@ salieron de medir, no de estimar:
 Con abstracción manda la abstracción: es lo destilado. El enganche por fallo es el piso,
 no un segundo voto.
 
+**Enmienda 0.3.6 — y el piso no es uno solo.** Esa jerarquía estaba escrita acá en prosa
+y el código la contradecía: lo destilado y lo crudo pagaban el mismo peaje de dos
+palabras en común. Una oración que el modelo destiló no tiene relleno, así que una
+palabra de contenido ya es señal; un volcado de error es casi todo andamiaje. Con el piso
+único, el enganche por síntoma **se caía a cero en cuanto el usuario parafraseaba**, que
+es la única forma en que alguien lo escribe. Ahora son dos pisos —`MIN_TOKENS_DESTILADO`
+y `MIN_TOKENS_CRUDO`— y ninguna coincidencia puede apoyarse sólo en predicados de fallo.
+Ver la tabla de enmiendas 0.3.6 al final, que incluye el efecto sobre el brazo `S1`.
+
 **Y la precondición es la otra clave.** `valid_when` se imprimía en la inyección y no se
 buscaba nunca: una trayectoria cuya condición describe exactamente la situación que el
 usuario tiene delante no puntuaba por eso. Ahora engancha con el motivo
@@ -826,3 +835,33 @@ la spec y el benchmark negativo son publicables.
 | 6.1 | Al prompt de dream van los pasos **con contenido**, fallos primero; una trayectoria sin ninguno no se le pregunta al modelo y se reporta `SIN_CONTENIDO`, no `SIN_PATRON` | 400 pasos con 177 de contenido llegaban como seis líneas vacías: dream gastaba 38 k tokens en preguntar por siluetas y la respuesta "no hay patrón" se leía como si el material se hubiera mirado |
 | 4.3, 4.3.1 | `decisive` la enciende **sólo un fallo**; `tests_passed` se infiere del comando guardado | Marcaba el 38% de los pasos por mezclar diagnóstico con desenlace, y era el insumo del ranking, del desenlace y de la ventana de dream a la vez |
 | 5.10 | `valid_when` entra al ranking con el motivo `precondition_match` | Era la mitad del valor de conservar lo descartado (§4.2) y sólo se imprimía: "esto aplica acá" es una clave de recuperación distinta de "esto ya lo vi" |
+
+### Enmiendas 0.3.6 (de medir el enganche contra la paráfrasis)
+
+Las 0.3.5 midieron **discriminación**: que dos prompts con síntomas distintos no
+devuelvan el mismo orden. Eso quedó verificado. Lo que ninguna midió es la otra mitad, y
+es la que usa una persona: **robustez a la paráfrasis**. §1 promete que cuando el usuario
+describe lo que le está pasando, la memoria le devuelve lo que ya se probó — y nadie
+describe un síntoma con las palabras exactas con las que un modelo lo escribió la noche
+anterior. Medido: el enganche se caía a 3 de 14 paráfrasis, y a 1 de 6 sobre el store real
+de este repo. El experimento es `experimentos/05-enganche-por-parafrasis.py`.
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.10 | El piso del enganche deja de ser una constante única: `MIN_TOKENS_DESTILADO = 1` para `signals`, `valid_when` y `projected_signals`; `MIN_TOKENS_CRUDO = 2` para los errores de pasos `tool_failure` | Una frase que el modelo destiló es una oración curada donde una palabra de contenido ya es señal; un mensaje de error crudo es mayormente andamiaje del harness. La spec afirmaba la jerarquía en prosa —"con abstracción manda la abstracción"— y el código les cobraba el mismo peaje. Medido: bajar el piso de lo crudo a 1 produce un falso positivo sobre los errores reales del store y dejarlo en 2, ninguno |
+| 5.10 | Un enganche no puede apoyarse **sólo** en predicados de fallo (`_PREDICADOS_DE_FALLO`: falla, error, bug, rompe, anda…) | Con el piso de lo destilado en 1, la palabra `falla` sola hermanaba "el deploy falla con un certificado SSL vencido" con "esa etapa no falla ante contenido ausente". Es el mismo caso que `Exit code 1`, del lado destilado: dicen **que** algo se rompió, no **qué**. No son palabras vacías —suman como segunda coincidencia— pero no sostienen un enganche solas |
+
+**El brazo `S1` del benchmark cambió con esto, y queda dicho acá porque `PREREG` §2 pide
+que la configuración de retrieval sea una constante del experimento: dos corridas de `S1`
+con distinto ranking no son comparables entre sí.** El pre-registro sigue en BORRADOR, así
+que el cambio es legítimo; lo que no sería legítimo es que fuera silencioso — que es
+exactamente lo que pasó el 2026-08-27, cuando el ranking cambió tres veces en una sesión
+sin que nada dejara constancia.
+
+Medido sobre el store real de este repo, antes y después, con el mismo control negativo de
+prompts ajenos en cero las dos veces:
+
+| | paráfrasis que enganchan |
+|---|---|
+| antes (piso único 2) | 1 de 6 |
+| después (0.3.6) | 4 de 6 |

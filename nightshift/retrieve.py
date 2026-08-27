@@ -53,9 +53,30 @@ W_FAILURE_MATCH = 1.5
 # > conjeturado. El número exacto no lo calibró nadie: lo juzga M4.
 W_PRECONDITION_MATCH = 1.0
 
-# Cuántas palabras de contenido tienen que coincidir para llamarlo enganche. Con una
-# sola, "test" alcanza para hermanar cualquier par de trayectorias de este repo.
-MIN_TOKENS_EN_COMUN = 2
+# Cuántas palabras de contenido tienen que coincidir para llamarlo enganche.
+#
+# **Son dos pisos y no uno, y la diferencia se midió** (enmienda 0.3.6; el experimento es
+# `experimentos/05-enganche-por-parafrasis.py`). Un piso único trataba igual a dos clases
+# de texto que no se parecen en nada:
+#
+# - Una frase de `abstraction` la escribió el modelo destilando: es una oración curada,
+#   sin relleno, donde una sola palabra de contenido compartida ya es señal.
+# - Un mensaje de error crudo es mayormente andamiaje del harness. Ahí una sola palabra
+#   no dice nada, y es el caso que spec §5.10 documentó: "exit" y "code" alcanzaban para
+#   hermanar un `parse error` con un error de formateo.
+#
+# Lo que costaba el piso único: el enganche por síntoma **se caía a cero con la
+# paráfrasis**, que es exactamente como lo escribe una persona. Medido sobre las frases
+# reales de la candidata `fff6af83`, con piso 2 enganchaban 3 de 14 paráfrasis; con piso 1
+# sobre lo destilado, 9 de 14 — y el control negativo se queda en 0 de 6 en los dos casos.
+# Sobre los fallos crudos del mismo store, en cambio, bajar el piso a 1 produce un falso
+# positivo y el piso 2 ninguno: por eso el piso de abajo no se toca.
+#
+# La spec ya afirmaba esta jerarquía en prosa —"con abstracción manda la abstracción: es
+# lo destilado; el enganche por fallo es el piso"— y el código la contradecía cobrándoles
+# el mismo peaje a las dos.
+MIN_TOKENS_DESTILADO = 1
+MIN_TOKENS_CRUDO = 2
 
 # Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
 # puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
@@ -95,6 +116,30 @@ _MARCADORES_DE_REDACCION = frozenset(
     "repo path secret credentials email blob truncated".split())
 _VACIAS = _VACIAS | _MARCADORES_DE_REDACCION
 
+# Palabras que dicen **que** algo se rompió, no **qué** se rompió. No son vacías —suman
+# perfectamente bien como segunda coincidencia, donde la otra palabra dice de qué se
+# habla— pero no pueden sostener un enganche ellas solas: "falla" es verdad en cualquier
+# prompt de debugging, y con el piso de lo destilado en 1 alcanzaba para hermanar un
+# certificado SSL vencido con una etapa que no valida contenido.
+#
+# Medido, no estimado (enmienda 0.3.6, `experimentos/05-enganche-por-parafrasis.py`).
+# Sobre las frases reales de la candidata `fff6af83` contra un control de nueve prompts
+# ajenos, los enganches de una sola palabra se reparten así:
+#
+#     verdaderos positivos, los carga un sustantivo del dominio:
+#         vacio · texto · registro · paso · ninguna · ningun
+#     falsos positivos, los carga un predicado:
+#         falla
+#
+# La lista es corta por la misma razón que `_VACIAS`: filtrar de más es empezar a decidir
+# qué se parece a qué, y eso es justo lo que el ranking tiene que hacer de forma
+# auditable. Es la misma clase de exclusión que `_ENCABEZADO_DE_FALLO_RE` — "exit code"
+# tampoco es un síntoma.
+_PREDICADOS_DE_FALLO = frozenset("""
+falla fallo fallan fallando fallar error errores problema problemas bug bugs
+rompe rompio roto rompen anda andaba funciona funcionaba
+""".split())
+
 
 def _tokens(texto):
     """Palabras de contenido, normalizadas. Determinista y sin dependencias.
@@ -109,20 +154,29 @@ def _tokens(texto):
     return frozenset(t for t in _PALABRA_RE.findall(plano) if t not in _VACIAS)
 
 
-def _enganche(tokens_prompt, frases):
+def _enganche(tokens_prompt, frases, piso=MIN_TOKENS_CRUDO):
     """¿Alguna de estas frases habla de lo mismo que el prompt?
 
     Devuelve la cantidad de palabras de contenido en común de la frase que más comparte.
     Cero es "no engancha".
+
+    `piso` es explícito en cada llamada a propósito: es la decisión de si el texto que se
+    compara es destilado o crudo, y esa decisión pertenece a quien sabe qué está pasando,
+    no a un default. El default es el conservador.
     """
     if not tokens_prompt:
         return 0
     mejor = 0
     for frase in frases or ():
-        comunes = len(tokens_prompt & _tokens(frase))
-        if comunes > mejor:
-            mejor = comunes
-    return mejor if mejor >= MIN_TOKENS_EN_COMUN else 0
+        comunes = tokens_prompt & _tokens(frase)
+        # Un enganche que se apoya sólo en predicados de fallo no dice de qué se habla:
+        # "algo falla" es cierto en cualquier prompt de debugging. Tiene que quedar al
+        # menos una palabra que nombre la cosa.
+        if not (comunes - _PREDICADOS_DE_FALLO):
+            continue
+        if len(comunes) > mejor:
+            mejor = len(comunes)
+    return mejor if mejor >= piso else 0
 
 
 def _fallos_observados(conn, trajectory_id):
@@ -221,17 +275,20 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             senales = list(abstraccion.get("signals") or [])
             if abstraccion.get("decisive_signal"):
                 senales.append(abstraccion["decisive_signal"])
-            if _enganche(tokens_prompt, senales):
+            # Las tres son texto destilado por el modelo, no crudo: van con el piso de
+            # abajo. Es lo que hace que el enganche sobreviva a que el usuario describa
+            # el síntoma con sus palabras y no con las del modelo.
+            if _enganche(tokens_prompt, senales, MIN_TOKENS_DESTILADO):
                 score += W_SIGNAL_MATCH
                 reasons.append("signal_match")
             condiciones = [c.get("condition", "") for c in
                            json.loads(row["valid_when_json"] or "[]")
                            if isinstance(c, dict)]
-            if _enganche(tokens_prompt, condiciones):
+            if _enganche(tokens_prompt, condiciones, MIN_TOKENS_DESTILADO):
                 score += W_PRECONDITION_MATCH
                 reasons.append("precondition_match")
             proyectadas = _proyectadas(row)
-            if proyectadas and _enganche(tokens_prompt, proyectadas):
+            if proyectadas and _enganche(tokens_prompt, proyectadas, MIN_TOKENS_DESTILADO):
                 score += W_PROJECTED_MATCH
                 reasons.append("projected_match")
         score += W_DAY_DECAY * _age_days(row["created_at"])
