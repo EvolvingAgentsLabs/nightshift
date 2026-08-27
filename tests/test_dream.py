@@ -135,14 +135,17 @@ class DreamTest(IsolatedStoreTest):
         self.assertEqual(code, 0, err.getvalue())
 
         row = self.row(tid)
-        self.assertEqual(row["consolidation_model"], str(falso))
+        # El basename y no la ruta: `consolidation_model` se persiste, y `shutil.which`
+        # devuelve rutas absolutas que el auditor marca como `home_path`.
+        self.assertEqual(row["consolidation_model"], falso.name)
+        self.assertNotIn("/", row["consolidation_model"])
         self.assertAlmostEqual(row["consolidation_cost_usd"], 0.25, places=4)
 
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(cli.main(["why", tid[:8]]), 0)
         texto = out.getvalue()
-        self.assertIn(str(falso), texto)
+        self.assertIn(falso.name, texto)
         self.assertIn("USD 0.2500", texto)
 
     def test_dream_puebla_la_hipotesis_que_la_captura_no_puede(self):
@@ -730,3 +733,27 @@ class DreamTest(IsolatedStoreTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NombreDelModeloTest(unittest.TestCase):
+    """El nombre del modelo se persiste, así que es material auditable.
+
+    Lo encontró el auditor sobre el store real, en un campo que nadie pensó como texto
+    capturado porque lo escribe nightshift y no el usuario: `shutil.which` devuelve la
+    ruta absoluta del binario y ésa terminaba guardada en `consolidation_model` y
+    reimpresa por `why`. La lección no es "sanitizar rutas": es que **todo lo que se
+    persiste pasa por el auditor**, lo haya escrito quien lo haya escrito.
+    """
+
+    def test_el_nombre_no_lleva_la_ruta_del_ejecutable(self):
+        from nightshift import dream
+
+        modelo = dream.LocalModel(["/Users/alguien/.local/bin/claude", "-p",
+                                   "--output-format", "json"])
+        self.assertEqual(modelo.name, "claude -p --output-format json")
+        self.assertNotIn("/", modelo.name)
+
+    def test_un_comando_vacio_no_revienta(self):
+        from nightshift import dream
+
+        self.assertEqual(dream.LocalModel([]).name, "")

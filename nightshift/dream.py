@@ -164,7 +164,19 @@ class LocalModel:
 
     @property
     def name(self) -> str:
-        return " ".join(self.command)
+        """El comando, sin la ruta absoluta del ejecutable.
+
+        `shutil.which` devuelve algo como `/Users/alguien/.local/bin/claude`, y ese
+        nombre se **persiste** en `consolidation_model`. El auditor lo encontró como
+        `home_path`: una fuga que entró por la puerta de servicio, en un campo que nadie
+        pensó como texto capturado porque lo escribe nightshift y no el usuario.
+
+        El basename identifica igual —qué backend consolidó, con qué flags, con qué
+        modelo— que es lo que PREREG §2 pide declarar. La ruta no agregaba nada.
+        """
+        if not self.command:
+            return ""
+        return " ".join([os.path.basename(self.command[0])] + list(self.command[1:]))
 
     def _run(self, command, prompt):
         # El hijo corre con un `NIGHTSHIFT_HOME` desechable. Si el ejecutable resulta ser
