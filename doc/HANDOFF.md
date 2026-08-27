@@ -5,6 +5,71 @@ Se lee entero antes de tocar nada.
 
 ---
 
+## 0-bis. El pivot del 2026-08-27 — las tres ideas
+
+**Decidido por Matías.** Esta sección manda sobre el camino crítico de
+[`PLAN-M4.md`](PLAN-M4.md), que queda pausado entero.
+
+El proyecto no se destrabó porque alguien tomara las decisiones que lo bloqueaban: se
+destrabó porque esas decisiones **salieron del camino crítico**. Lo que queda es un solo
+objetivo y una sola forma de saber si funciona.
+
+### El objetivo, y son tres ideas
+
+1. **CTE — Chain of Thought is Chain of Execution.** Una trayectoria no es el registro de
+   lo que un agente pensó: es lo que ejecutó. Lo que nightshift captura ya es la cadena, y
+   por eso vale la pena consolidarla — no hay que reconstruir el razonamiento desde
+   afuera, está en los pasos.
+2. **Correr la cadena para adelante, no para atrás.** Consolidar mirando hacia atrás
+   produce memoria de lo que ya pasó, que sólo sirve cuando el síntoma se repite idéntico.
+   Lo que hace falta es **proyectar**: desde el mecanismo, anticipar en qué otras formas
+   se va a manifestar, y que esas conjeturas lleguen al agente **antes** de que el error
+   ocurra.
+3. **Idear en vez de razonar.** Antes de abstraer, dibujar: el mecanismo como diagrama.
+   La hipótesis es que el dibujo de un mecanismo es invariante entre síntomas de un modo
+   que la prosa no lo es (ADR-004). Es de ahí que salen las proyecciones de la idea 2.
+
+Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea siempre, y
+`retrieve.candidates`, que ahora pone lo que engancha con el prompt delante de lo que sólo
+comparte repo o tipo de tarea.
+
+### Lo que queda pausado, y qué no cambia por pausarlo
+
+| Qué | Estado | Qué **no** cambia |
+|---|---|---|
+| **M4 — benchmark go/no-go** | **PAUSADO.** Fuera del camino crítico | El runner sigue construido y sigue **negándose a correr**. `bench/PREREG.md` conserva sus `TODO(Matias)` **sin tocar**: pausar el benchmark no es completar el pre-registro, y completarlo sigue siendo una violación |
+| **Gate humano de M0** — revisión de ADR-001 por Ismael | **PAUSADO.** Deja de bloquear | Sigue pendiente y sigue siendo cierto que hay código construido sobre las cinco capacidades que ese ADR decide. No lo des por cerrado: darlo por cerrado es distinto de no esperarlo |
+| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. `nightshift audit --min-sessions 5` y `nightshift schedule status` siguen diciendo la verdad, y la verdad hoy es que ninguno de los dos está cerrado |
+| **M5 — dream fase 2 (`verify`)** | **SIGUE PROHIBIDO** | Y el motivo cambió: antes esperaba el veredicto de M4, que ya no va a llegar. Ahora lo que lo prohíbe es que nada llega a `procedure` y el dogfooding **no** lo desbloquea. Verificar es lo más caro de construir y nadie midió todavía que valga la pena |
+| **Adapter de OpenCode** | Prohibido, sin cambio | — |
+
+Lo que **no** se pausa, porque no es burocracia: las prohibiciones de `CLAUDE.md`. Stdlib
+pura, sin red, sin escribir en el árbol de Auto Memory, hooks que salen 0, y no presentar
+nightshift como reemplazo de Auto Memory. Un pivot de objetivo no es un permiso.
+
+### El gate nuevo: dogfooding
+
+**El agente usando nightshift sobre el código de nightshift.** Y como un gate es un script
+y no un juicio (`CLAUDE.md` regla 2), es esto:
+
+```sh
+make dogfood
+```
+
+Corre `make check` y después, **sobre el store real y no sobre uno desechable**:
+`doctor`, `audit` y `status`. Pasa si el gate está en verde, la captura de la última
+sesión trae contenido, el store no tiene fugas y hay trayectorias de este repo.
+
+**Lo que este gate no dice, y conviene decirlo antes de que alguien lo cite mal:**
+
+- No dice que la memoria **sirva**. Eso era lo que M4 iba a medir, y no se midió. Lo que
+  dice es que la máquina corre sobre su propio material sin romperse ni filtrar nada.
+- No convierte una `candidate` en `procedure`. Nada está verificado, y la inyección lo
+  sigue diciendo en cada corrida.
+- Un ensayo (`make simulate`) sigue sin cerrarlo: `dogfood` mira el store real a propósito.
+
+---
+
 ## 0. Qué sos en esta sesión
 
 Estás corriendo **dentro del plugin que vas a modificar**. Si la sesión se abrió con
@@ -41,7 +106,8 @@ Arrancá con `nightshift dev`.
 | Cohorte de captura: `status` no promedia entre generaciones | `store.COHORTE_DE_CAPTURA` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 299 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 305 tests, selftest |
+| Gate del pivot | `make dogfood` — `check` y después `doctor`, `audit` y `status` sobre el store **real** |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -52,17 +118,20 @@ corrió nunca y no puede correr hasta que el pre-registro esté congelado. Hay
 Una `candidate` la abstrajo un modelo y nadie la reprodujo contra un gate. No lo describas como si lo estuviera,
 ni en el README, ni en un commit, ni en una demo.
 
-### Bloqueado por una persona, no por vos
+### Pausado — ya no bloquea, y tampoco se dio por hecho
 
-- **M4 (benchmark go/no-go)** — lee umbrales de `bench/PREREG.md`, donde hay 22
-  `TODO(Matias)`. **Completar uno es una violación, no una ayuda.** Podés construir el
-  runner del benchmark; no podés inventar los números que decide.
-- **M5 (verify)** — prohibido empezarlo antes del veredicto de M4. No es una
-  preferencia de estilo: verify es lo más caro de construir y sólo vale la pena si la
-  memoria procedimental cruda ya mostró ganancia (plan §3).
+**Ver §0-bis, que es donde se decidió.** Resumen, porque la diferencia entre "pausado" y
+"cerrado" es exactamente donde este repo ya se equivocó una vez:
+
+- **M4 (benchmark go/no-go)** — pausado. Lee umbrales de `bench/PREREG.md`, donde siguen
+  los 22 `TODO(Matias)` **intactos**. **Completar uno es una violación, no una ayuda**, y
+  pausar el benchmark no cambia eso: lo que se sacó del camino es la espera, no la regla.
+- **M5 (verify)** — sigue prohibido, con otro motivo: ya no espera un veredicto que no va
+  a llegar, sino que nadie midió que valga la pena. Verify es lo más caro de construir y
+  el dogfooding no lo desbloquea.
 - **Gate humano de M0** — la revisión de ADR-001 por Ismael sigue pendiente, y M1/M2 ya
   se construyeron sobre las cinco capacidades que ese ADR decide. Si la revisión tumba
-  una fila, hay código que sobra. No lo des por cerrado.
+  una fila, hay código que sobra. **Dejar de esperarla no es darla por cerrada.**
 
 ---
 
@@ -171,7 +240,9 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 
 ### Lo que falta, y de quién es
 
-**Ninguna de estas tres es código pendiente. Son decisiones o evidencia.**
+**Ninguna de estas tres es código pendiente. Son decisiones o evidencia.** Desde el pivot
+(§0-bis) **ninguna bloquea**, y las tres siguen abiertas: dejar de esperar algo no es
+haberlo obtenido.
 
 1. **El gate de M1: dos sesiones más.** `nightshift audit` no encuentra ninguna fuga en
    el store real, pero hay 3 sesiones distintas capturadas de las 5 que pide el gate.
@@ -191,9 +262,9 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 3. **El gate humano de M0.** La revisión de ADR-001 por Ismael sigue pendiente, y ahora
    hay más código construido sobre las cinco capacidades que ese ADR decide.
 
-### Bloqueado — no empieces
+### Pausado o prohibido — no empieces
 
-- **M4.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
+- **M4. Pausado por el pivot (§0-bis), y sigue sin poder correr.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
   correr**: `bench/PREREG.md` sigue en borrador con 22 `TODO(Matias)`. **Los tres repos
   fixture también están construidos** (`bench/fixtures/familia-{a,c,d}/`, verificados con
   `make bench-fixtures`). Lo que falta no es código: son los umbrales, el modelo, el seed,
@@ -203,14 +274,15 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 
   El adaptador que lanza el agente en cada celda también está
   (`bench/agentes/correr-agente.py`) y se niega a correr sin el modelo, el límite de tool
-  calls y el protocolo de reset. **Con eso, M4 corre en cuanto se congele el
-  pre-registro**: no queda código en el camino.
+  calls y el protocolo de reset. **Nada de esto se borró al pausar M4**: si el
+  pre-registro se congela algún día, M4 corre sin escribir una línea más.
 
   Un agujero que los fixtures dejan a la vista y no tapan: **en la fila S0 no se pueden
   enumerar las memorias inyectadas** — nightshift no está y las de Auto Memory no son
   visibles. Sin eso la familia D es indecidible, y el runner lo reporta así.
-- **M5 (`verify`).** Prohibido hasta que M4 dé veredicto. Hoy nada llega a `procedure`, y
-  eso es correcto: ninguna memoria inyectada está verificada.
+- **M5 (`verify`).** Prohibido. Hoy nada llega a `procedure`, y eso es correcto: ninguna
+  memoria inyectada está verificada. El pivot no lo desbloquea — cambia el motivo, no el
+  veredicto (§0-bis).
 - **Adapter de OpenCode.** Prohibido.
 
 ### Si vas a tocar dream
@@ -239,7 +311,7 @@ Una sesión larga de desarrollo. Lo que hay que saber para no re-derivarlo:
 | **La matriz va repetición → fila** | Para que cortar por presupuesto deje los dos brazos con el mismo n. Con el orden anterior, una corrida cortada era un experimento torcido, no uno más chico. |
 | **Los dólares no son una factura** | El CLI reporta a precio de lista (`costBasis: "list"`); con suscripción no se factura. Los tokens son la unidad. Hay un test que falla si alguna línea con `USD` no lo dice. |
 | **El retrieval de lo crudo no miraba el prompt** (spec §5.10) | Medido: dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores. Sin abstracción no había enganche por síntoma, así que un síntoma **proyectado** por el modelo pesaba 0.75 y un fallo **observado** pesaba cero. Ahora una trayectoria cruda engancha por los errores de sus pasos `tool_failure`, con el motivo `failure_match`. Sólo fallos: `decisive` marca también los tests en verde, y son el 38% de los pasos. |
-| **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y subió los `TODO(Matias)` a 21; la configuración de retrieval los llevó a 22. |
+| **`consolidation_strategy` era una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. **Desde el pivot ya no es una clave de config** (enmienda 0.3.7): `consolidate` idea siempre. El `TODO(Matias)` de PREREG §2 sigue abierto igual — el default del código no es una decisión de pre-registro. |
 
 ### Lo que cambió el 2026-08-27 (tarde), y por qué toca el brazo del benchmark
 
@@ -353,16 +425,17 @@ casi siempre un check que está haciendo su trabajo.
 Para pegar en la sesión que toma el control:
 
 ```
-Leé doc/HANDOFF.md entero, después CLAUDE.md y doc/00-spec.md.
+Leé doc/HANDOFF.md entero — empezando por §0-bis, que es el pivot y manda sobre
+PLAN-M4.md — después CLAUDE.md y doc/00-spec.md.
 
-T1 a T5 están en main. Lo que falta de M1 y M3 es evidencia, no código: dos
-sesiones reales más para `nightshift audit --min-sessions 5`, y tres noches con
-el timer instalado para `nightshift schedule status`. Las dos las corre una
-persona.
+El objetivo son las tres ideas: la cadena de pensamiento es la cadena de
+ejecución, correrla para adelante (proyectar), e idear antes de razonar. El
+gate es `make dogfood`: el agente usando nightshift sobre el código de
+nightshift, verificado sobre el store real.
 
-El runner de M4 también está, y se niega a correr hasta que el pre-registro
-esté congelado: `nightshift bench check` dice qué falta. No completes ningún
-TODO(Matias) — los 19 los resuelve Matías — y no empieces M5 antes del
-veredicto de M4. Si aparece trabajo de código, rama propia, gate en verde, PR,
-y un resumen de qué quedó en LATER.md.
+M4, el gate humano de M0 y los gates de M1 y M3 están PAUSADOS: no bloquean y
+tampoco están cerrados. No completes ningún TODO(Matias) — pausar el benchmark
+no es completar el pre-registro. No empieces M5: nada llega a `procedure` y el
+dogfooding no lo desbloquea. Rama propia, gate en verde, PR, y un resumen de
+qué quedó en LATER.md.
 ```

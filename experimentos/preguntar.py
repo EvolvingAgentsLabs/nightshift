@@ -163,7 +163,7 @@ def main(argv=None):
     if not items:
         print()
         print("No hay proyecciones que preguntar.")
-        print("Salen de `nightshift dream` con `consolidation_strategy: ideate` (ADR-004),")
+        print("Salen de `nightshift dream`, que idea siempre (ADR-004, enmienda 0.3.7),")
         print("y sólo las tienen las trayectorias que llegaron a `candidate`.")
         return 0
     print("%d proyección(es) sin resolver, de %d candidata(s)."

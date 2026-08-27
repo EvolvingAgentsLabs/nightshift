@@ -8,6 +8,48 @@ acá.
 
 ---
 
+## Lo que el pivot a las tres ideas dejó abierto (2026-08-27)
+
+El pivot está en `doc/HANDOFF.md` §0-bis y `doc/PLAN-M4.md` quedó pausado entero. Lo que
+**no** se hizo en la sesión del pivot, con el motivo:
+
+- **La pregunta de M4 sigue sin respuesta.** Nadie midió que recordar *cómo se averiguó*
+  algo mejore el trabajo de un agente. El dogfooding no la responde: dice que la máquina
+  corre sobre su propio material sin romperse ni filtrar, que es otra cosa. Si el proyecto
+  algún día quiere afirmar la primera, necesita M4 o un sustituto, y hoy no tiene ninguno.
+- **`make dogfood` no puede verificar la mitad que importa.** El gate afirma sobre el
+  store real: gate verde, captura con contenido, sin fugas, trayectorias de este repo. Lo
+  que no puede afirmar es que un agente **usó** la memoria inyectada para llegar antes a
+  algo. Eso necesita un contrafáctico, que es exactamente lo que M4 era. Se anota como
+  límite conocido del gate, no como algo que se olvidó.
+- **Las dos paráfrasis que no enganchan siguen sin enganchar.** `resumen`/`memoria
+  consolidada`, `métrica`/`contador de cobertura`: es sinónimo, no morfología, y `difflib`
+  y el prefijo ya se probaron. Necesita embeddings, que chocan con ADR-003. La enmienda
+  0.3.7 no toca esto: cambia el **orden** de lo que engancha, no quién engancha.
+- **La regla de orden nueva no está calibrada contra nada, porque no tiene números.**
+  `(engancha, score)` es determinista y auditable, pero nadie midió si poner un
+  `failure_match` débil por encima de una trayectoria del mismo tipo de tarea con
+  desenlace verde ayuda o estorba. Medirlo pide volumen real de sesiones, que es lo mismo
+  que le falta a todo lo demás de este repo.
+- **La cohorte de captura sigue mezclando generaciones en el promedio.** Sin cambio: no
+  lo tocó esta sesión, y sigue anotado más abajo.
+
+**Medido en la sesión del pivot, sobre el store real** (`~/.nightshift`, la única
+candidata, `fff6af83`, con sus cuatro proyecciones):
+
+| | resultado |
+|---|---|
+| paráfrasis de una proyección que enganchan | 4 de 4 |
+| control negativo (prompts ajenos) | 0 de 3 |
+| lugar de la única fila que engancha, **antes** de la enmienda 0.3.7 | 3 de 3 |
+| lugar de la única fila que engancha, **después** | 1 de 3 |
+
+Las proyecciones sí se indexaban y sí se recuperaban. Lo que fallaba era el lugar: con
+`max_injected` en 3 entraban raspando, y con una cuarta trayectoria en verde en el store
+se caían de la inyección.
+
+---
+
 ## Deuda de proceso: se pasó de M0 sin cerrar su gate
 
 M0 tenía dos gates: `make check` (script) e **Ismael revisa ADR-001** (humano). El

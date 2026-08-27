@@ -71,9 +71,15 @@ comparable con la anterior. Ver ADR-003, que es lo que hizo visible la distinci�
   entran al retrieval con la mitad del peso y anunciados como conjeturas.
 
   No es una preferencia: cambia qué **es** el brazo S1. Una corrida con una estrategia no
-  es comparable con otra, y la que se congele acá es la que define qué se midió. El
-  default del código es `ideate`; congelar el pre-registro con `observed` es una decisión
-  válida y hay que escribirla, no dejarla implícita en la config.
+  es comparable con otra, y la que se congele acá es la que define qué se midió.
+
+  **Actualizado el 2026-08-27 (enmienda 0.3.7 de la spec):** el código ya no ofrece las
+  dos. `consolidation_strategy` dejó de ser una clave de config y `consolidate` idea
+  siempre; `observed` sobrevive sólo como brazo de control de `experimentos/ideate.py`.
+  La decisión de arriba sigue abierta y sigue siendo de Matías: congelar el pre-registro
+  en `observed` es válido, y hoy costaría volver a abrir el interruptor a propósito.
+  Escribirla sigue siendo obligatorio — el default del código no es una decisión de
+  pre-registro.
 - **Configuración de retrieval** — `max_injected`, `cross_repo`, y si se pre-registra el
   commit de la función de ranking (`retrieve.W_*`): `TODO(Matias)`
 

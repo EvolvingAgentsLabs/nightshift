@@ -78,6 +78,28 @@ W_PRECONDITION_MATCH = 1.0
 MIN_TOKENS_DESTILADO = 1
 MIN_TOKENS_CRUDO = 2
 
+# Los cuatro motivos que dicen *esta fila habla del problema que el usuario tiene
+# delante*. Los otros —`same_repo`, `same_task_type`, `has_decisive_step`,
+# `tests_passed`— dicen algo sobre la fila, no sobre el prompt.
+#
+# **Un enganche ordena antes que cualquier puntaje sin enganche** (enmienda 0.3.7), y eso
+# es una regla de orden, no un peso: no se inventa ningún número.
+#
+# El motivo se midió sobre el store real. Con un prompt que engancha por síntoma
+# proyectado, la única fila que hablaba del problema quedaba **tercera de tres**:
+#
+#     1.045  closed     same_repo,has_decisive_step,tests_passed
+#     1.030  closed     same_repo,has_decisive_step,tests_passed
+#     1.009  candidate  same_repo,projected_match      <- la única que engancha
+#
+# `has_decisive_step` + `tests_passed` suman 2,5 puntos que no dependen del prompt: una
+# trayectoria que salió bien y corrió tests le gana a una que anticipó exactamente este
+# síntoma. Con `max_injected` en 3 entraba por poco; con una cuarta trayectoria en verde
+# en el store, la proyección se cae de la inyección — y una proyección que no llega antes
+# del error no proyectó nada.
+MOTIVOS_DE_ENGANCHE = frozenset(
+    ("signal_match", "projected_match", "precondition_match", "failure_match"))
+
 # Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
 # puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
 # para que el costo no dependa del largo de la sesión que se capturó.
@@ -177,6 +199,16 @@ def _enganche(tokens_prompt, frases, piso=MIN_TOKENS_CRUDO):
         if len(comunes) > mejor:
             mejor = len(comunes)
     return mejor if mejor >= piso else 0
+
+
+def _engancha(reasons: str) -> bool:
+    """¿Alguno de los motivos de esta fila la ata al prompt?
+
+    Se lee de la cadena de motivos y no de una cuarta posición en la tupla a propósito:
+    `(score, reasons, row)` es lo que consumen `render`, el hook y `why`, y estirarla
+    obligaría a tocar los tres para una decisión que ya está escrita en los motivos.
+    """
+    return bool(MOTIVOS_DE_ENGANCHE & set((reasons or "").split(",")))
 
 
 def _fallos_observados(conn, trajectory_id):
@@ -298,7 +330,11 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             continue
         scored.append((score, ",".join(reasons) or "recent", row))
 
-    scored.sort(key=lambda item: (-item[0], item[2]["created_at"]))
+    # Primero las que enganchan con el prompt, después por puntaje. Sin prompt no
+    # engancha nada y el orden es exactamente el de antes: `SessionStart` corre antes de
+    # que el usuario escriba, y ahí esta regla no cambia una sola fila.
+    scored.sort(key=lambda item: (0 if _engancha(item[1]) else 1, -item[0],
+                                  item[2]["created_at"]))
     return scored
 
 
@@ -364,6 +400,17 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
         "con lo que veas en el repo es lo correcto, no un error.",
         "",
     ]
+    # Si alguna enganchó con lo que el usuario escribió, el orden dejó de ser sólo por
+    # puntaje y el texto tiene que decirlo. Un orden que el lector no puede explicar es
+    # indistinguible de uno arbitrario, y `why` lo reimprime igual.
+    if any(_engancha(reasons) for _, reasons, _ in chosen):
+        lines += [
+            "Las primeras **enganchan con lo que acabás de escribir** (`signal_match`,",
+            "`projected_match`, `precondition_match`, `failure_match`): hablan del",
+            "problema que tenés delante, no sólo del mismo repo o tipo de tarea. Por eso",
+            "van arriba aunque su puntaje sea menor.",
+            "",
+        ]
     if native_memory:
         lines.append("Auto Memory tiene notas para este proyecto: son la fuente declarativa. "
                      "Lo de abajo es el proceso, no los hechos.")

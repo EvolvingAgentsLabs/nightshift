@@ -60,13 +60,13 @@ DEFAULTS = {
     "model_backend": "claude-code",
     "model_command": None,
     "model_name": None,
-    # Estrategia de consolidación (ADR-004). Constante del experimento, no preferencia:
-    #   "observed" — abstraer lo que las trayectorias muestran, y nada más.
-    #   "ideate"   — idear primero el mecanismo como un dibujo, abstraer desde ahí, y
-    #                proyectar en qué otras formas se va a manifestar.
-    # Lo proyectado nunca se mezcla con lo observado: se guarda aparte, pesa la mitad en
-    # el retrieval y se anuncia como conjetura en la inyección.
-    "consolidation_strategy": "ideate",
+    # No hay clave de estrategia de consolidación, y la ausencia es la decisión
+    # (enmienda 0.3.7). `consolidate` **idea siempre**: dibuja el mecanismo, abstrae desde
+    # el dibujo y proyecta los síntomas que nadie vio. La alternativa `observed` sólo
+    # sobrevive como brazo de control en `experimentos/ideate.py`.
+    # Motivo: `observed` no puede producir `projected_signals`, así que dejarlo elegible
+    # dejaba detrás de un default la única capacidad que engancha con un problema **antes**
+    # de que su síntoma se haya visto una vez.
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
     # Tope de grupos por corrida. Cada grupo es una llamada al modelo y, con el backend

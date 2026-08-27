@@ -5,9 +5,9 @@ Fuente: `doc/PLAN-v0.3.md` §5.
 
 ## Antes de tocar nada
 
-Leé, en este orden: **`doc/HANDOFF.md`** (estado real y cola de trabajo) →
-`doc/PLAN-v0.3.md` (alcance de referencia) → `doc/00-spec.md` (spec v0.3) → los dos
-ADRs → `LATER.md`.
+Leé, en este orden: **`doc/HANDOFF.md`** (estado real y cola de trabajo; empezá por
+**§0-bis, el pivot**, que manda sobre `doc/PLAN-M4.md`) → `doc/PLAN-v0.3.md` (alcance de
+referencia) → `doc/00-spec.md` (spec v0.3) → los ADRs → `LATER.md`.
 
 ## Reglas
 
@@ -29,13 +29,30 @@ ADRs → `LATER.md`.
 - Agregar dependencias que exijan una **API key nueva**. El modelo que consolida corre
   en Claude Code o en Qwen local, los dos por `subprocess` (ADR-003). Ningún módulo de
   `nightshift/` habla por red: `make lint-code` lo verifica.
-- Empezar M5 (verify) antes del veredicto de M4.
+- Empezar M5 (verify). M4 quedó **pausado** por el pivot (HANDOFF §0-bis), así que el
+  veredicto que lo desbloqueaba no va a llegar: lo que hoy lo prohíbe es que nada llega a
+  `procedure` y que el dogfooding no lo desbloquea.
+- Tratar M4 o el gate humano de M0 como **cerrados**. Están pausados, que es otra cosa:
+  siguen sin respuesta y el proyecto no puede afirmar que la memoria procedimental sirve.
 - Abrir el adapter de OpenCode.
 - Presentar nightshift como reemplazo, mejora o parche de Auto Memory, en cualquier
   texto del proyecto (ADR-001).
 - Añadir features que no estén en el plan. Si parece buena idea, va a `LATER.md`.
 
-## Milestone actual: M3 — dream `consolidate` + scheduler
+## Objetivo actual: las tres ideas (pivot del 2026-08-27)
+
+CTE (la cadena de pensamiento es la de ejecución), correr la cadena **para adelante**
+(proyectar síntomas que nadie vio), e **idear antes de razonar** (dibujar el mecanismo).
+El detalle está en `doc/HANDOFF.md` §0-bis, que es normativo igual que este archivo.
+
+El gate es **`make dogfood`**: `make check` y después `doctor`, `audit` y `status` sobre
+el store **real**. Lo que ese gate **no** dice: que la memoria sirva. Eso lo iba a medir
+M4 y no se midió.
+
+`dream.consolidate` **idea siempre**: no hay clave de config que lo apague, y
+`build_prompt(..., ideate=False)` existe sólo como brazo de control del experimento.
+
+## Milestone de referencia: M3 — dream `consolidate` + scheduler
 
 **Este repositorio es el plugin.** Si la sesión se abrió con `claude --plugin-dir .`, los
 hooks que están capturando esta misma sesión son el código de este working tree. Editar

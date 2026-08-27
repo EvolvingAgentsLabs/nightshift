@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005 |
-| Revisión | 0.3.6 — el piso del enganche se parte en destilado y crudo |
+| Revisión | 0.3.7 — idear deja de ser una estrategia y pasa a ser el flujo; el enganche ordena antes que el puntaje |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -479,6 +479,40 @@ nadie vio. Observado > inferido > conjeturado.
 Son dos preguntas distintas y por eso son dos motivos distintos en el `why`: una señal
 dice *esto ya lo vi*, una precondición dice *esto aplica acá*.
 
+**Enmienda 0.3.7 — un enganche ordena antes que cualquier puntaje sin enganche.** Las
+0.3.5 y 0.3.6 arreglaron *quién* engancha; ninguna miró qué lugar ocupa el que engancha.
+Medido sobre el store real con un prompt que enganchaba por síntoma **proyectado**, la
+única fila que hablaba del problema quedaba **tercera de tres**:
+
+```
+1.045  closed     same_repo,has_decisive_step,tests_passed
+1.030  closed     same_repo,has_decisive_step,tests_passed
+1.009  candidate  same_repo,projected_match      <- la única que engancha
+```
+
+`has_decisive_step` (1,0) y `tests_passed` (1,5) suman dos puntos y medio que **no
+dependen del prompt**: son propiedades de la fila, no de lo que el usuario tiene delante.
+Con `max_injected` en 3 la proyección entraba raspando; con una cuarta trayectoria en
+verde en el store se cae de la inyección — y una proyección que no llega antes del error
+no proyectó nada, que es justo lo que ADR-004 dice que compra.
+
+La corrección es una **regla de orden, no un peso**: `candidates()` ordena por
+`(engancha, score)`. Ningún número se toca, así que el puntaje sigue siendo el mismo que
+`why` reimprime y la jerarquía observado > inferido > conjeturado sigue decidiendo entre
+dos filas que **las dos** enganchan. Los cuatro motivos que cuentan como enganche son
+`signal_match`, `projected_match`, `precondition_match` y `failure_match`
+(`MOTIVOS_DE_ENGANCHE`).
+
+Dos límites de esta regla, y los dos son deliberados:
+
+- **Sin prompt no reordena nada.** En `SessionStart` no engancha ninguna fila, y el orden
+  es exactamente el de antes. Inventar relevancia sin texto sería el mismo error que
+  contar `general` como coincidencia de tipo de tarea (§5.7).
+- **El texto inyectado tiene que explicar el orden.** Cuando alguna fila engancha, la
+  inyección dice que las primeras enganchan con lo que el usuario escribió y que por eso
+  van arriba aunque puntúen menos. Un orden que el lector no puede explicar es
+  indistinguible de uno arbitrario.
+
 ### 5.5 Comandos
 
 Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
@@ -563,6 +597,21 @@ Dos correcciones:
    confundirlos es exactamente cómo el bug de los campos del payload (§5.9) sobrevivió
    dos milestones. La corrida sigue saliendo 0 —dream funcionó, la captura no— pero su
    registro dice "revisá la captura" en vez de "noche tranquila".
+
+**Enmienda 0.3.7 — idear es el flujo, no una estrategia entre dos.** ADR-004 introdujo
+la ideación detrás de `consolidation_strategy`, con dos valores: `observed` (abstraer lo
+que las trayectorias muestran) e `ideate` (dibujar el mecanismo, abstraer desde el dibujo
+y **proyectar** los síntomas que nadie vio). La clave ya no existe: `consolidate` idea
+siempre y no hay configuración que lo apague.
+
+El motivo no es de preferencia. `observed` **no puede** producir `projected_signals`, y
+sin proyecciones el retrieval sólo se engancha con un síntoma después de que se vio una
+vez. Dejar eso detrás de una clave de config era dejar la capacidad entera detrás de un
+default — la misma clase de silencio que ya costó dos milestones (§5.9).
+
+El brazo de control no se pierde: `build_prompt(..., ideate=False)` sigue existiendo para
+`experimentos/ideate.py`, que es donde se mide la diferencia entre las dos ramas. Lo que
+se perdió es la posibilidad de que una corrida del plugin no idee sin que nadie lo note.
 
 Una `candidate` **no** requiere que varias trayectorias compartan un patrón. Se comprobó
 con el modelo real: un grupo de una sola trayectoria con contenido produce candidata. El
@@ -865,3 +914,26 @@ prompts ajenos en cero las dos veces:
 |---|---|
 | antes (piso único 2) | 1 de 6 |
 | después (0.3.6) | 4 de 6 |
+
+### Enmiendas 0.3.7 (del pivot a las tres ideas)
+
+El 2026-08-27 Matías sacó M4 y los gates humanos del camino crítico y fijó como objetivo
+las tres ideas: la cadena de pensamiento es la cadena de ejecución, correr la cadena
+**para adelante**, e **idear antes de razonar**. El gate pasó a ser el dogfooding
+(`make dogfood`). Ver `doc/HANDOFF.md` §0-bis.
+
+Dos de esas tres ideas ya tenían mecanismo en el código y las dos estaban a medio camino:
+la ideación era una rama detrás de un default, y las proyecciones enganchaban pero
+quedaban últimas.
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 6.1 | `consolidate` **idea siempre**. `consolidation_strategy` deja de existir como clave de config; `build_prompt(..., ideate=False)` queda sólo como brazo de control de `experimentos/ideate.py` | `observed` no puede producir `projected_signals`, así que la única capacidad que engancha con un problema **antes** de que su síntoma se haya visto una vez estaba detrás de un default. Un interruptor que puede apagar una capacidad sin que nadie lo note es el modo de falla que este repo ya documentó dos veces |
+| 5.10 | Un enganche con el prompt ordena antes que cualquier puntaje sin enganche (`MOTIVOS_DE_ENGANCHE`, orden `(engancha, score)`) | Medido sobre el store real: la única fila que hablaba del problema quedaba tercera de tres, detrás de dos trayectorias en verde que no compartían una palabra con el prompt. `has_decisive_step` + `tests_passed` son 2,5 puntos que no dependen del prompt. Es una regla de orden y no un peso: ningún número se toca, y entre dos filas que enganchan sigue decidiendo la jerarquía observado > inferido > conjeturado |
+| 5.10 | Cuando alguna fila engancha, el texto inyectado dice que las primeras enganchan con lo que el usuario escribió | Un orden que el lector no puede explicar es indistinguible de uno arbitrario |
+
+**Y esto vuelve a cambiar el brazo `S1`**, por la misma razón que las 0.3.6: `PREREG` §2
+pide que la configuración de retrieval y la estrategia de consolidación sean constantes
+del experimento. M4 está pausado, así que no hay ninguna corrida que invalidar — pero el
+cambio queda escrito acá, que es lo que no pasó el 2026-08-27 cuando el ranking cambió
+tres veces en una sesión sin dejar constancia.

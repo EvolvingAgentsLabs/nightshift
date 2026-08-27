@@ -15,7 +15,7 @@ import json
 import unittest
 
 from tests.base import IsolatedStoreTest
-from nightshift import config, dream, redact, retrieve, store
+from nightshift import config, context, dream, redact, retrieve, store
 
 FP = "f" * 64
 
@@ -36,18 +36,61 @@ def _sembrar(conn, *, task_type="debug_test_failure"):
 
 
 class IdeacionTest(IsolatedStoreTest):
-    def test_el_prompt_ideado_pide_dibujar_y_el_otro_no(self):
+    def test_idear_es_el_default_del_prompt(self):
+        """Enmienda 0.3.7: idear dejó de ser una rama y pasó a ser el flujo.
+
+        El brazo sin idear sigue existiendo, pero hay que pedirlo: es el control de
+        `experimentos/ideate.py`, no una opción alcanzable desde el plugin.
+        """
         conn = store.connect()
         tid = _sembrar(conn)
         grupo = [store.get_trajectory(conn, tid)]
 
-        normal = dream.build_prompt(conn, grupo)
-        ideado = dream.build_prompt(conn, grupo, ideate=True)
+        default = dream.build_prompt(conn, grupo)
+        control = dream.build_prompt(conn, grupo, ideate=False)
 
-        self.assertNotIn("IDEÁ", normal)
-        self.assertIn("IDEÁ", ideado)
+        self.assertIn("IDEÁ", default)
+        self.assertNotIn("IDEÁ", control)
         # El cuerpo tiene que ser el mismo: una sola variable entre las dos ramas.
-        self.assertTrue(ideado.endswith(normal))
+        self.assertTrue(default.endswith(control))
+
+    def test_el_contraste_tambien_idea_por_defecto(self):
+        conn = store.connect()
+        vieja = store.get_trajectory(conn, _sembrar(conn))
+        nueva = store.get_trajectory(conn, _sembrar(conn))
+        self.assertIn("IDEÁ", dream.build_contrast_prompt(conn, vieja, nueva))
+
+    def test_no_queda_ninguna_llave_de_config_que_apague_la_ideacion(self):
+        """El interruptor que se sacó, y el motivo por el que no puede volver.
+
+        `observed` no produce `projected_signals`. Mientras la estrategia fuera una clave
+        de config, la única capacidad que engancha con un problema **antes** de que su
+        síntoma se haya visto una vez quedaba detrás de un default.
+        """
+        self.assertNotIn("consolidation_strategy", config.DEFAULTS)
+
+    def test_consolidate_idea_aunque_la_config_diga_lo_contrario(self):
+        """Una config vieja en disco no puede devolver el interruptor por la ventana."""
+        conn = store.connect()
+        _sembrar(conn)
+        cfg = config.load()
+        cfg["consolidation_strategy"] = "observed"       # como quedó una config anterior
+        vistos = []
+
+        class ModeloQueMiraElPrompt:
+            name = "fake"
+
+            def ask_json(self, prompt):
+                vistos.append(prompt)
+                return {"pattern": "Una etapa valida la forma del registro y nunca su "
+                                   "contenido, asi que lo vacio pasa como valido."}
+
+        reporte = dream.consolidate(conn, ModeloQueMiraElPrompt(), cfg=cfg,
+                                    lookback_days=3650)
+        conn.close()
+        self.assertEqual(reporte["strategy"], "ideate")
+        self.assertTrue(vistos, "el modelo no llegó a ver ningún prompt")
+        self.assertIn("IDEÁ", vistos[0])
 
     def test_la_ideacion_se_extrae_aunque_venga_escapada(self):
         """El envoltorio del agente trae la respuesta como string JSON.
@@ -171,6 +214,110 @@ class EngancheTest(IsolatedStoreTest):
         _, motivos = self._score(None, proyectadas=["cualquier cosa que no se vio"])
         self.assertNotIn("projected_match", motivos)
         self.assertNotIn("signal_match", motivos)
+
+
+class PrioridadDelEngancheTest(IsolatedStoreTest):
+    """La conjetura tiene que llegar **antes** del error, y eso es un problema de orden.
+
+    Medido sobre el store real el 2026-08-27: con un prompt que enganchaba por síntoma
+    proyectado, la única fila que hablaba del problema quedaba tercera de tres, detrás de
+    dos trayectorias en verde que no compartían una palabra con el prompt.
+
+        1.045  closed     same_repo,has_decisive_step,tests_passed
+        1.030  closed     same_repo,has_decisive_step,tests_passed
+        1.009  candidate  same_repo,projected_match      <- la única que engancha
+
+    `has_decisive_step` + `tests_passed` son 2,5 puntos que no dependen del prompt. Con
+    `max_injected` en 3 la proyección entraba raspando; con una cuarta trayectoria en
+    verde en el store se caía de la inyección — y una proyección que no llega antes del
+    error no proyectó nada.
+    """
+
+    PROYECTADA = ("los totales de un reporte no cierran porque un registro aparece "
+                  "duplicado")
+    PROMPT = "los totales del reporte no cierran y un cliente aparece duplicado"
+
+    def _sembrar_ruidosas(self, conn, cuantas=3):
+        """Trayectorias con puntaje estructural alto y **nada** que ver con el prompt."""
+        for i in range(cuantas):
+            tid = store.open_trajectory(conn, session_id="ruido%d" % i,
+                                        repo_fingerprint=FP,
+                                        task_type="debug_test_failure",
+                                        base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="el decodificador explota en el primer byte",
+                              decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+
+    def _sembrar_candidata(self, conn):
+        """La que engancha: sin desenlace, sin paso decisivo, y con la conjetura."""
+        tid = store.open_trajectory(conn, session_id="candidata", repo_fingerprint=FP,
+                                    task_type=context.DEFAULT_TASK_TYPE,
+                                    base_commit="abc1234",
+                                    redaction={"redactor_version": "0.1.0"})
+        store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                          result_summary="se miro el indice", decisive=False)
+        store.close_trajectory(conn, tid, result="unknown")
+        store.promote_to_candidate(
+            conn, tid,
+            abstraction={"pattern": "El indice se arma normalizando la clave pero la "
+                                    "consulta busca con la clave cruda.",
+                         "signals": ["una clave que esta en el indice levanta KeyError"]},
+            valid_when=[], hypothesis=None, weight=0.6,
+            projected_signals=[self.PROYECTADA])
+        return tid
+
+    def _rankear(self, prompt):
+        conn = store.connect()
+        self._sembrar_ruidosas(conn)
+        tid = self._sembrar_candidata(conn)
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load(),
+                                     prompt=prompt)
+        conn.close()
+        return tid, scored
+
+    def test_la_que_engancha_va_primera_aunque_puntue_menos(self):
+        tid, scored = self._rankear(self.PROMPT)
+        self.assertEqual(scored[0][2]["id"], tid,
+                         "la única fila que habla del problema no quedó primera")
+        self.assertIn("projected_match", scored[0][1])
+        # Y el punto entero: gana **sin** ganar por puntaje. Si algún día gana por
+        # puntaje, este assert falla y hay que releer la regla, no borrarla.
+        self.assertLess(scored[0][0], max(item[0] for item in scored[1:]),
+                        "si la que engancha ya puntúa más, este test dejó de probar el "
+                        "orden y hay que revisar por qué")
+
+    def test_con_una_sola_ranura_la_que_llega_es_la_que_engancha(self):
+        """`max_injected` es chico a propósito: el orden decide qué se pierde."""
+        conn = store.connect()
+        self._sembrar_ruidosas(conn)
+        self._sembrar_candidata(conn)
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load(),
+                                     prompt=self.PROMPT)
+        texto, chosen = retrieve.render(conn, scored, max_injected=1,
+                                        native_memory=False,
+                                        task_type="debug_test_failure",
+                                        repo_fingerprint=FP)
+        conn.close()
+        self.assertEqual(len(chosen), 1)
+        self.assertIn(self.PROYECTADA, texto)
+        self.assertIn("NINGUNO fue observado", texto)
+        # El orden dejó de ser sólo por puntaje: el texto tiene que decir por qué.
+        self.assertIn("enganchan con lo que acabás de escribir", texto)
+
+    def test_sin_prompt_el_orden_no_cambia(self):
+        """`SessionStart` corre antes de que el usuario escriba.
+
+        Ahí no engancha nada, y esta regla no puede reordenar una sola fila: si lo
+        hiciera, estaría inventando relevancia sin texto — el mismo error que contar
+        `general` como coincidencia de tipo de tarea (spec §5.7).
+        """
+        _, scored = self._rankear(None)
+        self.assertEqual([item[0] for item in scored],
+                         sorted((item[0] for item in scored), reverse=True))
 
 
 class InyeccionTest(IsolatedStoreTest):
