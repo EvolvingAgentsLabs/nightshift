@@ -803,6 +803,13 @@ def cmd_bench(args) -> int:
             print("pre-registro esté congelado. `nightshift bench check` dice qué falta.")
         return 0
 
+    if args.action == "rehearse":
+        # Un ensayo **no** es la corrida: no exige pre-registro congelado, y por eso no
+        # puede mostrar resultados. Sirve para descubrir que una celda se cuelga o que
+        # 102 sesiones cuestan más de lo que se creía, sin que quien fija los umbrales
+        # vea el efecto antes de fijarlos (PREREG §5).
+        return _bench_run(args, prereg, estado, sealed=True)
+
     if args.action == "run":
         if not estado["ready"] and not args.prereg:
             print("bench run: el pre-registro no está listo. No se corre nada.",
@@ -822,7 +829,8 @@ def cmd_bench(args) -> int:
     return 2
 
 
-def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int:
+def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False,
+               sealed=False) -> int:
     if not args.agent:
         print("bench run: falta `--agent`, el comando que corre el agente en cada tarea.",
               file=sys.stderr)
@@ -850,6 +858,8 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int
         "rows": args.rows, "repeats": args.repeats, "seed": args.seed,
         "agent": args.agent, "prereg": prereg["path"], "prereg_estado": prereg["estado"],
         "prereg_frozen": prereg["frozen"], "nightshift": __version__,
+        # Queda escrito en el registro: un ensayo no se puede confundir con la corrida.
+        "rehearsal": bool(sealed),
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     agente = shlex.split(args.agent)
@@ -890,15 +900,57 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False) -> int
             handle.write(json.dumps(registro, ensure_ascii=False) + "\n")
             handle.flush()
             if not quiet:
-                print("  [%3d/%3d] %-3s c%d %-6s %-8s resuelto=%s" % (
+                # En un ensayo la línea de progreso **no dice si resolvió**: mirar eso
+                # celda por celda es exactamente la inspección intermedia que PREREG §5
+                # prohíbe, y sellar el reporte final no serviría de nada si el progreso
+                # lo va contando.
+                estado_celda = ("ok" if registro.get("agent_exit") == 0 else "falló") \
+                    if sealed else "resuelto=%s" % registro.get("resolved")
+                print("  [%3d/%3d] %-3s c%d %-6s %-8s %s" % (
                     i, len(celdas), celda["row"], celda["repeat"], celda["task"],
-                    celda["phase"], registro.get("resolved")))
+                    celda["phase"], estado_celda))
 
     if silent_report:
         return 0
     print()
-    print("corrida %s · %d celda(s) · %s" % (run_id, len(registros), destino))
+    print("%s %s · %d celda(s) · %s" % ("ensayo" if sealed else "corrida", run_id,
+                                        len(registros), destino))
+    if sealed:
+        return _render_sealed(registros, destino)
     return _render_report(registros, prereg, args)
+
+
+def _render_sealed(registros, destino) -> int:
+    """Salud de la corrida, sin el resultado. Lo que se ve acá no contamina nada."""
+    salud = bench_mod.operational_summary(registros)
+    print()
+    print("salud del ensayo (sin resultados: el pre-registro no está congelado)")
+    print("  %-16s %d de %d" % ("completadas", salud["completed"], salud["cells"]))
+    print("  %-16s %.1f s en total · %.1f s la mediana"
+          % ("tiempo", salud["seconds_total"], salud["seconds_median"] or 0))
+    if salud["cost_usd_total"] is not None:
+        print("  %-16s USD %.4f" % ("costo", salud["cost_usd_total"]))
+    if salud["tool_calls_median"] is not None:
+        print("  %-16s %.1f (mediana)" % ("tool calls", salud["tool_calls_median"]))
+    if salud["limit_exceeded"]:
+        print("  %-16s %d celda(s) lo excedieron" % ("límite", salud["limit_exceeded"]))
+    print("  %-16s %d de %d celdas produjeron dato medible"
+          % ("cobertura", salud["with_outcome"], salud["cells"]))
+    if salud["errors"]:
+        print()
+        print("celdas con problema:")
+        for item in salud["errors"]:
+            print("  %-3s %-16s %s" % (item["row"], item["task"], item["error"]))
+    print()
+    if salud["errored"] or salud["with_outcome"] < salud["cells"]:
+        print("el ensayo encontró problemas: arreglalos antes de congelar nada.")
+    else:
+        print("la máquina corre entera. Lo que midió queda sellado hasta que el")
+        print("pre-registro se congele: verlo ahora le pondría un incentivo a los")
+        print("umbrales, que es lo que el pre-registro existe para impedir.")
+    print()
+    print("resultados en %s/results.jsonl · `bench report --unseal` los muestra" % destino)
+    return 1 if salud["errored"] else 0
 
 
 def _bench_report(args, prereg) -> int:
@@ -915,8 +967,21 @@ def _bench_report(args, prereg) -> int:
         return 1
     registros = [json.loads(line) for line in
                  (elegida / "results.jsonl").read_text(encoding="utf-8").splitlines() if line]
+    meta = {}
+    if (elegida / "meta.json").is_file():
+        meta = json.loads((elegida / "meta.json").read_text(encoding="utf-8"))
     if not getattr(args, "json", False):
-        print("corrida: %s" % elegida.name)
+        print("corrida: %s%s" % (elegida.name, "  (ensayo)" if meta.get("rehearsal") else ""))
+    if meta.get("rehearsal") and not getattr(args, "unseal", False):
+        print()
+        print("es un ensayo, y sus resultados están sellados. Se corrió sin pre-registro")
+        print("congelado, así que mirarlos ahora es elegir los umbrales sabiendo el")
+        print("efecto. `--unseal` los muestra igual, y deja dicho que se los vio.")
+        return _render_sealed(registros, elegida)
+    if meta.get("rehearsal"):
+        print()
+        print("⚠  ensayo DESSELLADO. Si el pre-registro todavía no estaba congelado,")
+        print("   anotalo en su registro de enmiendas: quien fije los umbrales ya vio esto.")
     return _render_report(registros, prereg, args)
 
 
@@ -1656,7 +1721,8 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("bench", help="runner del benchmark de M4 (lee los umbrales, no los fija)")
     p.add_argument("action", nargs="?", default="check",
-                   choices=("check", "plan", "run", "report", "fixtures", "selftest"))
+                   choices=("check", "plan", "run", "rehearse", "report", "fixtures",
+                            "selftest"))
     p.add_argument("--fixture", default=None, help="ruta a un fixture.json")
     p.add_argument("--agent", default=None,
                    help="comando del agente por tarea; admite {prompt} {task} {row}")
@@ -1666,6 +1732,8 @@ def main(argv=None) -> int:
     p.add_argument("--timeout", type=int, default=600)
     p.add_argument("--prereg", default=None, help="pre-registro alternativo (para pruebas)")
     p.add_argument("--run", default=None, help="id de corrida para `report`")
+    p.add_argument("--unseal", action="store_true",
+                   help="mostrar los resultados de un ensayo; deja dicho que se los vio")
     p.add_argument("--limit", type=int, default=24)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_bench)

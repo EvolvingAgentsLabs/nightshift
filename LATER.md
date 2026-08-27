@@ -221,6 +221,7 @@ Ninguna rompía nada: las tres producían un número confiado y falso.
 |---|---|---|
 | Store de nightshift por celda | La fase de aprendizaje no le enseñaba nada a la de medición: **cero transferencia por construcción**, o sea un no-go garantizado sin importar si nightshift sirve. | corriendo el chain |
 | Ruta de trabajo nueva por tarea | Auto Memory keyea por ruta de proyecto y nightshift por fingerprint del repo. Arreglar sólo el lado de nightshift habría dado ventaja a nightshift **por construcción**: el error opuesto y peor, porque favorece a lo que se mide. | corriendo el chain |
+| **La historia de la familia D se sembraba con un fingerprint inventado** | El retrieval la descartaba por ser "de otro repo": la familia habría medido precisión sobre cero memorias inyectadas. | el primer ensayo sellado |
 | **`cross_repo` apagado en la familia C** | La familia C mide transferencia entre repos, y con `cross_repo: false` —el default— la fila S1 recibe **cero memorias** en el repo B. La familia daría cero transferencia gane o pierda nightshift. Medido: 0 candidatas con el default, 1 con el flag encendido. | auditando el plan original |
 
 **Acción pendiente antes de congelar:** el valor de `cross_repo` para la fila S1 es una
@@ -230,7 +231,7 @@ transfiere detalle. Con dream produciendo abstracciones eso cambió, pero la dec
 Matías y va escrita antes de correr.
 
 Y una lectura que ya no es anécdota: la lista de amenazas de §5 se demostró incompleta
-**tres veces**, y las tres aparecieron mirando el sistema andar, no leyendo el documento.
+**cuatro veces**, y las tres aparecieron mirando el sistema andar, no leyendo el documento.
 
 Las dos se arreglaron con la misma decisión: un directorio de trabajo y un store por
 **(fila, repetición)**, con el contenido del repo reseteado antes de cada tarea. Queda
