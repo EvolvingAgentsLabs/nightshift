@@ -97,4 +97,4 @@ A rehearsal is not evidence, and a demonstration is not a result.
 
 ## License
 
-MIT.
+Apache 2.0. See [`LICENSE`](LICENSE).

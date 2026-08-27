@@ -97,4 +97,4 @@ Un ensayo no es evidencia, y una demostración no es un resultado.
 
 ## Licencia
 
-MIT.
+Apache 2.0. Ver [`LICENSE`](LICENSE).
