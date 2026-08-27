@@ -41,6 +41,17 @@ W_PROJECTED_MATCH = 0.75
 # fallo que ocurrió de verdad pesaba cero mientras una conjetura proyectada por el
 # modelo pesaba 0.75. Eso invertía la jerarquía de evidencia del proyecto.
 W_FAILURE_MATCH = 1.5
+# Enganche por **precondición**. Es la otra clave de recuperación, y no dice lo mismo que
+# las otras dos: una señal dice "esto ya lo vi", una precondición dice "esto aplica acá".
+# Sin ella, una alternativa descartada cuya condición describe exactamente la situación
+# que el usuario tiene delante no puntúa por eso ni un punto — y esa condición es la mitad
+# del valor de conservar lo descartado (spec §4.2).
+#
+# Pesa menos que una señal observada y más que un síntoma proyectado, y el orden no es
+# arbitrario: `signals` sale de lo que está en los pasos, `valid_when` lo **infiere** el
+# modelo desde esos pasos, y `projected_signals` es lo que nadie vio. Observado > inferido
+# > conjeturado. El número exacto no lo calibró nadie: lo juzga M4.
+W_PRECONDITION_MATCH = 1.0
 
 # Cuántas palabras de contenido tienen que coincidir para llamarlo enganche. Con una
 # sola, "test" alcanza para hermanar cualquier par de trayectorias de este repo.
@@ -213,6 +224,12 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             if _enganche(tokens_prompt, senales):
                 score += W_SIGNAL_MATCH
                 reasons.append("signal_match")
+            condiciones = [c.get("condition", "") for c in
+                           json.loads(row["valid_when_json"] or "[]")
+                           if isinstance(c, dict)]
+            if _enganche(tokens_prompt, condiciones):
+                score += W_PRECONDITION_MATCH
+                reasons.append("precondition_match")
             proyectadas = _proyectadas(row)
             if proyectadas and _enganche(tokens_prompt, proyectadas):
                 score += W_PROJECTED_MATCH
