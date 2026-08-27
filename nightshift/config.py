@@ -60,6 +60,13 @@ DEFAULTS = {
     "model_backend": "claude-code",
     "model_command": None,
     "model_name": None,
+    # Estrategia de consolidación (ADR-004). Constante del experimento, no preferencia:
+    #   "observed" — abstraer lo que las trayectorias muestran, y nada más.
+    #   "ideate"   — idear primero el mecanismo como un dibujo, abstraer desde ahí, y
+    #                proyectar en qué otras formas se va a manifestar.
+    # Lo proyectado nunca se mezcla con lo observado: se guarda aparte, pesa la mitad en
+    # el retrieval y se anuncia como conjetura en la inyección.
+    "consolidation_strategy": "ideate",
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
     # Tope de grupos por corrida. Cada grupo es una llamada al modelo y, con el backend

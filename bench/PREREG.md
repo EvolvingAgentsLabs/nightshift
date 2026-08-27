@@ -64,6 +64,16 @@ comparable con la anterior. Ver ADR-003, que es lo que hizo visible la distinci�
 - Modelo del **agente** — exacto y versión: `TODO(Matias)`
 - Modelo de **consolidación** — backend (`claude-code` o `local`), modelo exacto y
   versión: `TODO(Matias)`
+- **Estrategia de consolidación** (`observed` o `ideate`, ADR-004): `TODO(Matias)`
+
+  `observed` abstrae lo que las trayectorias muestran. `ideate` idea primero el mecanismo
+  como un dibujo, abstrae desde ahí, y **proyecta** síntomas que nadie observó — que
+  entran al retrieval con la mitad del peso y anunciados como conjeturas.
+
+  No es una preferencia: cambia qué **es** el brazo S1. Una corrida con una estrategia no
+  es comparable con otra, y la que se congele acá es la que define qué se midió. El
+  default del código es `ideate`; congelar el pre-registro con `observed` es una decisión
+  válida y hay que escribirla, no dejarla implícita en la config.
 - Seed del set de tareas: `TODO(Matias)`
 - Límite de tool calls por tarea: `TODO(Matias)`
 - Presupuesto de wall-clock por tarea: `TODO(Matias)`

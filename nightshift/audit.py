@@ -65,6 +65,7 @@ SAFE_KEY_RE = re.compile(r"^[A-Za-z0-9_\-]{1,32}$")
 JSON_COLUMNS = {
     "abstraction_json": "abstraction",
     "valid_when_json": "valid_when",
+    "projected_signals_json": "projected_signals",
     "verified_json": "verified",
     "redaction_json": "redaction",
     "args_json": "args_redacted",
