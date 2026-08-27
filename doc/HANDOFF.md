@@ -52,7 +52,7 @@ ni en el README, ni en un commit, ni en una demo.
 
 ### Bloqueado por una persona, no por vos
 
-- **M4 (benchmark go/no-go)** — lee umbrales de `bench/PREREG.md`, donde hay 19
+- **M4 (benchmark go/no-go)** — lee umbrales de `bench/PREREG.md`, donde hay 20
   `TODO(Matias)`. **Completar uno es una violación, no una ayuda.** Podés construir el
   runner del benchmark; no podés inventar los números que decide.
 - **M5 (verify)** — prohibido empezarlo antes del veredicto de M4. No es una
@@ -156,7 +156,7 @@ sesión real.
 ### El plan hasta el veredicto
 
 [`PLAN-M4.md`](PLAN-M4.md) tiene el detalle: el camino crítico y su orden (por qué la
-revisión de ADR-001 va **antes** de congelar el pre-registro), los 19 `TODO(Matias)`
+revisión de ADR-001 va **antes** de congelar el pre-registro), los 20 `TODO(Matias)`
 agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (102 celdas,
 ~1,1 h medidas), los riesgos con su evidencia, y qué pasa con cada veredicto posible.
 

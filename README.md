@@ -205,7 +205,7 @@ LATER.md                       Everything deliberately deferred, with the reason
 
 | M | Deliverable | Gate |
 |---|---|---|
-| M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, versioned schema, PREREG, README | `make check` passes ✅ · Ismael's review of ADR-001 **still pending** |
+| M0 🟡 | Docs: spec v0.3, ADR-001, ADR-002, versioned schema, PREREG, README | `make check` passes ✅ · Ismael's review of ADR-001 **still pending** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Deterministic redactor | Code done, and the gate is now a command: `nightshift audit --min-sessions 5`. It still needs 5 real sessions in the store |
 | **M2** 🟡 | Retrieve: structural injection at `SessionStart`, and again at the first classified prompt | Code done. `/nightshift:why` reconstructs the source trajectory of every injection |
 | M3 🟡 | Dream `consolidate` ✅ + pluggable scheduler ✅ | Both shipped: `nightshift dream --selftest` passes and `nightshift schedule status` reports the last runs. The milestone gate — **3 consecutive unattended nights** — is Matías's to run |
