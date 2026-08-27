@@ -35,19 +35,20 @@ Arrancá con `nightshift dev`.
 | Store SQLite + export `trajectory.v1` | `nightshift/store.py` |
 | Retrieval estructural e inyección | `nightshift/retrieve.py` |
 | Auditoría del store (gate de M1) | `nightshift/audit.py` |
-| Dream fase 1 — `consolidate` | `nightshift/dream.py` |
+| Dream fase 1 — `consolidate`, con ideación y proyección | `nightshift/dream.py` |
+| Contraste entre una alternativa descartada y la que la reemplazó | `nightshift/dream.py`, `store.mark_superseded` |
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 186 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 266 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
 
 Dream fase 2 (`verify`). El benchmark tiene runner pero **no tiene resultados**: no
 corrió nunca y no puede correr hasta que el pre-registro esté congelado. Hay
-`candidate`, pero **nada llega a `procedure`**: ninguna memoria inyectada está verificada. Una `candidate` la abstrajo un
-modelo local y nadie la reprodujo contra un gate. No lo describas como si lo estuviera,
+`candidate`, pero **nada llega a `procedure`**: ninguna memoria inyectada está verificada.
+Una `candidate` la abstrajo un modelo y nadie la reprodujo contra un gate. No lo describas como si lo estuviera,
 ni en el README, ni en un commit, ni en una demo.
 
 ### Bloqueado por una persona, no por vos
@@ -112,7 +113,7 @@ el mismo commit y dejá la fecha.
 
 | Tarea | Estado | Qué la cerró |
 |---|---|---|
-| T1 — `nightshift audit` | ✅ #4 | `audit` recorre todo lo persistido y afirma que no hay fugas. Sobre el store real: **cero hallazgos**. `--min-sessions 5` sigue saliendo 1 por conteo de sesiones (ver abajo). |
+| T1 — `nightshift audit` | ✅ #4 | `audit` recorre todo lo persistido y afirma que no hay fugas. Encontró una de verdad el 2026-08-27 (#41) y está arreglada. `--min-sessions 5` sigue saliendo 1 por conteo de sesiones (ver abajo). |
 | T2 — retrieval por tipo de tarea | ✅ #5 | `general` dejó de puntuar como coincidencia de tipo, y el retrieval se rehace en el primer `UserPromptSubmit` clasificado, sin re-inyectar lo ya dicho. Spec §5.7. |
 | T3 — trayectorias huérfanas | ✅ #6 | `SessionStart` cierra las `open` de otras sesiones sin actividad hace más de `orphan_after_hours`. Corte por inactividad, nunca por antigüedad. Spec §5.8. |
 | T4 — M3-a dream `consolidate` | ✅ #7 | Agrupación determinista, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor. Gate: `make dream-selftest`. |
@@ -217,6 +218,38 @@ Dos cosas que cuestan tiempo si se redescubren:
 La agrupación es por tipo de tarea y nada más. Agrupar por firma de herramientas dejaba
 grupos de uno, y un grupo de uno no puede tener contradicciones. Agrupar mejor necesita
 volumen real, no otra intuición: está en `LATER.md`.
+
+## 4-bis. Lo que cambió el 2026-08-27, y qué mirar primero
+
+Una sesión larga de desarrollo. Lo que hay que saber para no re-derivarlo:
+
+| | |
+|---|---|
+| **Dream idea y proyecta** ([ADR-004](adr/ADR-004-ideacion-y-proyeccion.md)) | Dibuja el mecanismo como diagrama Mermaid, abstrae desde ahí, y **proyecta** síntomas que nadie observó. Lo proyectado se guarda aparte, pesa exactamente la mitad, y se anuncia como conjetura. Esa frontera es lo que hay que defender: si se borra, esto deja de ser memoria. |
+| **Contraste entre implementaciones** ([ADR-005](adr/ADR-005-contraste-entre-implementaciones.md)) | Cuando hay una contradicción registrada, dream consolida **qué cambió, qué compró, qué costó, y cuándo la descartada seguía teniendo razón**. La spec §4.2 lo prometía desde el principio; hasta acá el enlace existía y la precondición no la calculaba nadie. |
+| **El presupuesto de M4 es tiempo** (PREREG §2.1) | Decidido por Matías. Medido: 37,8 s por celda de mediana, **1,1 h las 102 celdas**. La factibilidad no es el cuello de botella. |
+| **La matriz va repetición → fila** | Para que cortar por presupuesto deje los dos brazos con el mismo n. Con el orden anterior, una corrida cortada era un experimento torcido, no uno más chico. |
+| **Los dólares no son una factura** | El CLI reporta a precio de lista (`costBasis: "list"`); con suscripción no se factura. Los tokens son la unidad. Hay un test que falla si alguna línea con `USD` no lo dice. |
+| **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y sube los `TODO(Matias)` a 21. |
+
+### Lo primero que tiene que mirar la sesión que sigue
+
+**La calidad de la captura, no la funcionalidad.** El 2026-08-27 el store real reportaba
+**59% de pasos de tool sin contenido**, y la inyección que recibió esta misma sesión
+mostraba `(sin resumen)` en los tres pasos decisivos de la trayectoria que le tocó. Es
+decir: la máquina entera funciona y le está pasando al agente siluetas sin sustancia.
+
+Es el mismo modo de falla de siempre —el silencio— en su versión más incómoda: ya no
+está roto, está *flojo*, y nada falla. `nightshift doctor` y `status` reportan el número.
+Empezá por ahí antes que por cualquier feature.
+
+**Y dos ciclos de sueño sobre 400 pasos de desarrollo real produjeron cero candidatas.**
+Dream agrupa por tipo de tarea, así que un día entero es un grupo de uno y no hay nada
+compartido que abstraer. nightshift no tiene noción de **capítulo**: la sesión es la
+unidad de captura y la trayectoria la de consolidación, así que cuanto más productivo es
+el día, menos consolidable queda. Está en `LATER.md`; no está en el plan v0.3.
+
+---
 
 ## 5. Cómo se entrega cada tarea
 
