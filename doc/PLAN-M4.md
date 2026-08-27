@@ -201,7 +201,8 @@ baseline. Eso convierte un resultado en una anécdota.
 
 | Riesgo | Evidencia | Mitigación |
 |---|---|---|
-| **Las amenazas de PREREG §5 están incompletas** | corriendo el benchmark aparecieron dos que no estaban: store por celda (medía cero transferencia por construcción) y ruta por tarea (le daba ventaja a nightshift por construcción) | releer §5 antes de congelar, sabiendo que la lista se demostró incompleta |
+| **Las amenazas de PREREG §5 están incompletas** | aparecieron **tres** que no estaban en §5: store por celda, ruta por tarea, y `cross_repo` apagado en la familia C — las tres medían cero o daban ventaja **por construcción** | releer §5 antes de congelar, sabiendo que la lista se demostró incompleta tres veces |
+| **La familia C no puede medir con la config por defecto** | `cross_repo: false` deja a la fila S1 con **cero memorias** en el repo B. Medido: 0 candidatas con el default, 1 con el flag encendido | el valor de `cross_repo` para S1 es una constante del experimento y **no está en PREREG §2**. Agregarla y decidirla antes de congelar |
 | ~~El benchmark tiene dos modelos y PREREG uno~~ | ADR-003: dream consolida con Claude Code, no con Qwen local | **resuelto**: PREREG §2 los pide por separado, y los dos siguen sin fijar. El de consolidación interviene sólo en S1 |
 | **Lo redactado sale de la máquina** | consecuencia directa de ADR-003 | el backend `local` sigue a una línea de config para repos cuyo material no puede salir |
 | **El store viejo es 82% cascarón** | `nightshift status` lo reporta | contar M1 desde el fix; correr dream con ventana corta |
@@ -223,7 +224,7 @@ Corto, y ninguno bloquea a nadie:
    grilla por familia y el total, con los bloqueos del pre-registro.
 
 Lo que **no** se construye: política de retención del store (necesita volumen real),
-transferencia cross-repo encendida (decisión de producto), y nada de M5.
+encender la transferencia cross-repo (es una constante del experimento: va al pre-registro, no a un commit), y nada de M5.
 
 ## 9. Cómo se sabe que cada fase terminó
 
