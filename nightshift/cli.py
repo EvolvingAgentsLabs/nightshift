@@ -148,8 +148,8 @@ def cmd_why(args) -> int:
             print()
             print("abstracción (dream fase 1, sin verificar):")
             print("  consolidada con: %s" % (row["consolidation_model"] or "—"))
-            print("  costo consolidar: %s" % (
-                "USD %.4f" % row["consolidation_cost_usd"]
+            print("  consolidar usó: %s" % (
+                "USD %.4f a precio de lista" % row["consolidation_cost_usd"]
                 if row["consolidation_cost_usd"] is not None
                 else "no reportado por el backend"))
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
@@ -326,8 +326,16 @@ def _model_for(cfg, override=None, timeout=None):
 def _print_dream_report(report):
     print("modelo: %s" % report["model"])
     print("período: últimos %d día(s)" % report["lookback_days"])
-    if report.get("cost_usd"):
-        print("costo: USD %.4f" % report["cost_usd"])
+    if report.get("input_tokens") or report.get("output_tokens"):
+        linea = "uso: %s tokens de entrada · %s de salida" % (
+            "{:,}".format(report.get("input_tokens") or 0),
+            "{:,}".format(report.get("output_tokens") or 0))
+        if report.get("cost_usd"):
+            # A precio de lista. Con una suscripción de Claude Code no se factura esto.
+            linea += " (USD %.4f a precio de lista)" % report["cost_usd"]
+        print(linea)
+    elif report.get("cost_usd"):
+        print("uso: USD %.4f a precio de lista" % report["cost_usd"])
     print("grupos: %d sobre %d trayectoria(s) cerrada(s)"
           % (report["groups"], report["trajectories"]))
     if report.get("groups_skipped_by_limit"):
@@ -928,8 +936,14 @@ def _render_sealed(registros, destino) -> int:
     print("  %-16s %d de %d" % ("completadas", salud["completed"], salud["cells"]))
     print("  %-16s %.1f s en total · %.1f s la mediana"
           % ("tiempo", salud["seconds_total"], salud["seconds_median"] or 0))
-    if salud["cost_usd_total"] is not None:
-        print("  %-16s USD %.4f" % ("costo", salud["cost_usd_total"]))
+    if salud.get("input_tokens") or salud.get("output_tokens"):
+        print("  %-16s %s de entrada · %s de salida"
+              % ("tokens", "{:,}".format(salud["input_tokens"]),
+                 "{:,}".format(salud["output_tokens"])))
+    if salud.get("list_price_usd_total") is not None:
+        # No es una factura: con suscripción no se paga esto. Es la vara para comparar.
+        print("  %-16s USD %.2f a precio de lista (una suscripción no factura esto)"
+              % ("uso valorizado", salud["list_price_usd_total"]))
     if salud["tool_calls_median"] is not None:
         print("  %-16s %.1f (mediana)" % ("tool calls", salud["tool_calls_median"]))
     if salud["limit_exceeded"]:
@@ -1010,7 +1024,7 @@ def _render_report(registros, prereg, args) -> int:
     print()
     print("resultados (mediana por celda; se publican todas las corridas, PREREG §4):")
     print("  %-8s %-4s %-6s %-8s %-16s %-10s %s" % ("familia", "fila", "corr.", "tareas",
-                                                    "resolución", "tool calls", "costo"))
+                                                    "resolución", "tool calls", "uso (lista)"))
     costo_total = 0.0
     excedidas = 0
     timeouts = 0
@@ -1025,9 +1039,9 @@ def _render_report(registros, prereg, args) -> int:
             "—" if item["resolution_rate"] is None else "%.2f [%.2f–%.2f]" % (
                 item["resolution_rate"], rango[0], rango[1]),
             "—" if item["tool_calls_median"] is None else "%.1f" % item["tool_calls_median"],
-            "—" if item["cost_usd"] is None else "USD %.2f" % item["cost_usd"]))
+            "—" if item["cost_usd"] is None else "%.2f" % item["cost_usd"]))
     if costo_total:
-        print("  %-8s %s" % ("total", "USD %.2f" % costo_total))
+        print("  %-8s %s" % ("total", "USD %.2f a precio de lista" % costo_total))
     if excedidas:
         print()
         print("  %d celda(s) excedieron el límite de tool calls. El CLI no lo puede"
@@ -1336,7 +1350,10 @@ def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
         print("instalado  : no. `nightshift schedule install` lo deja programado.")
     print()
     if runs:
-        print("últimas corridas:")
+        # La última columna es USD **a precio de lista**: la vara para comparar una
+        # corrida con otra, no lo que se factura. Con una suscripción de Claude Code no
+        # se paga eso, y una columna titulada "costo" haría creer que sí.
+        print("últimas corridas:%s" % (" " * 62 + "USD lista"))
         for row in runs:
             veredicto = {0: "ok", 1: "no consolidó", 2: "sin modelo local"}.get(
                 row["exit_code"], "exit=%s" % row["exit_code"])
@@ -1344,7 +1361,7 @@ def _schedule_status(args, cfg, chosen, instalados, sched) -> int:
             print("  %s  %-8s %-9s %-16s cand=%d sup=%d desc=%d %s %s" % (
                 row["started_at"], row["command"], row["backend"] or "—", veredicto,
                 row["candidates"] or 0, row["superseded"] or 0, row["rejected"] or 0,
-                ("USD %.3f" % costo) if costo else "        ",
+                ("%.3f" % costo) if costo else "        ",
                 (row["note"] or "")[:50]))
     else:
         print("últimas corridas: ninguna todavía.")

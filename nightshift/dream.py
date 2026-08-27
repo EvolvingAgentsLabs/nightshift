@@ -156,6 +156,11 @@ class LocalModel:
         # uno que cobra por token devuelve lo que cobró. Consolidar dejó de ser gratis con
         # ADR-003, y una corrida nocturna cuyo costo nadie anotó no se puede justificar.
         self.total_cost = 0.0
+        # Y los tokens, que es lo que una suscripción consume de verdad. El costo que
+        # reporta el agente viene con `costBasis: "list"`: sirve para comparar corridas
+        # entre sí, no para decir cuánto se pagó.
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
     @property
     def name(self) -> str:
@@ -194,17 +199,31 @@ class LocalModel:
                              % (out.returncode, (out.stderr or "").strip()[:300]))
         return out.stdout
 
-    def _anotar_costo(self, salida):
-        """Suma el costo si el backend lo reporta. El envoltorio del agente lo trae."""
-        envoltorio = extract_json(salida, _profundidad=3)   # sin desenvolver: la factura
-        if isinstance(envoltorio, dict):
-            costo = envoltorio.get("total_cost_usd") or envoltorio.get("cost_usd")
-            if isinstance(costo, (int, float)):
-                self.total_cost += float(costo)
+    def _anotar_uso(self, salida):
+        """Suma tokens y costo si el backend los reporta. El envoltorio del agente los trae.
+
+        Los tokens son lo que consume una suscripción. El costo que acompaña viene a
+        precio de lista (`costBasis: "list"`) y sirve como vara para comparar corridas
+        entre sí — no es lo que se factura, y nada de lo que imprime el CLI lo presenta
+        como si lo fuera.
+        """
+        envoltorio = extract_json(salida, _profundidad=3)   # sin desenvolver: el resumen
+        if not isinstance(envoltorio, dict):
+            return
+        costo = envoltorio.get("total_cost_usd") or envoltorio.get("cost_usd")
+        if isinstance(costo, (int, float)):
+            self.total_cost += float(costo)
+        for uso in (envoltorio.get("modelUsage") or {}).values():
+            if not isinstance(uso, dict):
+                continue
+            for clave in ("inputTokens", "cacheReadInputTokens",
+                          "cacheCreationInputTokens"):
+                self.total_input_tokens += uso.get(clave) or 0
+            self.total_output_tokens += uso.get("outputTokens") or 0
 
     def ask_json(self, prompt: str):
         salida = self.ask(prompt)
-        self._anotar_costo(salida)
+        self._anotar_uso(salida)
         data = extract_json(salida)
         if data is None:
             raise DreamError("el modelo no devolvió JSON parseable")
@@ -506,7 +525,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
 
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
-               "cost_usd": None,
+               "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 
@@ -595,6 +614,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                 % (old["id"][:8], winner["id"][:8]))
 
     reporte["cost_usd"] = getattr(model, "total_cost", None) or None
+    reporte["input_tokens"] = getattr(model, "total_input_tokens", 0) or 0
+    reporte["output_tokens"] = getattr(model, "total_output_tokens", 0) or 0
     return reporte
 
 

@@ -272,3 +272,19 @@ de `candidate` de arriba.
    `nightshift audit --min-sessions 5`; hoy sale 1 sólo por el conteo de sesiones (3 de
    5), sin ninguna fuga. Falta usar el plugin en dos sesiones reales más. Hasta que eso
    pase, M1 es código sin evidencia suficiente.
+
+## Los dólares del benchmark no eran una factura
+
+`claude -p --output-format json` devuelve `total_cost_usd`, y yo lo reporté como
+"costo" — de ahí salió el "USD 22 las 102 celdas" del ensayo. El campo viene con
+`costBasis: "list"`: es la valorización **a precio de lista** de ese uso, no lo que se
+paga. Con la suscripción de Claude Code no se factura nada de eso.
+
+Sirve como vara para comparar una corrida con otra, así que no se tira: se etiqueta. Lo
+que sí se consume es **tokens**, y ahora son la cifra que va primero — en el ensayo, en
+el reporte del benchmark, en `dream` y en `why`. Un test recorre la salida del ensayo y
+falla si alguna línea con `USD` no dice "a precio de lista".
+
+Queda anotado para PREREG: el presupuesto de M4 se expresa en tokens o en tiempo de
+pared, no en dólares. Cuál de los dos, y con qué tope, es `TODO(Matias)` — no lo decido
+yo, pero el número que estaba escrito era engañoso y ya no está.
