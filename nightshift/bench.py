@@ -232,13 +232,26 @@ def ordered_tasks(fixture, seed):
 
 
 def matrix(fixture, *, rows=ROWS, repeats=3, seed=None):
-    """La grilla completa: familia × fila × repetición × tarea, en orden fijo."""
+    """La grilla completa: familia × fila × repetición × tarea, en orden fijo.
+
+    El orden es **repetición → fila → tarea**, y no fila → repetición, porque el
+    presupuesto de la corrida es el tiempo de pared: una corrida que se queda sin
+    ventana se corta, y dónde se corta decide si lo corrido sirve o no.
+
+    Con el orden por fila, cortar deja S0 entera y S1 a la mitad — dos brazos con
+    distinto n, que es una comparación sesgada disfrazada de resultado parcial. Con el
+    orden por repetición, cortar al terminar una deja las dos filas con exactamente las
+    mismas repeticiones: un experimento más chico, no uno torcido.
+
+    Las celdas son independientes —directorio de trabajo y store propios por (fila,
+    repetición)— así que reordenarlas no cambia nada de lo que se mide.
+    """
     for row in rows:
         if row in BLOCKED_ROWS:
             raise ValueError(BLOCKED_ROWS[row])
     celdas = []
-    for row in rows:
-        for repeticion in range(1, repeats + 1):
+    for repeticion in range(1, repeats + 1):
+        for row in rows:
             for indice, task in enumerate(ordered_tasks(fixture, seed)):
                 celdas.append({
                     "family": fixture["family"], "fixture": fixture["name"], "row": row,
@@ -246,6 +259,63 @@ def matrix(fixture, *, rows=ROWS, repeats=3, seed=None):
                     "phase": "learning" if indice < fixture["learning_tasks"] else "measure",
                 })
     return celdas
+
+
+def completeness(records, *, rows, repeats) -> dict:
+    """Qué repeticiones quedaron **completas en todas las filas**.
+
+    Una corrida cortada por presupuesto sólo se puede leer hasta la última repetición
+    que tienen las dos filas. Comparar S0 con tres repeticiones contra S1 con una no es
+    un resultado con menos precisión: es un resultado de otra cosa.
+    """
+    vistos = {}
+    for r in records:
+        vistos.setdefault((r.get("row"), r.get("repeat")), 0)
+        vistos[(r.get("row"), r.get("repeat"))] += 1
+    completas = [n for n in range(1, repeats + 1)
+                 if all(vistos.get((row, n)) for row in rows)]
+    # Completas y **contiguas** desde la primera: un hueco en el medio es una celda que
+    # falló, no una corrida más corta, y eso no se arregla recortando.
+    contiguas = 0
+    for n in range(1, repeats + 1):
+        if n not in completas:
+            break
+        contiguas = n
+    return {"repeats_requested": repeats, "repeats_complete": contiguas,
+            "complete": contiguas == repeats,
+            "usable_records": [r for r in records
+                               if (r.get("repeat") or 0) <= contiguas]}
+
+
+def historical_seconds(bench_dir) -> list:
+    """Cuánto tardó cada celda en todas las corridas anteriores, ensayos incluidos.
+
+    La factibilidad de M4 no es una estimación: son 39 celdas ya corridas con agentes
+    de verdad. Un plan que no las mira está adivinando al lado del dato.
+    """
+    tiempos = []
+    for archivo in sorted(Path(bench_dir).glob("*/results.jsonl")):
+        try:
+            for linea in archivo.read_text(encoding="utf-8").splitlines():
+                if not linea.strip():
+                    continue
+                seg = json.loads(linea).get("seconds")
+                if seg:
+                    tiempos.append(float(seg))
+        except (OSError, ValueError):
+            continue          # una corrida ilegible no puede voltear el plan
+    return tiempos
+
+
+def projection(records, total_cells) -> float | None:
+    """Cuánto va a tardar la corrida entera, a partir de lo que ya tardó.
+
+    Sirve para cortar antes de gastar la ventana, no después.
+    """
+    tiempos = [r.get("seconds") for r in records if r.get("seconds")]
+    if not tiempos:
+        return None
+    return sum(tiempos) / len(tiempos) * total_cells
 
 
 # ------------------------------------------------------------------------ ejecución

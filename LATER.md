@@ -288,3 +288,19 @@ falla si alguna línea con `USD` no dice "a precio de lista".
 Queda anotado para PREREG: el presupuesto de M4 se expresa en tokens o en tiempo de
 pared, no en dólares. Cuál de los dos, y con qué tope, es `TODO(Matias)` — no lo decido
 yo, pero el número que estaba escrito era engañoso y ya no está.
+
+
+## El orden de la matriz era una trampa esperando un corte
+
+La matriz iba **fila → repetición**: todas las repeticiones de S0 y después todas las de
+S1. Mientras la corrida terminara entera daba igual. Con un presupuesto de tiempo deja de
+dar igual: cortar por falta de ventana dejaba S0 completa y S1 a la mitad, y eso no es un
+experimento más chico sino uno torcido — dos brazos con distinto n presentados como una
+comparación.
+
+Ahora va **repetición → fila**. Cortar al terminar una repetición deja las dos filas con
+exactamente las mismas. Las celdas son independientes (directorio de trabajo y store
+propios por fila y repetición), así que el reorden no cambia nada de lo que se mide.
+
+Nadie lo habría notado hasta la primera corrida cortada, que es justo la que uno mira con
+menos ganas de dudar.

@@ -796,6 +796,21 @@ def cmd_bench(args) -> int:
                  fixture["learning_tasks"]))
         print("celdas    : %d = %s filas × %d corridas × %d tareas"
               % (len(celdas), args.rows, args.repeats, len(fixture["tasks"])))
+        # El presupuesto de esta corrida es tiempo de pared, así que el plan lo dice
+        # antes de arrancar y con datos medidos, no estimados.
+        historicos = bench_mod.historical_seconds(_bench_dir())
+        if historicos:
+            historicos.sort()
+            mediana = historicos[len(historicos) // 2]
+            p90 = historicos[min(len(historicos) - 1, int(len(historicos) * 0.9))]
+            print("tiempo    : ~%.1f h (mediana %.0f s/celda sobre %d celda(s) ya "
+                  "corridas)" % (len(celdas) * mediana / 3600, mediana, len(historicos)))
+            print("            ~%.1f h en el peor caso (p90 %.0f s/celda)"
+                  % (len(celdas) * p90 / 3600, p90))
+        else:
+            print("tiempo    : sin corridas previas para estimarlo. `bench rehearse` "
+                  "sobre una")
+            print("            fila lo calibra sin desellar nada.")
         print("orden     : fijo por seed=%s, idéntico en todas las filas (PREREG §5)"
               % args.seed)
         print()
@@ -868,10 +883,21 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False,
         "prereg_frozen": prereg["frozen"], "nightshift": __version__,
         # Queda escrito en el registro: un ensayo no se puede confundir con la corrida.
         "rehearsal": bool(sealed),
+        "budget_minutes": getattr(args, "budget_minutes", None),
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     agente = shlex.split(args.agent)
     registros = []
+    # El presupuesto es tiempo de pared, no dinero: la pregunta que decide si M4 se puede
+    # correr es si entra en una ventana sin nadie mirando. Y se corta **al terminar una
+    # repetición**, porque la matriz va repetición → fila: cortar ahí deja las dos filas
+    # con el mismo n. Cortar en el medio deja S0 más larga que S1 y eso no es un
+    # resultado parcial, es un resultado torcido.
+    presupuesto = getattr(args, "budget_minutes", None)
+    limite_s = presupuesto * 60 if presupuesto else None
+    arranque = time.monotonic()
+    cortada_por_presupuesto = False
+    ultima_repeticion = None
     with (destino / "results.jsonl").open("w", encoding="utf-8") as handle:
         for i, celda in enumerate(celdas, start=1):
             entorno = dict(os.environ)
@@ -918,11 +944,54 @@ def _bench_run(args, prereg, estado, *, quiet=False, silent_report=False,
                     i, len(celdas), celda["row"], celda["repeat"], celda["task"],
                     celda["phase"], estado_celda))
 
+            if limite_s is None:
+                continue
+            transcurrido = time.monotonic() - arranque
+            siguiente = celdas[i]["repeat"] if i < len(celdas) else None
+            if siguiente == celda["repeat"]:
+                continue                        # todavía estamos dentro de la repetición
+            ultima_repeticion = celda["repeat"]
+            proyectado = bench_mod.projection(registros, len(celdas))
+            if transcurrido + (proyectado or 0) / len(celdas) * (
+                    len(celdas) - i) > limite_s and siguiente is not None:
+                cortada_por_presupuesto = True
+                if not quiet:
+                    print()
+                    print("  presupuesto: %g min. Van %.1f min y faltan %d celda(s):"
+                          % (presupuesto, transcurrido / 60, len(celdas) - i))
+                    print("  se corta acá, con %d repetición(es) completas en todas las"
+                          % ultima_repeticion)
+                    print("  filas. Un corte en el medio de una repetición dejaría los")
+                    print("  brazos con distinto n.")
+                break
+
+    integridad = bench_mod.completeness(
+        registros, rows=tuple(args.rows.split(",")), repeats=args.repeats)
+    meta = json.loads((destino / "meta.json").read_text(encoding="utf-8"))
+    meta.update({"stopped_by_budget": cortada_por_presupuesto,
+                 "repeats_complete": integridad["repeats_complete"],
+                 "complete": integridad["complete"],
+                 "cells_run": len(registros), "cells_planned": len(celdas)})
+    (destino / "meta.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
     if silent_report:
         return 0
     print()
     print("%s %s · %d celda(s) · %s" % ("ensayo" if sealed else "corrida", run_id,
                                         len(registros), destino))
+    if not integridad["complete"]:
+        print()
+        print("corrida INCOMPLETA: %d de %d repetición(es) completas en todas las filas."
+              % (integridad["repeats_complete"], args.repeats))
+        if integridad["repeats_complete"]:
+            print("Se lee hasta la repetición %d; las celdas sueltas de la siguiente se"
+                  % integridad["repeats_complete"])
+            print("descartan, porque dejarían los brazos con distinto n.")
+        else:
+            print("Ninguna repetición quedó completa en las dos filas: no hay nada que")
+            print("comparar.")
+        registros = integridad["usable_records"]
     if sealed:
         return _render_sealed(registros, destino)
     return _render_report(registros, prereg, args)
@@ -1759,6 +1828,9 @@ def main(argv=None) -> int:
     p.add_argument("--repeats", type=int, default=3)
     p.add_argument("--seed", default=None)
     p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--budget-minutes", type=float, default=None,
+                   help="tope de tiempo de pared para la corrida entera. Corta al "
+                        "terminar una repetición, nunca en el medio")
     p.add_argument("--prereg", default=None, help="pre-registro alternativo (para pruebas)")
     p.add_argument("--run", default=None, help="id de corrida para `report`")
     p.add_argument("--unseal", action="store_true",
