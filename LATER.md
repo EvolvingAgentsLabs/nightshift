@@ -179,7 +179,7 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 | Ítem | Motivo |
 |---|---|
-| Todos los `TODO(Matias)` de `bench/PREREG.md` | **Claude Code no fija umbrales** (plan §5). Los resuelve una persona antes de congelar. El runner ya los lee: `nightshift bench check` lista los 20 con su sección y su línea. |
+| Todos los `TODO(Matias)` de `bench/PREREG.md` | **Claude Code no fija umbrales** (plan §5). Los resuelve una persona antes de congelar. El runner ya los lee: `nightshift bench check` lista los 22 con su sección y su línea. |
 | ~~Cómo se lanza el agente en cada celda~~ | **Construido**: `bench/agentes/correr-agente.py` arma la invocación de las filas S0 y S1, cuenta las tool calls del stream y se niega a correr sin las constantes pre-registradas. Lo que sigue siendo de Matías son esas constantes. |
 | El límite de tool calls no se puede imponer | Verificado el 2026-08-26: el CLI de Claude Code no expone `--max-turns`. El adaptador **mide** las tool calls y reporta `tool_limit_exceeded`; imponer el límite necesita una feature del harness que hoy no existe. Un límite que se declara y no se aplica hay que decirlo. |
 | (histórico) Cómo se lanza el agente en cada celda | El runner recibe el comando por `--agent`. Cuál es ese comando para S0 y para S1 —con nightshift apagado y encendido, con Auto Memory en el mismo estado— es parte del protocolo, y el protocolo de reset entre corridas es un `TODO(Matias)` de PREREG §5. |
@@ -446,6 +446,12 @@ campo aparte. Un diagrama tiene un límite natural que la prosa no tiene.
 
 ## `decisive` marca el 38% de los pasos, y eso no es una señal decisiva
 
+> **Cerrado el 2026-08-27** (spec §4.3 y §4.3.1). Se eligió apretar la bandera, no
+> partirla: `decisive` la enciende un fallo, y `tests_passed` se infiere del comando
+> guardado. Partirla en `decisive` + `outcome_signal` pedía `trajectory.v2` y una
+> migración, y el desenlace se calcula igual de bien sin bandera. Queda el texto porque
+> el número que lo motivó es lo que permite saber después si el arreglo sirvió.
+
 Medido sobre el store real (471 pasos, 2026-08-27), no estimado:
 
 | | |
@@ -478,6 +484,10 @@ significado de un campo del esquema y de una métrica que ya se reporta.
 
 ## `valid_when` se muestra y no se busca
 
+> **Cerrado el 2026-08-27** (spec §5.10). Engancha con motivo propio, `precondition_match`,
+> en commit separado del enganche por fallo para que M4 pueda atribuir cuál movió el
+> ranking. Pesa 1.0: observado > inferido > conjeturado.
+
 Las precondiciones son la mitad del valor de una alternativa descartada —"la descartada
 seguía teniendo razón cuando el límite era realmente bajo"— y hoy son **sólo de salida**:
 `render()` las imprime, `candidates()` nunca las mira. Una trayectoria cuyas
@@ -489,6 +499,11 @@ No lo hago junto con el enganche por fallo: son dos claves de recuperación dist
 imposible saber cuál de las dos movió el ranking cuando M4 lo mida.
 
 ## La calidad de la captura promedia un bug ya arreglado
+
+> **Cerrado el 2026-08-27.** Las trayectorias declaran `capture_cohort` y `status` sólo
+> promedia la actual; las anteriores se cuentan y se nombran. Lo que **sigue abierto** es
+> lo del final: `Edit` y `Write` no los usó ninguna sesión posterior al arreglo, así que
+> su captura sigue sin verse funcionar.
 
 `status` reporta **52% de pasos de tool sin contenido** y `doctor` mira la última
 trayectoria. Los dos números son ciertos y dicen cosas opuestas, porque el 52% es un
@@ -521,3 +536,46 @@ visto **ese mismo fallo**. Puede estar bien —el tipo de tarea es la clave estr
 la spec— o puede ser exactamente al revés. Es otro de los pesos elegidos a mano que M4 va
 a poder juzgar; queda anotado junto a los demás en "Diferido hasta M2".
 
+## Idea de Matías: presentar lo soñado como opciones, y decidirlo con el usuario
+
+Del 2026-08-27, mirando cómo esta misma sesión resolvió sus bloqueos: cuando un agente no
+puede decidir algo, presenta **opciones concretas con su consecuencia** y sigue con la
+respuesta. La observación es que ésa es exactamente la forma que le falta a lo que dream
+produce:
+
+> «el mecanismo con el que a veces preguntás sobre un plan, en el que das varias opciones
+> y de acuerdo a las respuestas reorientás el plan, es justamente como deberíamos
+> presentar las trayectorias futuras generadas por sueño y validarlas con el usuario o
+> resolver sus gaps con human in the loop»
+>
+> «es casi como que en sueño simulás esas opciones, y contrastás los agentes que están
+> siguiendo diferentes paths entre ellos para que pulan y refinen sus propuestas a futuro»
+
+Encaja con dos cosas que ya existen y que hoy no llegan a ningún lado:
+
+- **`projected_signals`** (ADR-004) son conjeturas que nadie observó. Se inyectan con la
+  mitad del peso y anunciadas como tales, y **nada las resuelve nunca**: no hay forma de
+  que una conjetura pase a ser otra cosa. Una validación humana es una.
+- **El contraste** (ADR-005) hoy compara **dos trayectorias que existieron**. Lo que
+  propone la idea es contrastar **caminos que no se recorrieron**: varios agentes
+  siguiendo alternativas distintas, puliendo la propuesta unos contra otros antes de que
+  la vea nadie.
+
+**La distinción que hay que defender si esto se construye:** un humano validando una
+conjetura **no es `verify`**. ADR-002 define verificar como reproducir contra un gate —un
+comando, un exit code, un `run_id`— y "el usuario dijo que sí" no es eso. Sería un tercer
+estado, algo como `human_reviewed`, con su propio peso: más que una conjetura, menos que
+una reproducción. Colarlo como `procedure` sería exactamente el tipo de fabricación de
+evidencia que el proyecto tiene prohibida.
+
+Lo que aporta y lo que arriesga, sin adornos:
+
+| | |
+|---|---|
+| Aporta | La única forma barata de resolver el gap de una proyección hoy. Y las respuestas del humano son señal de entrenamiento para el ranking: qué proyección era útil y cuál era ruido |
+| Arriesga | Preguntar es caro para el usuario. Un dream que consolida en silencio no interrumpe; uno que pregunta, sí. El presupuesto de preguntas por noche es una decisión, no un default |
+| Arriesga | Contrastar agentes multiplica el costo de consolidación por el número de caminos, y ADR-003 ya hizo que consolidar cueste |
+
+**No está en el plan v0.3 y no lo abro acá.** Es post-veredicto: si M4 dice no-go, esto no
+se construye; si dice go, compite con M5 (`verify`) por ser lo siguiente, y esa
+comparación se hace con el veredicto delante.

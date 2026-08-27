@@ -327,10 +327,23 @@ def run(*, cwd=None, con_modelo=True, noches=3, log=print) -> dict:
             for noche in range(1, noches + 1):
                 # La corrida nocturna imprime su propio reporte. Acá interesa el veredicto,
                 # no el detalle: el detalle ya se vio en el paso 4.
+                #
+                # Y corre con el **HOME de verdad**, por lo mismo que el paso 4: la noche
+                # invoca el CLI en proceso, el CLI construye el modelo, y el modelo es un
+                # agente con credenciales en el HOME (ADR-003). Con el HOME del ensayo las
+                # tres noches salían 1 —"dream no consolidó: grupos descartados"— y eso se
+                # leía como un problema de consolidación. El HOME de mentira hace falta
+                # para el paso del scheduler, no para éste.
                 buffer = io.StringIO()
-                with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
-                    codigo = cli_mod.main(["dream", "--backend", "launchd"] +
-                                          ([] if con_modelo else ["--model", "/bin/echo"]))
+                falso = os.environ["HOME"]
+                if con_modelo and previos.get("HOME"):
+                    os.environ["HOME"] = previos["HOME"]
+                try:
+                    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+                        codigo = cli_mod.main(["dream", "--backend", "launchd"] +
+                                              ([] if con_modelo else ["--model", "/bin/echo"]))
+                finally:
+                    os.environ["HOME"] = falso
                 resumen = [linea for linea in buffer.getvalue().splitlines()
                            if linea.startswith(("candidatas", "nada que consolidar",
                                                 "el modelo no encontró", "dream no"))]

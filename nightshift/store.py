@@ -118,8 +118,25 @@ COLUMNAS_AGREGADAS = {
     "runs": [("cost_usd", "REAL")],
     "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL"),
                      ("ideation", "TEXT"), ("projected_signals_json", "TEXT"),
-                     ("contrast_json", "TEXT"), ("diagram", "TEXT")],
+                     ("contrast_json", "TEXT"), ("diagram", "TEXT"),
+                     ("capture_cohort", "INTEGER")],
 }
+
+# Qué generación del código de captura escribió esta trayectoria.
+#
+# Existe porque promediar calidad de captura entre generaciones esconde la regresión
+# siguiente: el store real reportaba 52% de pasos vacíos —un promedio sobre trayectorias
+# escritas antes y después del arreglo de los campos del payload (spec §5.9)— mientras la
+# última iba 1 de 52. Una alarma que suena para siempre no avisa de nada.
+#
+# Se sube a mano cuando cambia **qué significa** lo capturado, no en cada release. Hasta
+# ahora: 1 = desde el 2026-08-27, con los campos del payload correctos y `decisive`
+# encendida sólo por un fallo (spec §4.3).
+#
+# Las filas anteriores tienen NULL, y eso es lo correcto: la columna sólo puede decir la
+# verdad de lo que se escribió después de que existiera. Back-fillear una cohorte que
+# nadie registró sería inventar procedencia — que es justo lo que este campo defiende.
+COHORTE_DE_CAPTURA = 1
 
 
 def migrate(conn):
@@ -171,10 +188,10 @@ def open_trajectory(conn, *, session_id, repo_fingerprint, task_type, harness_na
     conn.execute(
         "INSERT INTO trajectories (id, created_at, status, harness_name, harness_version,"
         " session_id, repo_fingerprint, task_type, hypothesis, base_commit, redaction_json,"
-        " injection_weight) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        " injection_weight, capture_cohort) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (tid, now(), "open", harness_name, harness_version, session_id, repo_fingerprint,
          task_type, hypothesis, base_commit,
-         json.dumps(redaction or {"redactor_version": "0.0.0"}), 0.3),
+         json.dumps(redaction or {"redactor_version": "0.0.0"}), 0.3, COHORTE_DE_CAPTURA),
     )
     conn.commit()
     return tid
@@ -423,14 +440,22 @@ def capture_quality(conn, limit=20):
     pase (spec §7.2). El modo de fallo de este plugin es el silencio, así que hay que
     mirarlo a propósito: nada te lo va a decir.
     """
-    filas = conn.execute(
-        "SELECT id FROM trajectories ORDER BY created_at DESC, rowid DESC LIMIT ?",
-        (limit,)).fetchall()
+    todas = conn.execute(
+        "SELECT id, capture_cohort FROM trajectories"
+        " ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,)).fetchall()
+    # Sólo la cohorte de captura actual. Promediar entre generaciones del código de
+    # captura es cómo una alarma pasa a sonar para siempre: el store real decía 52% de
+    # pasos vacíos —mezclando trayectorias de antes y de después del arreglo de los campos
+    # del payload— mientras la última iba 1 de 52. Las de otras cohortes se cuentan y se
+    # nombran; no se promedian con éstas.
+    filas = [f for f in todas if f["capture_cohort"] == COHORTE_DE_CAPTURA]
+    otras = len(todas) - len(filas)
     ids = [f["id"] for f in filas]
     if not ids:
         return {"trajectories": 0, "tool_steps": 0, "hollow": 0, "decisive": 0,
                 "hollow_ratio": None, "decisive_ratio": None, "unmapped": 0,
-                "broken": [], "worst": None, "latest": None}
+                "broken": [], "worst": None, "latest": None,
+                "cohort": COHORTE_DE_CAPTURA, "other_cohorts": otras}
     marcas = ",".join("?" * len(ids))
     pasos = conn.execute(
         "SELECT trajectory_id, kind, tool, decisive,"
@@ -470,6 +495,8 @@ def capture_quality(conn, limit=20):
         "unmapped": sum(1 for p in pasos if p["tool"] == "other"),
         "broken": rotas,
         "worst": rotas[0] if rotas else None,
+        "cohort": COHORTE_DE_CAPTURA,
+        "other_cohorts": otras,
     }
 
 

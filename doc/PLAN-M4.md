@@ -31,7 +31,7 @@ hipótesis.
 | M1 | ✅ captura, redactor, `audit` | ⚠️ **1 de 5** sesiones con contenido capturado | usar el plugin |
 | M2 | ✅ retrieval en dos pasadas, `why` | ✅ `why` reconstruye el origen | — |
 | M3 | ✅ dream fase 1, scheduler | ⚠️ 0 de 3 noches | el timer ya corre solo |
-| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 21 `TODO(Matias)`** | congelarlo y correr |
+| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 22 `TODO(Matias)`** | congelarlo y correr |
 | M5 | — | 🚫 bloqueado hasta el veredicto de M4 | — |
 
 Los 280 tests, `make check`, `make bench-fixtures`, `bench selftest` y `simulate` pasan.
@@ -107,15 +107,21 @@ hallazgo es exactamente el tipo de memoria que este proyecto dice no querer.
 
 ### Lo que queda, en orden
 
-| Orden | Qué | Por qué acá | Gate |
-|---|---|---|---|
-| **P1** | La bandera `decisive` marca el 38% de los pasos porque mezcla diagnóstico (un fallo) con desenlace (un test que corrió) | Es el insumo de tres cosas a la vez: el peso `W_DECISIVE` del ranking —que se cobra casi siempre y por lo tanto no ordena—, `hook._infer_outcome` y la ventana que ve dream. Cambiarla después de congelar es enmendar el pre-registro | `make check`, y `status` reportando un porcentaje que discrimine |
-| **P2** | `valid_when` se muestra y no se busca: las precondiciones no son clave de recuperación | Es la otra mitad del modelo mental —"esto ya lo vi" vs "esto aplica acá"— y va **sola** en su commit para que M4 pueda atribuir qué movió el ranking | test que falla si se revierte |
-| **P3** | Por celda del benchmark: **qué** memorias se inyectaron y con qué motivo. Hoy se guarda el conteo (`injections`) y el resumen dice si el tratamiento se aplicó (`treated`) | No cambia el tratamiento: cambia si un no-go se puede leer. Con el conteo se distingue "S1 no participó" de "S1 perdió"; con el motivo se distingue además "recuperó lo que no era" | el reporte lo imprime |
-| **P4** | La calidad de captura se promedia sobre cohortes distintas: `status` dice 52% de pasos vacíos y la última trayectoria va 1 de 52 (2%) | Una alarma que suena para siempre es donde se esconde la regresión siguiente | `status` distinguiendo cohortes |
+**Los cuatro están hechos** (2026-08-27, decididos con Matías por terminal). Quedan
+escritos con lo que los motivó, porque el número que los motivó es la única forma de
+saber después si el arreglo sirvió.
 
-**P1 y P2 cambian qué es S1: van antes de congelar. P3 y P4 no lo cambian: pueden entrar
-hasta el día antes de correr.**
+| Orden | Qué | Cómo quedó |
+|---|---|---|
+| **P1** ✅ | `decisive` marcaba el 38% de los pasos: mezclaba diagnóstico (un fallo) con desenlace (un test que corrió), y era el insumo del ranking, del desenlace y de la ventana de dream a la vez | La enciende **sólo un fallo**. `tests_passed` se infiere del comando guardado (spec §4.3.1). El esquema no cambia: se descartó partirla en dos banderas porque pedía `trajectory.v2` |
+| **P2** ✅ | `valid_when` se mostraba y no se buscaba: las precondiciones no eran clave de recuperación | Enganchan con motivo propio, `precondition_match`, y pesan 1.0 — menos que una señal observada, más que un síntoma proyectado. Observado > inferido > conjeturado |
+| **P3** ✅ | Por celda del benchmark se guardaba **cuántas** memorias se inyectaron, no cuáles | El adaptador registra id, rank, score y motivo de cada inyección, y el reporte agrega los motivos: un no-go con sólo `same_repo` y recencia es un fallo de recuperación, no evidencia contra la hipótesis |
+| **P4** ✅ | La calidad de captura promediaba cohortes: `status` decía 52% de pasos vacíos y la última trayectoria iba 1 de 52 | Las trayectorias declaran `capture_cohort`, y `status` sólo promedia la actual: las anteriores se cuentan y se nombran. Las de antes del 2026-08-27 tienen NULL a propósito — la columna sólo puede decir la verdad de lo que se escribió después de que existiera |
+
+P1 y P2 cambiaban qué es S1, así que iban antes de congelar. P3 y P4 no lo cambian.
+
+**Lo que falta de la fase 0.5 ya no es código:** son las cinco sesiones reales, y la
+condición de la regla de corte que necesita mirarlas.
 
 ### La regla de corte — cuándo S1 está listo
 
@@ -148,7 +154,7 @@ roadmap ahora, no en M4.
 
 ### 0.2 Congelar `bench/PREREG.md`
 
-`nightshift bench check` lista los 20 con sección y línea. Agrupados por lo que
+`nightshift bench check` lista los 22 con sección y línea. Agrupados por lo que
 desbloquean:
 
 | Bloque | Líneas de PREREG | Qué bloquea | Datos que ya existen para decidir |
@@ -433,13 +439,20 @@ el doble de contexto hoy figura como empate.
 
 ### Q6 — Una noche que no consolida nada nuevo, ¿tiene que salir 1?
 
-Medido en el ensayo: después de que dream consolida el período, las tres noches
-siguientes salen **exit 1** —"había material y no salió ninguna candidata"— porque el
-material que queda ya está consolidado. El gate de M3 son tres noches seguidas leídas con
-`schedule status`, y así se leen tres rojos seguidos en una máquina sana.
+**Respondida, y sin cambio de código: la pregunta estaba mal planteada.** Matías eligió
+distinguir los dos casos, y al implementarlo apareció que el exit 1 de las tres noches del
+ensayo **no era** "no había nada nuevo": era el mismo bug del `HOME` que ya había hecho
+fallar el paso 4, por otro camino —la noche invoca el CLI en proceso, el CLI construye el
+modelo, y el modelo heredaba el `HOME` de mentira del ensayo—. Arreglado eso, las tres
+noches salen **0**.
 
-*Opciones:* distinguir "no había nada nuevo" (0) de "había y falló" (1), o dejarlo y
-documentar cómo se lee el gate.
+Y los códigos ya distinguían lo que hacía falta: sin material, `nada que consolidar` sale
+0; con material que el modelo no pudo abstraer, `sin patrón común` sale 0; sólo sale 1 si
+había material y el modelo no produjo nada persistible.
+
+Queda escrito porque el diagnóstico equivocado ya estaba, y borrarlo perdería la lección:
+**el mismo síntoma se le atribuyó a dream tres veces en un día, y las tres veces era el
+entorno del ensayo.**
 
 ### Q7 — ¿Qué se hace con las trayectorias cascarón del store real?
 
