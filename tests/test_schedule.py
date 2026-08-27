@@ -261,8 +261,13 @@ class ScheduleTest(IsolatedStoreTest):
         finally:
             conn.close()
         self.assertIsNotNone(nota, "una corrida fallida es un resultado, se registra")
-        self.assertNotIn("modelo-fantasma", nota, "la ruta no se guarda en claro")
+        # La **ruta** no se guarda en claro; el nombre del ejecutable sí, y está bien
+        # que así sea: es la misma regla que usa el auditor — un token sin separador de
+        # directorio es una mención, no una ruta. Y sin el nombre, una corrida fallida
+        # no dice qué modelo faltaba, que es lo único que la nota tiene para ofrecer.
+        self.assertNotIn("/nonexistent/", nota, "la ruta no se guarda en claro")
         self.assertIn("<PATH>", nota)
+        self.assertIn("modelo-fantasma", nota, "sin el nombre, la nota no sirve")
 
         # Y el auditor de M1 tiene que seguir sin encontrar nada en el store.
         code, _, _ = self.run_cli(["audit"])
