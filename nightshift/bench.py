@@ -376,7 +376,8 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
         # Se guarda todo lo que el adaptador se tomó el trabajo de medir. Quedarse sólo
         # con `tool_calls` dejaba el costo de la corrida sin registrar — y una corrida de
         # 102 celdas cuyo costo nadie anotó no se puede volver a justificar.
-        for clave in ("tool_calls", "num_turns", "cost_usd", "tool_limit",
+        for clave in ("tool_calls", "num_turns", "cost_usd", "list_price_usd",
+                      "input_tokens", "output_tokens", "tool_limit",
                       "tool_limit_exceeded", "injections"):
             if clave in metricas:
                 registro[clave] = metricas[clave]
@@ -494,7 +495,13 @@ def operational_summary(records) -> dict:
     completadas = [r for r in records if r.get("agent_exit") == 0]
     con_error = [r for r in records if r.get("error")]
     segundos = [r.get("seconds") or 0 for r in records]
-    costos = [r["cost_usd"] for r in records if r.get("cost_usd") is not None]
+    # `list_price_usd` es la valorización a precio de lista del uso, no una factura:
+    # con una suscripción de Claude Code no se paga eso. Los tokens sí son lo que se
+    # consume, y por eso van primero en el reporte.
+    costos = [r.get("list_price_usd") or r.get("cost_usd") for r in records
+              if (r.get("list_price_usd") or r.get("cost_usd")) is not None]
+    tokens_in = sum(r.get("input_tokens") or 0 for r in records)
+    tokens_out = sum(r.get("output_tokens") or 0 for r in records)
     calls = [r["tool_calls"] for r in records if r.get("tool_calls") is not None]
     return {
         "cells": total,
@@ -504,7 +511,9 @@ def operational_summary(records) -> dict:
                    for r in con_error][:10],
         "seconds_total": round(sum(segundos), 1),
         "seconds_median": median(segundos),
-        "cost_usd_total": round(sum(costos), 4) if costos else None,
+        "list_price_usd_total": round(sum(costos), 4) if costos else None,
+        "input_tokens": tokens_in,
+        "output_tokens": tokens_out,
         "tool_calls_median": median(calls),
         "limit_exceeded": sum(1 for r in records if r.get("tool_limit_exceeded")),
         # Se dice cuántas celdas produjeron dato, no qué dato produjeron.
@@ -550,8 +559,9 @@ def summarize(records) -> dict:
                                                  {"resolved": [], "tool_calls": [],
                                                   "false_stale": []})
         celda["n"] += 1
-        if record.get("cost_usd") is not None:
-            celda["cost_usd"] = celda.get("cost_usd", 0.0) + float(record["cost_usd"])
+        valorizado = record.get("list_price_usd") or record.get("cost_usd")
+        if valorizado is not None:
+            celda["cost_usd"] = celda.get("cost_usd", 0.0) + float(valorizado)
         if record.get("tool_limit_exceeded"):
             celda["limit_exceeded"] = celda.get("limit_exceeded", 0) + 1
         if record.get("timed_out"):

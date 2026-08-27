@@ -164,14 +164,27 @@ def main(argv):
         except Exception:
             inyectadas = None
 
+    # Tokens, que es lo que una suscripción consume de verdad. El `total_cost_usd` que
+    # devuelve el CLI viene con `costBasis: "list"`: es la valorización a precio de lista
+    # de ese uso, no lo que se factura. Se guardan los dos, con el nombre que corresponde.
+    entrada = salida_tok = 0
+    for uso in ((resultado or {}).get("modelUsage") or {}).values():
+        entrada += uso.get("inputTokens") or 0
+        entrada += uso.get("cacheReadInputTokens") or 0
+        entrada += uso.get("cacheCreationInputTokens") or 0
+        salida_tok += uso.get("outputTokens") or 0
+
     limite = int(entorno["NIGHTSHIFT_BENCH_TOOL_LIMIT"])
     metricas = {
+        "input_tokens": entrada,
+        "output_tokens": salida_tok,
         "injections": inyectadas,
         "tool_calls": len(contador),
         "num_turns": (resultado or {}).get("num_turns"),
         "session_id": sesion,
         "row": fila,
-        "cost_usd": (resultado or {}).get("total_cost_usd"),
+        # A precio de lista (`costBasis: "list"`), no una factura.
+        "list_price_usd": (resultado or {}).get("total_cost_usd"),
         "tool_limit": limite,
         # El CLI no expone `--max-turns`: el límite se mide, no se impone.
         "tool_limit_exceeded": len(contador) > limite,

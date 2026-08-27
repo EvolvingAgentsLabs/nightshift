@@ -390,7 +390,8 @@ class CliTest(IsolatedStoreTest):
         self.addCleanup(tmp.cleanup)
         falso = Path(tmp.name) / "agente.sh"
         falso.write_text("#!/bin/sh\ncat <<'FIN'\n"
-                         'NIGHTSHIFT_BENCH {"tool_calls": 5, "cost_usd": 0.1}\n'
+                         'NIGHTSHIFT_BENCH {"tool_calls": 5, "list_price_usd": 0.1,'
+                         ' "input_tokens": 1200, "output_tokens": 300}\n'
                          "FIN\n", encoding="utf-8")
         falso.chmod(0o755)
 
@@ -403,8 +404,40 @@ class CliTest(IsolatedStoreTest):
         self.assertNotIn("resuelto", out)
         self.assertNotIn("resolución", out)
         # Lo operativo sí: es para lo que existe.
-        for esperado in ("completadas", "tiempo", "costo", "sin resultados"):
+        for esperado in ("completadas", "tiempo", "tokens", "sin resultados"):
             self.assertIn(esperado, out)
+
+    def test_ninguna_cifra_en_dolares_se_presenta_como_una_factura(self):
+        """Con una suscripción de Claude Code no se paga lo que el CLI reporta.
+
+        `claude -p --output-format json` devuelve `total_cost_usd` con
+        `costBasis: "list"`: es la valorización a precio de lista de ese uso, útil como
+        vara para comparar corridas, y **no** lo que se factura. Reportarlo pelado como
+        "costo" hace creer que el benchmark gasta USD 22 que nadie va a pagar. Los
+        tokens son lo que se consume de verdad; el dólar va con su etiqueta o no va.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\n"
+                         'NIGHTSHIFT_BENCH {"tool_calls": 5, "list_price_usd": 0.1,'
+                         ' "input_tokens": 1200, "output_tokens": 300}\n'
+                         "FIN\n", encoding="utf-8")
+        falso.chmod(0o755)
+
+        code, out, err = self.run_cli(
+            ["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(falso), "--rows", "S1", "--repeats", "1", "--timeout", "60"])
+        self.assertIn(code, (0, 1), err)
+        for linea in out.splitlines():
+            if "USD" not in linea:
+                continue
+            with self.subTest(linea=linea.strip()):
+                self.assertIn("precio de lista", linea,
+                              "una cifra en USD sin decir que es a precio de lista se "
+                              "lee como una factura")
 
     def test_el_ensayo_avisa_si_el_tratamiento_no_se_aplico(self):
         """Una fila S1 sin memoria no es "nightshift perdió": es que no participó.
