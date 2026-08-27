@@ -206,7 +206,7 @@ LATER.md                       Todo lo diferido a propósito, con el motivo
 
 | M | Entrega | Gate |
 |---|---|---|
-| M0 ✅ | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
+| M0 🟡 | Docs: spec v0.3, ADR-001, ADR-002, esquema versionado, PREREG, README | `make check` pasa ✅ · la revisión de ADR-001 por Ismael **sigue pendiente** |
 | **M1** 🟡 | Capture: `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `Stop`, `SessionEnd` → SQLite. Redactor determinista | Código listo, y el gate ya es un comando: `nightshift audit --min-sessions 5`. Le faltan 5 sesiones reales en el store |
 | **M2** 🟡 | Retrieve: inyección estructural en `SessionStart`, y otra vez en el primer prompt clasificado | Código listo. `/nightshift:why` reconstruye la trayectoria origen de cada inyección |
 | M3 🟡 | Dream `consolidate` ✅ + scheduler pluggable ✅ | Los dos entregados: `nightshift dream --selftest` pasa y `nightshift schedule status` reporta las últimas corridas. El gate del milestone — **3 noches seguidas sin intervención** — lo corre Matías |
