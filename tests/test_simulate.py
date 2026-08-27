@@ -5,6 +5,7 @@ sesiones inventadas. Eso no sería un atajo: sería evidencia fabricada. Hay un 
 no lo hace.
 """
 
+import os
 import unittest
 
 from tests.base import IsolatedStoreTest
@@ -52,6 +53,44 @@ class SimulateTest(IsolatedStoreTest):
 
         # Y el store sigue sin fugas después de todo.
         self.assertEqual(reporte["auditoria_final"]["findings"], [])
+
+    def test_el_modelo_corre_con_el_home_que_se_le_da(self):
+        """El backend por defecto es un agente con credenciales en el HOME (ADR-003).
+
+        Sin esto, el ensayo —que reemplaza `HOME` para no instalar un timer de verdad— le
+        sacaba la sesión al modelo: `claude -p` salía 1 con stderr vacío y el ensayo lo
+        reportaba como "dream no produjo ninguna candidata".
+        """
+        from nightshift import dream
+
+        modelo = dream.LocalModel(["/bin/sh", "-c", 'printf %s "$HOME"'],
+                                  home="/tmp/el-home-de-verdad")
+        self.assertEqual(modelo.ask("lo que sea"), "/tmp/el-home-de-verdad")
+
+    def test_el_ensayo_le_pasa_al_modelo_el_home_real(self):
+        """Y el ensayo tiene que pasarle el de antes de reemplazarlo, no el suyo."""
+        from nightshift import dream
+
+        vistos = []
+        original = dream.LocalModel
+
+        class Espia(original):
+            def __init__(self, command, timeout=None, home=None):
+                vistos.append(home)
+                super().__init__(command, timeout=timeout or 30, home=home)
+
+            def ask_json(self, prompt):
+                return {"pattern": None}      # sin patrón: el ensayo sigue su curso
+
+        real = os.environ.get("HOME")
+        dream.LocalModel = Espia
+        try:
+            simulate.run(con_modelo=True, noches=1, log=lambda _m: None)
+        finally:
+            dream.LocalModel = original
+        self.assertTrue(vistos, "el ensayo no construyó ningún modelo")
+        self.assertEqual(vistos[0], real,
+                         "el modelo recibió el HOME del ensayo, no el de la máquina")
 
     def test_el_secreto_sembrado_no_sobrevive(self):
         """El ensayo mete un secreto y un deny_path a propósito: si sobreviven, falla."""

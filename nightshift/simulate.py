@@ -258,14 +258,21 @@ def run(*, cwd=None, con_modelo=True, noches=3, log=print) -> dict:
 
             # ----------------------------------------------------------- 4. dream (M3-a)
             if con_modelo:
-                log("4. dream — consolidar con el modelo local")
+                log("4. dream — consolidar")
                 from . import dream as dream_mod
 
                 comando = dream_mod.detect_command(config.load())
                 if not comando:
                     fallas.append("no hay modelo local: dream no se pudo ensayar")
                 else:  # pragma: no cover - depende de que la máquina tenga el modelo
-                    modelo = dream_mod.LocalModel(comando, timeout=240)
+                    # El HOME de verdad, no el del ensayo. El ensayo reemplaza `HOME` para
+                    # no escribir un timer en el del usuario (paso 6), y el modelo lo
+                    # heredaba: con el backend por defecto —un agente con credenciales en
+                    # el HOME— eso lo hacía salir 1 con stderr vacío, y el ensayo lo
+                    # reportaba como "dream no produjo ninguna candidata". Un rojo que
+                    # acusaba a dream de un problema del ensayo.
+                    modelo = dream_mod.LocalModel(comando, timeout=240,
+                                                  home=previos.get("HOME"))
                     conn = store.connect()
                     try:
                         consolidado = dream_mod.consolidate(

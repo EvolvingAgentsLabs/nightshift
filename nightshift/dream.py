@@ -153,9 +153,16 @@ def _ollama_command():
 class LocalModel:
     """El modelo local detrás de `subprocess`. Sin HTTP, sin cliente, sin daemon."""
 
-    def __init__(self, command, timeout=DEFAULT_TIMEOUT):
+    def __init__(self, command, timeout=DEFAULT_TIMEOUT, home=None):
         self.command = [str(part) for part in command]
         self.timeout = timeout
+        # Con qué `HOME` corre el hijo. Normalmente el que haya: hereda el del proceso.
+        # Existe porque el backend por defecto es un **agente con credenciales propias**
+        # (ADR-003), y sus credenciales viven en el HOME. Quien esté corriendo con un HOME
+        # de mentira —el ensayo end-to-end, que lo usa para no instalar un timer de
+        # verdad— le está sacando la sesión al modelo sin querer: `claude -p` devuelve
+        # `is_error` y sale 1, con stderr vacío. Sandboxear el HOME sandboxea el login.
+        self.home = home
         # Lo que llevamos gastado. Un backend local devuelve 0 y es la respuesta correcta;
         # uno que cobra por token devuelve lo que cobró. Consolidar dejó de ser gratis con
         # ADR-003, y una corrida nocturna cuyo costo nadie anotó no se puede justificar.
@@ -192,6 +199,8 @@ class LocalModel:
         try:
             with tempfile.TemporaryDirectory(prefix="nightshift-model-") as tmp:
                 entorno["NIGHTSHIFT_HOME"] = tmp
+                if self.home:
+                    entorno["HOME"] = self.home
                 return subprocess.run(command, input=prompt, capture_output=True, text=True,
                                       timeout=self.timeout, env=entorno)
         except subprocess.TimeoutExpired:
