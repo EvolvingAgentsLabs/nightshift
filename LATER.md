@@ -213,14 +213,17 @@ declarar la v0.3 como origen. **Decide Matías.**
 
 ---
 
-## Tres amenazas a la validez que no estaban en PREREG §5
+## Seis amenazas a la validez que no estaban en PREREG §5
 
-Ninguna rompía nada: las tres producían un número confiado y falso.
+Ninguna rompía nada: las seis producían un número confiado y falso, y las seis
+aparecieron mirando el sistema andar.
 
 | Amenaza | Qué habría medido | Cómo apareció |
 |---|---|---|
 | Store de nightshift por celda | La fase de aprendizaje no le enseñaba nada a la de medición: **cero transferencia por construcción**, o sea un no-go garantizado sin importar si nightshift sirve. | corriendo el chain |
 | Ruta de trabajo nueva por tarea | Auto Memory keyea por ruta de proyecto y nightshift por fingerprint del repo. Arreglar sólo el lado de nightshift habría dado ventaja a nightshift **por construcción**: el error opuesto y peor, porque favorece a lo que se mide. | corriendo el chain |
+| **La familia C no cruzaba de repositorio** | Sus dos "repos" vivían bajo un solo `git init` en la raíz del directorio de trabajo, y el agente corría ahí: para nightshift eran **el mismo repo**, con el mismo fingerprint. La familia de la capacidad C no ejercitaba la capacidad C. Ahora son dos repos git con remotes distintos y cada tarea corre dentro del suyo. | el segundo ensayo sellado |
+| **La segunda tarea de medición de la familia C no mide cross-repo** | Las dos tareas de medición viven en el repo B y comparten store dentro de una repetición, así que la segunda recibe la memoria de la primera: eso es transferencia *dentro* de B, no de A a B. Medido: 1 de 2 celdas de medición recibió memoria. Cuántas tareas de medición por repetición, y si la acumulación dentro de B es aceptable, es una constante del experimento que **no está en PREREG**. |
 | **La historia de la familia D se sembraba con un fingerprint inventado** | El retrieval la descartaba por ser "de otro repo": la familia habría medido precisión sobre cero memorias inyectadas. | el primer ensayo sellado |
 | **`cross_repo` apagado en la familia C** | La familia C mide transferencia entre repos, y con `cross_repo: false` —el default— la fila S1 recibe **cero memorias** en el repo B. La familia daría cero transferencia gane o pierda nightshift. Medido: 0 candidatas con el default, 1 con el flag encendido. | auditando el plan original |
 
@@ -231,7 +234,7 @@ transfiere detalle. Con dream produciendo abstracciones eso cambió, pero la dec
 Matías y va escrita antes de correr.
 
 Y una lectura que ya no es anécdota: la lista de amenazas de §5 se demostró incompleta
-**cuatro veces**, y las tres aparecieron mirando el sistema andar, no leyendo el documento.
+**seis veces**, y las tres aparecieron mirando el sistema andar, no leyendo el documento.
 
 Las dos se arreglaron con la misma decisión: un directorio de trabajo y un store por
 **(fila, repetición)**, con el contenido del repo reseteado antes de cada tarea. Queda

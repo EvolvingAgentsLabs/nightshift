@@ -403,8 +403,30 @@ class CliTest(IsolatedStoreTest):
         self.assertNotIn("resuelto", out)
         self.assertNotIn("resolución", out)
         # Lo operativo sí: es para lo que existe.
-        for esperado in ("completadas", "tiempo", "costo", "sellado"):
+        for esperado in ("completadas", "tiempo", "costo", "sin resultados"):
             self.assertIn(esperado, out)
+
+    def test_el_ensayo_avisa_si_el_tratamiento_no_se_aplico(self):
+        """Una fila S1 sin memoria no es "nightshift perdió": es que no participó.
+
+        Y es un hecho operativo, así que se puede decir sin desellar nada. Es lo que
+        destapó que la familia C no cruzaba de repositorio.
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\n"
+                         'NIGHTSHIFT_BENCH {"tool_calls": 5, "injections": 0}\n'
+                         "FIN\n", encoding="utf-8")
+        falso.chmod(0o755)
+        code, out, _ = self.run_cli(
+            ["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(falso), "--rows", "S1", "--repeats", "1", "--timeout", "60"])
+        self.assertEqual(code, 1, "un tratamiento que no se aplicó es un problema")
+        self.assertIn("el tratamiento no se aplicó", out)
+        self.assertNotIn("resuelto", out, "y sigue sin decir el resultado")
 
     def test_el_ensayo_se_niega_a_ser_la_corrida(self):
         """Un ensayo queda marcado en su registro y `report` no lo confunde."""

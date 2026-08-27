@@ -146,6 +146,8 @@ va a su registro de enmiendas.
 
 | Hallazgo | Qué habría pasado sin el ensayo |
 |---|---|
+| **La familia C no cruzaba de repositorio**: sus dos repos vivían bajo un solo `git init` y el agente corría en la raíz | La familia de la capacidad C no ejercitaba la capacidad C |
+| La segunda tarea de medición de C recibe la memoria de la primera, que es del mismo repo B | La mitad de la medición de C no sería cross-repo |
 | La historia sembrada de la familia D usaba un fingerprint inventado, así que el retrieval la descartaba por "de otro repo" | La familia D habría medido precisión sobre **cero memorias inyectadas** |
 | La fila S0 de la familia D no tiene inyecciones que clasificar | Ya estaba anotado; el ensayo lo confirmó con la corrida delante |
 | Costo real | **USD 0,19 por celda** con `sonnet` → ~USD 20 las 102 celdas |

@@ -936,13 +936,25 @@ def _render_sealed(registros, destino) -> int:
         print("  %-16s %d celda(s) lo excedieron" % ("límite", salud["limit_exceeded"]))
     print("  %-16s %d de %d celdas produjeron dato medible"
           % ("cobertura", salud["with_outcome"], salud["cells"]))
+    for fila, datos in sorted(salud.get("treated", {}).items()):
+        if fila == "S0":
+            continue          # S0 es el baseline: no recibe memoria de nightshift a propósito
+        print("  %-16s %s: %d de %d celdas de MEDICIÓN recibieron memoria%s"
+              % ("tratamiento", fila, datos["with_memory"], datos["cells"],
+                 "  ← el tratamiento no se aplicó" if not datos["with_memory"] else ""))
     if salud["errors"]:
         print()
         print("celdas con problema:")
         for item in salud["errors"]:
             print("  %-3s %-16s %s" % (item["row"], item["task"], item["error"]))
     print()
-    if salud["errored"] or salud["with_outcome"] < salud["cells"]:
+    sin_tratar = [f for f, d in salud.get("treated", {}).items()
+                  if f != "S0" and d["cells"] and not d["with_memory"]]
+    if sin_tratar:
+        print("la fila %s no recibió memoria en ninguna celda: la comparación no mediría"
+              % ", ".join(sin_tratar))
+        print("nada. Arreglalo antes de congelar.")
+    elif salud["errored"] or salud["with_outcome"] < salud["cells"]:
         print("el ensayo encontró problemas: arreglalos antes de congelar nada.")
     else:
         print("la máquina corre entera. Lo que midió queda sellado hasta que el")
@@ -950,7 +962,7 @@ def _render_sealed(registros, destino) -> int:
         print("umbrales, que es lo que el pre-registro existe para impedir.")
     print()
     print("resultados en %s/results.jsonl · `bench report --unseal` los muestra" % destino)
-    return 1 if salud["errored"] else 0
+    return 1 if (salud["errored"] or sin_tratar) else 0
 
 
 def _bench_report(args, prereg) -> int:
