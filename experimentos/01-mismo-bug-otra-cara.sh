@@ -55,7 +55,7 @@ correr() {
   # shellcheck disable=SC2086
   salida=$(cd "$repo" && NIGHTSHIFT_HOME="$STORE" claude -p "$(prompt_de "$tarea")" \
     --model "$MODELO" --output-format stream-json --verbose \
-    --permission-mode bypassPermissions --allow-dangerously-skip-permissions $extra \
+    --permission-mode bypassPermissions $extra \
     2>/dev/null || true)
 
   despues=$(cd "$repo" && NIGHTSHIFT_BENCH_TASK="$tarea" sh gate.sh >/dev/null 2>&1 \

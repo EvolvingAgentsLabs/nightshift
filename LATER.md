@@ -304,3 +304,44 @@ propios por fila y repetición), así que el reorden no cambia nada de lo que se
 
 Nadie lo habría notado hasta la primera corrida cortada, que es justo la que uno mira con
 menos ganas de dudar.
+
+## `ideate`: idear en imágenes antes de abstraer
+
+Idea de Matías. Antes de razonar —o antes del bloque de thinking— **idear**: describir el
+mecanismo como lo hace una persona, en imágenes. Un diagrama, una escena, dos cuadros de
+animación. Cómo un algoritmo recorre el área bajo una curva, cómo un banco de filtros
+deforma una señal, cómo se ven los bloques de un LLM interactuando, cómo va a quedar una
+obra, qué hace la física en una escena.
+
+La parte que se puede probar hoy, y que probé: **el dibujo de un mecanismo es invariante
+entre síntomas de un modo que la prosa no lo es.** Si vale, una abstracción hecha desde el
+dibujo transfiere a un síntoma que nunca vio — que es justo lo que le faltó al
+experimento 01.
+
+Está corrido y documentado en `experimentos/04-ideacion-visual.sh`. Resumen: con el mismo
+corpus, el patrón ideado describe la **forma** («una capa que tapa a otra») donde el
+control describe el **caso** (nombra `unittest`, `git stash`). En la prueba ciega el
+ideado le ganó al control, 16 turns contra 26 — y los dos perdieron contra no tener
+memoria, 13. Con un brazo por celda eso no distingue nada: la varianza entre corridas
+idénticas ya medida es más grande que la diferencia.
+
+**No entra al plugin.** El bloque vive en `experimentos/`, y si resulta que sirve entra
+por el camino normal. Meterlo en `dream.py` ahora sería cambiar el consolidador justo
+antes de M4, con evidencia de n=1 — exactamente lo que el pre-registro existe para
+impedir.
+
+**Lo que falta para decidirlo:** el diseño de M4 aplicado a esto — varios síntomas ciegos,
+tres corridas por brazo, umbral antes. Es una familia más, no un ajuste de prompt.
+
+### La parte grande, que es otro proyecto
+
+Lo que sigue de la idea —mapear el dibujo a **oráculos de dominios distintos** (un
+simulador de física, un CAS, un renderer, un motor de señales) y a una base de conocimiento
+externa, para inferir vías de resolución que no están en los pesos— no es un ajuste a
+nightshift. Es otra tesis: nightshift dice que **cómo se averiguó algo** transfiere; ésta
+dice que **la forma del mecanismo** transfiere entre dominios, y que un oráculo externo
+puede validarla sin que el modelo la sepa.
+
+Sería la primera cosa del proyecto que necesita algo más que `subprocess` y stdlib, así
+que también choca con ADR-003. No la abro acá. Queda escrita porque es buena y porque
+dentro de seis meses nadie se va a acordar de por qué no se hizo.

@@ -12,11 +12,13 @@ suma al conteo del gate de M1.**
 | [01](01-mismo-bug-otra-cara.sh) | El mismo bug con otra cara: qué transfiere, la traza o el patrón | 6 sesiones de agente + 1 dream |
 | [02](02-lo-descartado-no-se-pierde.sh) | Lo que se descartó sobrevive enlazado, con su precondición | 1 dream |
 | [03](03-cinco-ciclos-sobre-si-mismo.sh) | Cinco ciclos del plugin sobre sus propios problemas | 5 sesiones + 5 dreams |
+| [04](04-ideacion-visual.sh) | Un bloque `ideate` antes de abstraer: ¿el dibujo transfiere mejor que la prosa? | 6 sesiones + 2 consolidaciones |
 
 ```sh
 ./experimentos/01-mismo-bug-otra-cara.sh          # CONSERVAR=1 para no borrar el trabajo
 ./experimentos/02-lo-descartado-no-se-pierde.sh
 ./experimentos/03-cinco-ciclos-sobre-si-mismo.sh
+./experimentos/04-ideacion-visual.sh
 ```
 
 ---
@@ -198,6 +200,83 @@ al repo por el camino normal: rama, `make check` en verde, PR.
 
 **Lo que estos cinco ciclos no son:** sesiones de una persona trabajando. Corrieron sobre
 una copia y un store propios, y **no suman al conteo del gate de M1**.
+
+---
+
+## 04 — Un bloque `ideate` antes de abstraer
+
+**De dónde sale.** De una idea de Matías: antes de razonar, **idear** — describir el
+mecanismo como lo hace una persona, en imágenes. Un diagrama, una escena, dos cuadros de
+animación. Cómo un algoritmo recorre el área bajo una curva; cómo un banco de filtros
+deforma una señal; qué le pasa a un dato al atravesar una función.
+
+**La hipótesis, que se puede falsar:** *el dibujo de un mecanismo es invariante entre
+síntomas de un modo que la prosa no lo es.* Si vale, una abstracción hecha desde el dibujo
+transfiere a un síntoma que nunca vio — y eso es exactamente lo que le faltó al
+experimento 01, donde dream abstrajo **ese** caso y no la causa compartida.
+
+**El montaje.** Tres trayectorias reales sobre los primeros bugs de la familia A. El
+**mismo corpus** se consolida dos veces: el prompt actual del plugin (`dream.build_prompt`,
+no una reconstrucción parecida) contra ese mismo prompt con un bloque `ideate` adelante.
+Una sola variable. Después, prueba ciega sobre un bug con **otro síntoma**, con tres
+brazos: sin memoria, con el patrón del control, con el patrón ideado. A la sesión ciega se
+le inyecta **sólo el patrón**, nunca la ideación: lo que se compara es qué abstracción
+transfiere, no cuánto texto se inyecta.
+
+### Lo que dio (2026-08-27, `sonnet`)
+
+Los dos patrones, del mismo corpus:
+
+> **control** — «Varios módulos comparten una función de normalización de claves de texto…
+> Al ejecutar los tests con **unittest** aparecen errores de tipo
+> `unittest.loader._FailedTest`… El gate se cierra confirmando con **git stash** que sin el
+> cambio el test efectivamente rompe.»
+>
+> **ideado** — «Una corrida de tests muestra un error de carga del framework (module
+> fantasma que reemplaza al test real) en lugar de un fallo de aserción; **ese error de
+> import enmascara el bug real**, que sólo se ve después de resolverlo y resulta ser una
+> función de normalización compartida que no cubre un caso de entrada.»
+
+La ideación que lo produjo llegó a una imagen que el control no tiene:
+
+> «Es una **muñeca rusa**: la primera capa que se abre no es el bug, es el envoltorio que
+> lo escondía.»
+
+El control nombra herramientas (`unittest`, `git stash`) — está describiendo *el caso*. El
+ideado describe *la forma*: una capa que tapa a otra. Eso es lo que la hipótesis predice.
+
+Y la prueba ciega:
+
+```
+brazo         gate    resuelto  turns
+sin-memoria   1 → 0   sí        13
+control       1 → 0   sí        26
+ideado        1 → 0   sí        16
+```
+
+**Tres lecturas, y la tercera es la incómoda:**
+
+**1. El ideado le ganó al control**, 16 turns contra 26, con el mismo corpus y la misma
+tarea. Es la dirección que predice la hipótesis.
+
+**2. Y los dos perdieron contra no tener memoria** (13). El brazo sin memoria fue el más
+rápido de los tres.
+
+**3. Con un brazo por celda esto no distingue nada.** El experimento 01 midió 8, 13 y 10
+tool calls en la **misma tarea sin ninguna memoria**: la varianza entre corridas idénticas
+cubre de sobra la diferencia entre 13, 16 y 26. Nada de esto es un resultado.
+
+**Un hallazgo que no estaba buscado, y vale más que la comparación:** los dos patrones
+abstrajeron un **artefacto del harness**, no el bug del dominio. Lo que las tres
+trayectorias comparten de verdad es que el cargador de tests escondió la falla real — y
+eso es un patrón cierto y compartido, pero no es la causa que la familia A fue diseñada
+para tener en común. Dream abstrae lo que las trayectorias comparten **operativamente**, y
+si el andamiaje del experimento aparece en las tres, gana el andamiaje.
+
+**Qué haría falta para decidirlo.** El mismo diseño que M4: tres corridas por brazo,
+varios síntomas ciegos, y el umbral fijado antes. El bloque `ideate` vive en
+`experimentos/` y **no** en `nightshift/` a propósito — si resulta que sirve, entra al
+plugin por el camino normal y no antes.
 
 ---
 

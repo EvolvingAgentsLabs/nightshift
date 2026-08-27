@@ -46,7 +46,7 @@ finally:
 
   salida=$(cd "$COPIA" && claude -p "$pedido" --model "$MODELO" \
     --output-format stream-json --verbose --plugin-dir "$RAIZ" \
-    --permission-mode bypassPermissions --allow-dangerously-skip-permissions \
+    --permission-mode bypassPermissions \
     2>/dev/null || true)
 
   calls=$(printf '%s' "$salida" | python3 -c "
