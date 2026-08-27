@@ -397,6 +397,7 @@ Con `dream_max_groups` sin tope, una noche con muchos grupos lo multiplica. No t
 default: el tope por corrida ya existe y cuánto vale una noche de dream es una decisión de
 Matías, no mía. Queda el número medido para que la decisión se tome con él.
 
-También: el bloque dice «es un boceto, no un tratado» y el modelo devuelve ~2.600
-caracteres igual. La instrucción de brevedad no funciona; lo que funcionaría es pedir el
-dibujo y la magnitud perdida en campos separados del JSON, en vez de prosa libre.
+También: el bloque decía «es un boceto, no un tratado» y el modelo devolvía ~2.600
+caracteres igual. La instrucción de brevedad no funcionaba. **Resuelto en ADR-005**: el
+dibujo se pide como diagrama Mermaid con tope de nodos, y la magnitud perdida como un
+campo aparte. Un diagrama tiene un límite natural que la prosa no tiene.

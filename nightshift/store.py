@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS trajectories (
     consolidation_cost_usd REAL,
     ideation TEXT,
     projected_signals_json TEXT,
+    contrast_json TEXT,
+    diagram TEXT,
     superseded_by TEXT,
     verified_json TEXT,
     injection_weight REAL,
@@ -115,7 +117,8 @@ def now() -> str:
 COLUMNAS_AGREGADAS = {
     "runs": [("cost_usd", "REAL")],
     "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL"),
-                     ("ideation", "TEXT"), ("projected_signals_json", "TEXT")],
+                     ("ideation", "TEXT"), ("projected_signals_json", "TEXT"),
+                     ("contrast_json", "TEXT"), ("diagram", "TEXT")],
 }
 
 
@@ -293,7 +296,7 @@ def recent_runs(conn, limit=10):
 # ------------------------------------------------------------------- dream (M3)
 def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypothesis=None,
                          weight=0.6, consolidation_model=None, consolidation_cost_usd=None,
-                         ideation=None, projected_signals=None):
+                         ideation=None, projected_signals=None, diagram=None):
     """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
 
     No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
@@ -318,31 +321,48 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
         "UPDATE trajectories SET status = 'candidate', abstraction_json = ?,"
         " valid_when_json = ?, injection_weight = ?,"
         " hypothesis = COALESCE(hypothesis, ?), consolidation_model = ?,"
-        " consolidation_cost_usd = ?, ideation = ?, projected_signals_json = ?"
-        " WHERE id = ? AND status = 'closed'",
+        " consolidation_cost_usd = ?, ideation = ?, projected_signals_json = ?,"
+        " diagram = ? WHERE id = ? AND status = 'closed'",
         (json.dumps(abstraction, ensure_ascii=False),
          json.dumps(valid_when or [], ensure_ascii=False), weight, hypothesis,
          consolidation_model, consolidation_cost_usd, ideation,
          json.dumps(projected_signals, ensure_ascii=False) if projected_signals else None,
-         trajectory_id))
+         diagram, trajectory_id))
     conn.commit()
     return conn.execute("SELECT status FROM trajectories WHERE id = ?",
                         (trajectory_id,)).fetchone()["status"]
 
 
-def mark_superseded(conn, old_id, new_id):
+def mark_superseded(conn, old_id, new_id, *, contrast=None):
     """La vieja sobrevive enlazada a la nueva. **Nunca se borra** (capacidad B).
 
     Auto Dream borra lo contradicho; nosotros lo conservamos, porque una alternativa
     descartada con su precondición es conocimiento y sin ella es ruido (spec §4.2).
+
+    `contrast` es esa precondición, y hasta ADR-005 no la calculaba nadie: el enlace decía
+    *que* una reemplazó a la otra y nunca *qué cambió, qué compró el cambio, y cuándo la
+    vieja seguía siendo la correcta*. Sin eso, "no se borra" guarda un cadáver en vez de
+    una lección, y la promesa de spec §4.2 quedaba a medias.
     """
     if old_id == new_id:
         return None
     conn.execute(
-        "UPDATE trajectories SET status = 'superseded', superseded_by = ? WHERE id = ?",
-        (new_id, old_id))
+        "UPDATE trajectories SET status = 'superseded', superseded_by = ?,"
+        " contrast_json = ? WHERE id = ?",
+        (new_id, json.dumps(contrast, ensure_ascii=False) if contrast else None, old_id))
     conn.commit()
     return new_id
+
+
+def superseded_of(conn, new_id):
+    """Las trayectorias que ésta reemplazó, con el contraste si dream lo calculó.
+
+    Es lo que hace útil a una alternativa descartada: quien recibe la ganadora tiene que
+    poder ver el camino que ya se probó y no funcionó, o lo va a proponer de nuevo.
+    """
+    return conn.execute(
+        "SELECT * FROM trajectories WHERE superseded_by = ? ORDER BY created_at",
+        (new_id,)).fetchall()
 
 
 def record_injection(conn, *, session_id, source_trajectory, rank, score, reason,

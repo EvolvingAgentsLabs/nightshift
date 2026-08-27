@@ -227,7 +227,7 @@ class LocalModel:
         # La ideación viaja como prosa antes del JSON. Se guarda acá y no se devuelve
         # para no romper la interfaz que usa el resto: un backend que no idea deja
         # `last_ideation` en None y todo sigue igual.
-        self.last_ideation = extract_ideation(salida)
+        self.last_ideation = extract_ideation(salida)   # compatibilidad: marcas viejas
         data = extract_json(salida)
         if data is None:
             raise DreamError("el modelo no devolvió JSON parseable")
@@ -418,52 +418,54 @@ def describe(conn, row) -> str:
 # lo observado.
 IDEATE_PREFIX = """Antes de responder, IDEÁ. No razones todavía: buscá la imagen.
 
-Hay explicaciones que sólo se entienden cuando alguien las dibuja bien, y el dibujo
-correcto hace obvio lo que la definición esconde:
+Hay explicaciones que sólo se entienden cuando alguien las dibuja **bien**, y el dibujo
+correcto no agrega información: saca la que sobra.
 
 - **La transformada discreta de Fourier** no es una sumatoria con exponenciales: es
-  enrollar la señal alrededor de un círculo a cada velocidad y mirar dónde queda el
-  centro de masa. Si la señal tiene esa frecuencia adentro, el centro se corre del
-  origen; si no, se queda ahí. Todo lo demás es contabilidad.
+  enrollar la señal alrededor de un círculo a cada velocidad y mirar dónde queda el centro
+  de masa. Si la señal tiene esa frecuencia adentro, el centro se corre del origen; si no,
+  se queda ahí. Todo lo demás es contabilidad.
 - **La convolución** es dar vuelta una de las dos, deslizarla sobre la otra, y anotar
-  cuánto se solapan en cada posición. La curva que traza ese solapamiento es el
-  resultado.
-- **Una integral** es una aplicación que acumula área: rectángulos que se van sumando
-  bajo la curva y se afinan hasta que el escalón deja de notarse.
+  cuánto se solapan en cada posición. La curva que traza ese solapamiento es el resultado.
+- **Una integral** es una aplicación que acumula área: rectángulos que se suman bajo la
+  curva y se afinan hasta que el escalón deja de notarse.
 - **La transformada Z** es una superficie sobre el plano: los polos son postes que la
-  levantan, los ceros la clavan al piso, y la respuesta en frecuencia es simplemente la
-  altura del terreno cuando caminás el círculo unidad.
+  levantan, los ceros la clavan al piso, y la respuesta en frecuencia es la altura del
+  terreno cuando caminás el círculo unidad.
 
-Ninguna de esas imágenes agrega información: sacan la que sobra. Eso es lo que tenés que
-hacer con el mecanismo que falla acá.
+Buscá **la imagen más corta que vuelve obvio el invariante** para el mecanismo que falla
+acá. Si el dibujo es el correcto, el síntoma pasa a ser una consecuencia evidente en vez
+de un dato suelto.
 
-Buscá **la imagen más corta que vuelve obvio el invariante**. Qué objeto entra, qué forma
-tiene, por dónde pasa, en qué se convierte, y en qué cuadro exacto deja de coincidir con
-lo que el resto del sistema espera. Si el dibujo correcto existe, el síntoma pasa a ser
-una consecuencia evidente en vez de un dato suelto.
+El dibujo va en dos partes, y las dos son obligatorias:
 
-Reglas de la ideación:
+**1. `diagram` — un diagrama Mermaid.** Un diagrama es dibujo y texto a la vez: se lee y
+se renderiza. Elegí el tipo según lo que estés mostrando — `flowchart` para un recorrido
+donde algo se transforma, `sequenceDiagram` para capas que se hablan y se malentienden,
+`stateDiagram-v2` para algo que cambia de estado sin que nadie lo mire. Poné en el
+diagrama **lo que se conserva y dónde se pierde**: si hay un nodo donde el objeto cambia
+de forma sin que ninguna etapa se queje, ese nodo es el punto del dibujo. Etiquetá las
+aristas con qué viaja por ellas. Diez nodos como mucho: un diagrama que no entra de un
+vistazo no es un dibujo, es un plano.
 
-- Dibujá el MECANISMO, no el síntoma. El síntoma es dónde se vio el humo; el mecanismo es
-  qué se está quemando. Dos fallas con el mismo dibujo son la misma falla.
-- Buscá la **magnitud conservada** y la que se pierde. Como en la DFT: lo que importa no
-  es cada muestra, es adónde va el centro de masa. ¿Qué se conserva a lo largo de todo el
-  recorrido y qué se pierde sin que ninguna etapa se queje?
-- Si el mecanismo ya tiene una imagen canónica en otro dominio —una señal que atraviesa un
-  filtro y sale deformada, dos llaves que abren la misma cerradura, un fluido que se
-  escapa por una junta, un cambio de coordenadas que hace desaparecer un término— usala.
-  Esa analogía es el puente hacia todo lo que ya se sabe de ese dominio, no una
-  decoración.
-- Es un boceto, no un tratado: la imagen más corta que sirva. Si necesitás muchas
-  oraciones, todavía no encontraste la buena.
+**2. `mechanism` — dos a cuatro oraciones** que digan lo que el diagrama no puede decir
+solo: qué magnitud se conserva a lo largo de todo el recorrido, cuál se pierde sin que
+nadie se queje, y en qué cuadro exacto se pierde. Es la pregunta que enseña la DFT: no
+importa cada muestra, importa adónde va el centro de masa. Si el mecanismo ya tiene una
+imagen canónica en otro dominio —una señal deformada por un filtro, dos llaves que abren
+la misma cerradura, un cambio de coordenadas que hace desaparecer un término— nombrala:
+esa analogía es el puente hacia todo lo que ya se sabe de ese dominio.
+
+No repitas en `mechanism` lo que ya está en el diagrama. Entre los dos tiene que quedar el
+dibujo completo, sin decir dos veces lo mismo.
 
 Y del dibujo, PROYECTÁ: en qué otras formas se va a manifestar este mismo mecanismo, que
 en estas trayectorias no se vieron. Con la imagen correcta esto no es adivinar — es leer
-del dibujo qué otros cuadros son posibles. Un síntoma proyectado es igual una conjetura,
-no una observación, y se va a guardar y mostrar como tal. Si el dibujo no implica nada
-más, no proyectes.
+del diagrama qué otros caminos existen. Un síntoma proyectado es igual una conjetura, no
+una observación, y se va a guardar y mostrar como tal. Si el dibujo no implica nada más,
+no proyectes.
 
-Escribí la ideación entre <ideacion> y </ideacion>. Después, y sólo después, el JSON.
+Devolvé `diagram` y `mechanism` como campos del JSON, junto con el resto.
 
 ---
 
@@ -481,7 +483,9 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "signals": ["señal observable que indica que este patrón aplica"],
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
   "valid_when": ["precondición bajo la que este procedimiento aplica"],
-  "projected_signals": ["síntoma que este mecanismo produciría y que NADIE observó"]
+  "projected_signals": ["síntoma que este mecanismo produciría y que NADIE observó"],
+  "diagram": "diagrama Mermaid del mecanismo, sólo si te pidieron idear",
+  "mechanism": "qué se conserva y qué se pierde, sólo si te pidieron idear"
 }
 
 Reglas duras. Una respuesta que las rompa se descarta:
@@ -514,6 +518,84 @@ Tu respuesta anterior fue RECHAZADA por estos motivos:
 
 No expliques el rechazo. Devolvé sólo el JSON corregido.
 """
+
+
+CONTRAST_PROMPT = """Sos el consolidador de nightshift. Te doy DOS trayectorias sobre el
+mismo problema: una que se descartó y la que la reemplazó. Tu tarea no es abstraer
+ninguna de las dos — es abstraer **la diferencia**.
+
+Una alternativa descartada sin su precondición es ruido. Con ella es conocimiento: dentro
+de tres semanas alguien va a proponer otra vez el camino descartado, y lo único que puede
+evitarlo es saber qué se probó, qué pasó, y bajo qué condición esa opción **sí** era la
+correcta.
+
+Devolvé SÓLO un objeto JSON, sin texto alrededor:
+
+{
+  "changed": "qué cambió entre una y otra, en términos estructurales, 1-2 oraciones",
+  "bought": "qué compró ese cambio: qué falla deja de ser posible, 1-2 oraciones",
+  "old_valid_when": ["condición bajo la cual la opción DESCARTADA seguía siendo correcta"],
+  "cost": "qué se pagó por el cambio, o null si no se pagó nada"
+}
+
+Reglas duras. Una respuesta que las rompa se descarta:
+
+- Nada de rutas de archivo, nombres de repositorio, de paquete, de rama, ni dominios.
+  Ni `/algo/`, ni `~/`, ni `../`. Si necesitás nombrar un archivo, decí "el módulo
+  afectado".
+- `bought` dice qué **deja de ser posible**, no qué quedó más lindo. Si el cambio no
+  elimina ninguna falla, decilo: es la respuesta correcta y es información.
+- `old_valid_when` es lo más valioso y lo más fácil de arruinar. No escribas "cuando no
+  importa la correctitud" ni condiciones que nunca se dan: eso es una forma elegante de
+  decir "nunca", y entonces poné una lista vacía. Escribilo sólo si hay un régimen real
+  —otro tamaño, otra restricción, otro orden de magnitud— donde la vieja gana.
+- Todo en español, sin markdown, sin backticks dentro de los strings.
+
+Trayectoria DESCARTADA:
+
+%s
+
+Trayectoria que la REEMPLAZÓ:
+
+%s
+"""
+
+
+def build_contrast_prompt(conn, old_row, new_row, *, ideate=False) -> str:
+    cuerpo = CONTRAST_PROMPT % (describe(conn, old_row), describe(conn, new_row))
+    return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
+
+
+def validate_contrast(data, *, redactor, home_dir):
+    """Devuelve `(contraste, problemas)`. Con problemas no se persiste nada.
+
+    Los mismos gates que el resto: es texto de modelo y se guarda.
+    """
+    if not isinstance(data, dict):
+        return None, ["el modelo no devolvió un objeto"]
+    problemas = []
+    salida = {}
+    for campo in ("changed", "bought", "cost"):
+        valor = data.get(campo)
+        if isinstance(valor, str) and valor.strip():
+            valor = " ".join(valor.split())
+            problemas.extend(_leaks(valor, "contrast.%s" % campo, redactor, home_dir))
+            salida[campo] = valor
+    condiciones = []
+    for item in (data.get("old_valid_when") or [])[:MAX_VALID_WHEN]:
+        condicion = item.get("condition") if isinstance(item, dict) else item
+        if isinstance(condicion, str) and condicion.strip():
+            condicion = " ".join(condicion.split())
+            problemas.extend(_leaks(condicion, "contrast.old_valid_when[]", redactor,
+                                    home_dir))
+            condiciones.append(condicion)
+    if condiciones:
+        salida["old_valid_when"] = condiciones
+    if problemas:
+        return None, problemas
+    if not salida.get("changed"):
+        return None, ["`changed` es obligatorio: sin él el contraste no dice nada"]
+    return salida, []
 
 
 def build_prompt(conn, group, *, ideate=False) -> str:
@@ -601,9 +683,32 @@ def validate(data, *, redactor, home_dir, ideation=None):
             if item not in signals:      # proyectar algo ya observado no proyecta nada
                 proyectados.append(item)
 
+    # El dibujo llega en dos campos: el diagrama Mermaid y la prosa del mecanismo. Los
+    # dos son texto de modelo y se persisten, así que pasan los mismos gates — y el
+    # diagrama **más** que el resto: las etiquetas de un flowchart son justo donde alguien
+    # escribiría una ruta de archivo sin pensarlo.
+    diagram = data.get("diagram")
+    if isinstance(diagram, str) and diagram.strip():
+        # Al diagrama no se le colapsan los saltos de línea: en Mermaid son sintaxis.
+        diagram = diagram.strip()
+        problemas.extend(_leaks(diagram, "diagram", redactor, home_dir))
+    else:
+        diagram = None
+
+    mecanismo = data.get("mechanism")
+    if isinstance(mecanismo, str) and mecanismo.strip():
+        mecanismo = " ".join(mecanismo.split())
+        problemas.extend(_leaks(mecanismo, "mechanism", redactor, home_dir))
+    else:
+        mecanismo = None
+
+    # `ideation` es la prosa del mecanismo. El campo `mechanism` del JSON gana sobre las
+    # marcas `<ideacion>`, que quedan por las respuestas del formato anterior.
+    ideation = mecanismo or ideation
     if isinstance(ideation, str) and ideation.strip():
         ideation = " ".join(ideation.split())
-        problemas.extend(_leaks(ideation, "ideation", redactor, home_dir))
+        if ideation is not mecanismo:
+            problemas.extend(_leaks(ideation, "ideation", redactor, home_dir))
     else:
         ideation = None
 
@@ -615,6 +720,8 @@ def validate(data, *, redactor, home_dir, ideation=None):
         abstraction["_projected_signals"] = proyectados
     if ideation:
         abstraction["_ideation"] = ideation
+    if diagram:
+        abstraction["_diagram"] = diagram
     if signals:
         abstraction["signals"] = signals
     if decisive:
@@ -714,6 +821,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
 
         # Se leen antes de que `promote_to_candidate` las saque del dict.
         ideacion_del_grupo = abstraction.get("_ideation")
+        diagrama_del_grupo = abstraction.get("_diagram")
         proyectados_del_grupo = list(abstraction.get("_projected_signals") or [])
 
         if not dry_run:
@@ -723,6 +831,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             # define `trajectory.v1` y nada más.
             ideacion = abstraction.pop("_ideation", None)
             proyectados = abstraction.pop("_projected_signals", None)
+            diagrama = abstraction.pop("_diagram", None)
             estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
                                                 valid_when=valid_when,
                                                 hypothesis=hypothesis,
@@ -730,7 +839,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                                                 consolidation_model=model.name,
                                                 consolidation_cost_usd=costo_grupo or None,
                                                 ideation=ideacion,
-                                                projected_signals=proyectados)
+                                                projected_signals=proyectados,
+                                                diagram=diagrama)
             if estado != "candidate":
                 # La promoción exige `closed`. Si la trayectoria cambió de estado entre
                 # que se agrupó y que se promovió, el UPDATE no toca nada — y un reporte
@@ -747,14 +857,37 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                                       "hypothesis": hypothesis,
                                       "valid_when": len(valid_when),
                                       "ideation": ideacion_del_grupo,
+                                      "diagram": diagrama_del_grupo,
                                       "projected_signals": len(proyectados_del_grupo)})
 
         for old in contradicted_by(conn, group, winner):
+            # La diferencia entre las dos es la lección, y hasta acá no la calculaba
+            # nadie: el enlace decía *que* una reemplazó a la otra, nunca qué cambió ni
+            # cuándo la vieja seguía teniendo razón. Es una llamada más al modelo, y sólo
+            # ocurre cuando hay una contradicción registrada — que es raro.
+            contraste = None
+            try:
+                datos = model.ask_json(build_contrast_prompt(conn, old, winner,
+                                                             ideate=idear))
+                contraste, malos = validate_contrast(datos, redactor=redactor,
+                                                     home_dir=home_dir)
+                if malos:
+                    say("  contraste de %s rechazado: %s" % (old["id"][:8],
+                                                             "; ".join(malos)))
+            except ModelUnavailable:
+                raise
+            except DreamError as exc:
+                # Un contraste que falla no puede llevarse puesta la supersesión: el
+                # enlace vale por sí solo, y perderlo sería borrar lo contradicho —
+                # exactamente lo que ADR-001 dice que no hacemos.
+                say("  contraste de %s falló: %s" % (old["id"][:8], exc))
             if not dry_run:
-                store.mark_superseded(conn, old["id"], winner["id"])
-            reporte["superseded"].append({"trajectory": old["id"], "by": winner["id"]})
-            say("  %s contradicha por %s: superseded, no borrada"
-                % (old["id"][:8], winner["id"][:8]))
+                store.mark_superseded(conn, old["id"], winner["id"], contrast=contraste)
+            reporte["superseded"].append({"trajectory": old["id"], "by": winner["id"],
+                                          "contrast": contraste})
+            say("  %s contradicha por %s: superseded, no borrada%s"
+                % (old["id"][:8], winner["id"][:8],
+                   " (con contraste)" if contraste else ""))
 
     reporte["cost_usd"] = getattr(model, "total_cost", None) or None
     reporte["input_tokens"] = getattr(model, "total_input_tokens", 0) or 0

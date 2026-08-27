@@ -256,8 +256,19 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
                 lines.append("- aplica cuando: %s" % item.get("condition", ""))
             # El boceto del mecanismo, si dream ideó. Va antes de lo proyectado porque
             # es de donde salió: sin el dibujo, una proyección es una afirmación suelta.
+            # El diagrama va entero: es dibujo y texto a la vez, y recortarlo por la
+            # mitad no da un diagrama más chico, da uno roto. El tope de nodos está en
+            # el prompt, que es donde se puede pedir brevedad sin romper sintaxis.
+            if "diagram" in row.keys() and row["diagram"]:
+                lines.append("- el mecanismo, dibujado:")
+                lines.append("")
+                lines.append("```mermaid")
+                lines.append(row["diagram"])
+                lines.append("```")
+                lines.append("")
             if "ideation" in row.keys() and row["ideation"]:
-                lines.append("- cómo se ve el mecanismo: %s" % _recortar(row["ideation"]))
+                lines.append("- qué se conserva y qué se pierde: %s"
+                             % _recortar(row["ideation"]))
             proyectadas = _proyectadas(row)
             if proyectadas:
                 # Lo proyectado se anuncia como proyectado, siempre. Es lo único que se
@@ -268,6 +279,32 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
                              "— NINGUNO fue observado, son conjeturas:")
                 for señal in proyectadas[:3]:
                     lines.append("  - %s" % señal)
+        # Lo que esta trayectoria reemplazó. Es la mitad de la memoria que más se
+        # olvida: sin el camino descartado, dentro de tres semanas alguien lo propone de
+        # nuevo y lo recorre entero. Va aunque sea de otro repo — un contraste es
+        # abstracción, no detalle.
+        for vieja in store.superseded_of(conn, row["id"]):
+            contraste = {}
+            if "contrast_json" in vieja.keys() and vieja["contrast_json"]:
+                try:
+                    contraste = json.loads(vieja["contrast_json"]) or {}
+                except ValueError:
+                    contraste = {}
+            if not contraste:
+                lines.append("- reemplazó a `%s`, que se descartó (sin contraste "
+                             "consolidado)" % vieja["id"][:8])
+                continue
+            lines.append("- **reemplazó a `%s`**, y esa alternativa NO se borró:"
+                         % vieja["id"][:8])
+            lines.append("  - qué cambió: %s" % contraste.get("changed", "—"))
+            if contraste.get("bought"):
+                lines.append("  - qué compró: %s" % contraste["bought"])
+            if contraste.get("cost"):
+                lines.append("  - qué costó: %s" % contraste["cost"])
+            for condicion in (contraste.get("old_valid_when") or [])[:3]:
+                lines.append("  - la descartada seguía siendo la correcta cuando: %s"
+                             % condicion)
+
         if otro_repo:
             # Nada de pasos: de otro repo cruza el patrón, no el detalle.
             lines.append("- sólo el patrón: los pasos son de otro repositorio y no cruzan.")
