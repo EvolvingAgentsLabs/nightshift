@@ -345,3 +345,43 @@ puede validarla sin que el modelo la sepa.
 Sería la primera cosa del proyecto que necesita algo más que `subprocess` y stdlib, así
 que también choca con ADR-003. No la abro acá. Queda escrita porque es buena y porque
 dentro de seis meses nadie se va a acordar de por qué no se hizo.
+
+## El plugin, soñando sobre su propio desarrollo, encontró que un día no es una trayectoria
+
+Matías pidió usar el plugin sobre sí mismo: cerrar el capítulo de esta sesión y forzar
+ciclos de sueño sobre el desarrollo del propio plugin. Corrido con `ideate` (ADR-004),
+sobre el store real.
+
+**Lo que consolidó** fue el bug de los campos del payload, y lo dibujó así:
+
+> «una cadena de transporte donde cada eslabón conserva el sobre y descarta la carta… una
+> junta que gotea hacia adentro, un tubo que sigue teniendo presión aguas abajo aunque ya
+> no lleve fluido.»
+
+Y proyectó cuatro síntomas. Dos se pueden comprobar contra el código hoy, y los comprobé:
+
+- *«los contadores de cobertura reportan salud plena porque cuentan registros presentes,
+  no registros con contenido»* — **no se sostiene**: `with_outcome` cuenta veredictos
+  reales del gate y `capture_quality` mide el vacío explícitamente. Es el bug que ya se
+  arregló en el gate de M1, y no quedó otro igual.
+- *«un gate que pasa en verde habiendo ejecutado cero tests»* — **no se sostiene**: el
+  gate del fixture sale 1 y `discover` sobre un directorio vacío sale 5.
+
+Dos conjeturas comprobadas y descartadas. Eso es lo que las distingue de un dato, y es
+exactamente el trabajo que `verify` (M5) va a tener que hacer solo.
+
+**Y lo que NO consolidó es el hallazgo.** La trayectoria de esta sesión —400 pasos, un
+día entero de desarrollo— salió como *«sin patrón común»* en los dos ciclos. No es un
+fallo del modelo: dream agrupa por tipo de tarea, así que un día entero de trabajo
+heterogéneo es **un grupo de uno**, y de una sola trayectoria no hay nada compartido que
+abstraer.
+
+**nightshift no tiene noción de capítulo.** La sesión es la unidad de captura y la
+trayectoria es la unidad de consolidación, así que las dos son lo mismo — y cuanto más
+productivo es el día, menos consolidable queda. Un día con quince tandas de trabajo, cada
+una con su rama, su gate y su merge, se guarda como una cosa sola que no se parece a nada.
+
+Lo que haría falta —segmentar una sesión larga en capítulos, probablemente por el
+desenlace: cada `make check` en verde y cada merge cierra uno— es una capacidad que no
+está en el plan v0.3 y que no abro acá. Queda escrito con el dato que lo motivó: **dos
+ciclos de sueño sobre 400 pasos de desarrollo real produjeron cero candidatas.**
