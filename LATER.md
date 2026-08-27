@@ -576,6 +576,17 @@ Lo que aporta y lo que arriesga, sin adornos:
 | Arriesga | Preguntar es caro para el usuario. Un dream que consolida en silencio no interrumpe; uno que pregunta, sí. El presupuesto de preguntas por noche es una decisión, no un default |
 | Arriesga | Contrastar agentes multiplica el costo de consolidación por el número de caminos, y ADR-003 ya hizo que consolidar cueste |
 
-**No está en el plan v0.3 y no lo abro acá.** Es post-veredicto: si M4 dice no-go, esto no
-se construye; si dice go, compite con M5 (`verify`) por ser lo siguiente, y esa
-comparación se hace con el veredicto delante.
+**No entra al plugin, y sí hay prototipo.** Decidido con Matías el 2026-08-27:
+`experimentos/preguntar.py` prueba la mitad barata —la forma de la pregunta— sin tocar el
+flujo por defecto, sin participar del brazo S1 y sin escribir en el store (lo abre en modo
+sólo lectura de SQLite). La otra mitad —contrastar agentes que siguen caminos distintos—
+cuesta una consolidación por camino y queda para después del veredicto: si M4 dice no-go
+no se construye, y si dice go compite con M5 (`verify`) por ser lo siguiente.
+
+**Lo primero que mostró el prototipo, y es incómodo:** de las cuatro proyecciones que dream
+escribió el 2026-08-27 a las 15:27 sobre el store de este repo, **dos se confirmaron esa
+misma tarde** —el retrieval que coincidía por forma sin mirar contenido, y el registro con
+la estructura completa y los campos de texto en blanco—. Ninguna de las dos se encontró
+*por* la proyección: estaban escritas, inyectadas y disponibles, y el trabajo las
+redescubrió midiendo por otro motivo. Una conjetura que nadie resuelve no es memoria, es
+una nota. El detalle, con las dos que **no** se sostuvieron, está en `experimentos/README.md`.

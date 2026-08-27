@@ -386,7 +386,10 @@ Ninguna la puede cerrar un agente: o son decisiones, o cambian qué mide el expe
 Están numeradas para poder contestarlas por número. **Descartar una es una respuesta**, y
 si se descarta conviene escribir por qué acá mismo.
 
-### Q1 — ¿La configuración de retrieval entra al pre-registro?
+### Q1 — ¿La configuración de retrieval entra al pre-registro? — **sí (2026-08-27)**
+
+*Respondida:* entra como constante con `TODO(Matias)`; el valor lo fija Matías al
+congelar. Está en PREREG §2 y sube la cuenta a 22.
 
 PREREG §2 fija el modelo del agente, el de consolidación y la `consolidation_strategy`
 porque cambian **qué es** el brazo S1. `max_injected`, `cross_repo` y la función de
@@ -398,7 +401,10 @@ dejado constancia.
 *Por qué no lo escribo yo:* la regla 3 del pre-registro dice que Claude Code lee y no
 propone. Si la respuesta es sí, el `TODO(Matias)` lo agrega una persona.
 
-### Q2 — `decisive`: ¿se parte en dos banderas o se aprieta la heurística?
+### Q2 — `decisive`: ¿se parte o se aprieta? — **se aprieta (2026-08-27)**
+
+*Respondida y hecha:* la enciende sólo un fallo y el desenlace se infiere del comando
+guardado. Partirla pedía `trajectory.v2` y una migración. Spec §4.3 y §4.3.1.
 
 Hoy marca un fallo observado **y** cualquier comando de test que corrió: el 38% de los
 pasos del store real. Dos caminos, y no son equivalentes:
@@ -409,7 +415,10 @@ pasos del store real. Dos caminos, y no son equivalentes:
 
 *Qué desbloquea:* P1 de §2.5, que es lo primero de la fase 0.5.
 
-### Q3 — ¿Se congela el pre-registro antes o después de P1 y P2?
+### Q3 — ¿Congelar antes o después de P1 y P2? — **después (2026-08-27)**
+
+*Respondida:* P1 y P2 están hechos, así que esta pregunta ya no bloquea. Lo que falta de
+la fase 0.5 son las cinco sesiones reales.
 
 Es la pregunta del reorden, y la respuesta razonable puede ser "antes". Congelar antes
 mide el tratamiento tal como está hoy —defensible, y más rápido— pero deja el no-go
@@ -419,7 +428,10 @@ después atrasa, y tiene su propio riesgo: pulir el tratamiento hasta que dé.
 La regla de corte de §2.5 existe para acotar ese segundo riesgo. Si aun así el atraso no
 se justifica, **congelar ya es una respuesta válida** y este plan se reordena de nuevo.
 
-### Q4 — ¿El plugin se instala en la sesión de trabajo diaria?
+### Q4 — ¿El plugin se instala en la sesión diaria? — **lo instala Matías (2026-08-27)**
+
+*Respondida:* el comando queda escrito abajo; instalar toca `~/.claude/`, que es
+configuración personal y fuera del repo, así que no lo escribe un agente.
 
 Constatado el 2026-08-27: nightshift **no** figura en `installed_plugins.json` y la sesión
 no se abrió con `--plugin-dir`, así que las sesiones de desarrollo **no se están
@@ -428,7 +440,10 @@ sesiones son ahora parte del camino crítico (§2).
 
 *Qué desbloquea:* todo lo de la fase 0.5 que necesita material real.
 
-### Q5 — ¿El contexto gastado entra como métrica?
+### Q5 — ¿El contexto gastado entra como métrica? — **se reporta, no decide (2026-08-27)**
+
+*Respondida y hecha:* el reporte compara los tokens de entrada S0 contra S1 y dice
+explícitamente que no entran en la regla de decisión. Convertirlos en umbral es de PREREG.
 
 El runner ya registra `input_tokens`, `output_tokens`, `tool_calls` y `num_turns` por
 celda. Las métricas de PREREG §3 son tasa de resolución (primaria) y tool calls hasta el
@@ -454,7 +469,10 @@ Queda escrito porque el diagnóstico equivocado ya estaba, y borrarlo perdería 
 **el mismo síntoma se le atribuyó a dream tres veces en un día, y las tres veces era el
 entorno del ensayo.**
 
-### Q7 — ¿Qué se hace con las trayectorias cascarón del store real?
+### Q7 — ¿Qué se hace con las cascarón? — **cohorte, no borrado (2026-08-27)**
+
+*Respondida y hecha:* las trayectorias declaran `capture_cohort` y `status` sólo promedia
+la actual. Nada se borra y nada se back-fillea.
 
 Las anteriores al arreglo de los campos del payload (2026-08-26) están vacías o casi. Hoy
 dream ya no las manda al modelo (spec §6.1), pero siguen contando en el promedio de
@@ -462,7 +480,12 @@ calidad de captura y en el conteo del gate de M1. *Opciones:* marcarlas con una 
 el store, borrarlas —hay auditoría, no hay política de retención—, o correr siempre con
 ventana corta y dejarlas envejecer.
 
-### Q8 — El plugin sueña sobre su propio desarrollo: ¿eso es un problema?
+### Q8 — ¿Soñar sobre el propio desarrollo contamina? — **no, y se documenta (2026-08-27)**
+
+*Respondida:* a M4 no lo toca —las celdas corren en stores desechables— y es el único
+material real que hay. **El límite, escrito para que no se cruce sin querer:** nada de lo
+que salga del store de desarrollo entra como evidencia de que nightshift funciona. Una
+candidata sobre nightshift es material de trabajo, no un resultado.
 
 Las candidatas que salgan del store de desarrollo son memoria **sobre nightshift**, y se
 inyectan en las sesiones que desarrollan nightshift. Es el dogfooding que el proyecto
@@ -470,3 +493,24 @@ quiere, y también es la única fuente de material real que hay hoy. La pregunta
 contamina algo que después se publique: las trayectorias del benchmark corren en stores
 desechables, así que a M4 no lo toca — pero conviene decidirlo a propósito y no por
 omisión.
+
+## 11. El comando de Q4
+
+Para instalar el plugin en la sesión de trabajo diaria y que el gate de M1 avance solo.
+Toca `~/.claude/`, que es configuración personal y está fuera del repo, así que lo corre
+una persona:
+
+```sh
+claude plugin marketplace add ~/nightshift     # el repo es su propio marketplace
+claude plugin install nightshift@evolving-agents-lab
+```
+
+Y para una sesión suelta, sin instalar nada:
+
+```sh
+claude --plugin-dir ~/nightshift
+```
+
+Después de cualquiera de las dos, la sesión tiene que decir en pantalla `nightshift:
+capturando …` en el arranque. Si no lo dice, no está capturando — y el silencio es el modo
+de falla de este plugin, así que conviene mirarlo la primera vez.

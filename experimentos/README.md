@@ -13,12 +13,14 @@ suma al conteo del gate de M1.**
 | [02](02-lo-descartado-no-se-pierde.sh) | Lo que se descartó sobrevive enlazado, con su precondición | 1 dream |
 | [03](03-cinco-ciclos-sobre-si-mismo.sh) | Cinco ciclos del plugin sobre sus propios problemas | 5 sesiones + 5 dreams |
 | [04](04-ideacion-visual.sh) | Un bloque `ideate` antes de abstraer: ¿el dibujo transfiere mejor que la prosa? | 6 sesiones + 2 consolidaciones |
+| [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
 ./experimentos/01-mismo-bug-otra-cara.sh          # CONSERVAR=1 para no borrar el trabajo
 ./experimentos/02-lo-descartado-no-se-pierde.sh
 ./experimentos/03-cinco-ciclos-sobre-si-mismo.sh
 ./experimentos/04-ideacion-visual.sh
+python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
 ---
@@ -289,3 +291,63 @@ cantidad de corridas no se puede concluir nada.
 La pregunta —¿recordar cómo se averiguó algo mejora el trabajo de un agente que ya tiene
 memoria declarativa?— la responde M4, con tres corridas por celda, tres familias y
 umbrales congelados antes de correr una línea. Ver [`../doc/PLAN-M4.md`](../doc/PLAN-M4.md).
+
+---
+
+## preguntar — lo proyectado, resuelto con una persona
+
+**La capacidad que ilustra:** ninguna de las cinco todavía. Es una idea de Matías del
+2026-08-27 y esto es la forma más barata de probarla.
+
+**El problema.** `projected_signals` (ADR-004) son síntomas que dream anticipó desde el
+dibujo del mecanismo y que **nadie observó**. Se inyectan con la mitad del peso y
+anunciados como conjeturas, y ahí termina su vida: no hay ningún camino por el que una
+conjetura pase a ser otra cosa. Se acumulan.
+
+**El montaje.** El experimento lee el store en modo sólo lectura, junta las proyecciones
+sin resolver y las presenta de a una con su patrón y su diagrama, y con cuatro opciones:
+
+```
+1) la vi              La vi pasar. Es una observación, no una conjetura.
+2) no puede pasar     Sé por qué no puede ocurrir en este sistema.
+3) no la vi todavía   No la vi, pero es plausible: no tengo cómo descartarla.
+4) no sé              No tengo forma de saberlo.
+```
+
+Son cuatro y no dos a propósito: *"no la vi"* y *"no puede pasar"* son respuestas
+distintas, y confundirlas pierde la única información cara de la sesión. La cuarta existe
+para que nadie tenga que mentir para seguir.
+
+**Lo que NO hace, que es lo que lo hace honesto:**
+
+- **No escribe en el store.** Lo abre en modo sólo lectura de SQLite —la promesa la
+  sostiene la base, no la disciplina de quien lo edite— y el veredicto va a un JSONL
+  aparte.
+- **No es `verify`.** ADR-002 define verificar como reproducir contra un gate: comando,
+  exit code, `run_id`. *"El usuario dijo que sí"* no es eso. Si esto alguna vez entra al
+  plugin, entra como un tercer estado —`human_reviewed`— con menos peso que una
+  reproducción y más que una conjetura. **Nunca como `procedure`.**
+- **No contrasta caminos.** La otra mitad de la idea —varios agentes siguiendo
+  alternativas distintas y puliéndose unos contra otros antes de que la vea nadie— no
+  está. Cuesta una consolidación por camino, y eso se decide con el veredicto de M4
+  delante. Lo que se prueba acá es la **forma de la pregunta**, que es lo barato.
+
+### Lo primero que mostró, sobre el store de este repo
+
+El 2026-08-27 a las 15:27 dream consolidó una candidata sobre el bug de los campos del
+payload, y proyectó cuatro síntomas que nadie había visto. Esa misma tarde, midiendo por
+otro motivo —una revisión externa del modelo mental—, **dos de los cuatro resultaron
+ciertos**:
+
+| Lo que dream proyectó a las 15:27 | Lo que se midió después |
+|---|---|
+| «El retrieval devuelve coincidencias por forma estructural sin relación con el contenido del trabajo.» | Dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores: el retrieval de lo crudo no miraba el prompt (spec §5.10) |
+| «Una revisión manual de un registro reciente muestra la estructura completa y todos los campos de texto en blanco.» | El prompt de dream mostraba seis pasos `(sin resumen)` de una trayectoria de 400 pasos con 177 con contenido (spec §6.1) |
+
+**Y ninguna de las dos se encontró por la proyección.** Estaban escritas, inyectadas y
+disponibles, y el trabajo las redescubrió midiendo. Eso es exactamente el agujero que este
+experimento tantea: una conjetura que nadie resuelve no es memoria, es una nota.
+
+Para balance, y porque el proyecto reporta lo que no favorece: de otra candidata se
+comprobaron dos proyecciones contra el código y **no se sostenían** (`LATER.md`). El
+puntaje hasta acá es 2 y 2, sobre seis proyecciones, con n=1 store.
