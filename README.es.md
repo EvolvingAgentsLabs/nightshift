@@ -5,9 +5,12 @@ Una prueba de concepto, no un producto.
 
 *[Read this in English](README.md)*
 
-> **Estado: M3 — captura, retrieval y dream fase 1, como plugin de Claude Code.**
-> Todo lo que se describe abajo funciona. Si *sirve* está sin medir: `verify` no existe,
-> así que nada llega a `procedure` y nada de lo inyectado está verificado.
+> **Estado: M3 construido — captura, retrieval y dream fase 1, como plugin de Claude Code.**
+> Todo lo que se describe abajo funciona, y el código ya no es lo que bloquea el
+> benchmark: lo que falta es **evidencia**. El gate de M1 son cinco sesiones reales y el
+> de M3 tres noches sin intervención, y ninguna de las dos está juntada. Si *sirve* sigue
+> sin medirse: `verify` no existe, así que nada llega a `procedure` y nada de lo inyectado
+> está verificado.
 
 ## Qué hace
 
@@ -79,6 +82,35 @@ Y adentro de esa sesión:
 | `/nightshift:doctor` | si la captura está funcionando de verdad |
 | `/nightshift:dev` | arrancar una sesión de desarrollo sobre el propio plugin |
 
+## La noche en que soñó sobre sí mismo
+
+El 2026-08-27 el plugin consolidó el store de su propio desarrollo y, desde el dibujo del
+mecanismo, **proyectó cuatro síntomas que nadie había observado**
+([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). Esa misma tarde, midiendo por otro
+motivo, dos resultaron ciertos:
+
+| Lo que dream proyectó a las 15:27 | Lo que se midió horas después |
+|---|---|
+| «El retrieval devuelve coincidencias por forma estructural sin relación con el contenido del trabajo.» | Dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores: el retrieval de lo crudo no miraba el prompt |
+| «Una revisión manual de un registro reciente muestra la estructura completa y todos los campos de texto en blanco.» | El prompt del propio dream mostraba seis pasos `(sin resumen)` de una trayectoria de 400 pasos que tenía 177 con contenido |
+
+Tres cosas hay que decir de eso, o es un cuento:
+
+- **Ninguna se encontró *por* la proyección.** Estaban escritas, inyectadas y
+  disponibles, y el trabajo las redescubrió midiendo. Una conjetura que nadie resuelve no
+  es memoria: es una nota. Ese agujero es el que tantea
+  [`experimentos/preguntar.py`](experimentos/preguntar.py), que muestra cada proyección
+  con opciones para que una persona la resuelva, sin escribir en el store y **sin
+  promover nada** — que un humano diga que sí no es una reproducción contra un gate
+  ([ADR-002](doc/adr/ADR-002-verify-gate.md)).
+- **Otras dos proyecciones se comprobaron y no se sostenían.** Seis proyecciones: dos
+  confirmadas, dos refutadas, dos abiertas, un store. Es una anécdota con numerador, no
+  un resultado.
+- **La misma sesión encontró tres defectos en el brazo del tratamiento** — el retrieval
+  que no miraba el prompt, dream leyendo pasos vacíos, y el ensayo culpando a dream de su
+  propio `HOME` roto. Los tres eran invisibles porque todos los hooks salen 0 por diseño.
+  Están arreglados; lo que importa es por qué pasaron semanas sin que nada los dijera.
+
 ## La parte honesta
 
 El benchmark que contestaría *«¿recordar cómo se averiguó algo mejora el trabajo de un
@@ -87,12 +119,14 @@ adaptador de agente — y **no corrió nunca**, porque el pre-registro sigue sie
 borrador con decisiones abiertas. Todo lo que se inyecta hoy es una `candidate`:
 abstraída por un modelo, reproducida por nadie.
 
-Un ensayo no es evidencia, y una demostración no es un resultado.
+Un ensayo no es evidencia, y una demostración no es un resultado. Una proyección que
+acertó dos veces, tampoco.
 
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el plan y el benchmark
 - [`doc/adr/`](doc/adr/) — las decisiones y qué costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
+- [`experimentos/preguntar.py`](experimentos/preguntar.py) — human-in-the-loop sobre lo que dream sólo conjeturó: sólo lectura del store, no promueve nada
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado
 
 ## Licencia
