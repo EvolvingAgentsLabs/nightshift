@@ -200,8 +200,32 @@ discrepancia, **gana el JSON Schema**.
 - `decisive` — este paso es donde la señal se volvió concluyente. Es lo que dream
   busca al consolidar; una trayectoria sin ningún paso decisivo rara vez produce
   un procedimiento útil.
+
+  **Enmienda 0.3.5:** la enciende **un fallo**, y nada más. Antes marcaba también todo
+  comando de test que corriera, y medido sobre el store real eso era el 38% de los pasos
+  —151 de los 159 decisivos de una trayectoria eran corridas en verde—. Una bandera que
+  marca el 38% no señala: le costaba discriminación al peso `W_DECISIVE` del ranking, que
+  se cobraba en casi toda trayectoria, y a la ventana de seis pasos que ve dream, que caía
+  sobre corridas verdes. Un test que pasa es evidencia de **desenlace**, no de
+  diagnóstico, y el desenlace se infiere del comando guardado (§4.3.1). El campo del
+  esquema no cambia: cambia qué lo enciende.
 - `contradicted` — marcado por `UserPromptSubmit` cuando el usuario corrige
   ("no, eso está mal"). Es la señal negativa más barata y más confiable que tenemos.
+
+#### 4.3.1 De dónde sale `outcome.result = tests_passed`
+
+De que la trayectoria tenga un paso `tool_use` de shell **cuyo comando sea un comando de
+test**, leído de los argumentos guardados. No de una bandera.
+
+La heurística de posición de comando —el comando tiene que estar en posición de comando,
+no mencionado adentro de otra cosa— **no se perdió al apretar `decisive`**: se mudó acá,
+que es donde correspondía. Sigue defendida por los mismos casos reales que la motivaron:
+un título de PR que dice `make check`, un mensaje de commit que menciona `pytest` y un
+heredoc que escribe un script no cierran una trayectoria como `tests_passed`.
+
+Un comando de test que **falla** llega por `PostToolUseFailure` (§5.2), así que es un paso
+`tool_failure`: es señal decisiva y no es desenlace. Las dos cosas a la vez, y cada una en
+su lugar.
 
 ### 4.4 Abstracción y cross-harness
 
@@ -789,3 +813,4 @@ la spec y el benchmark negativo son publicables.
 |---|---|---|
 | 5.1, 5.10 | Una trayectoria sin abstracción engancha con el prompt por los errores de sus pasos `tool_failure` (`failure_match`) | Sin eso, dos prompts con síntomas distintos daban el mismo orden: el retrieval de lo crudo era por repo y recencia, y un síntoma proyectado por el modelo pesaba más que un fallo observado |
 | 6.1 | Al prompt de dream van los pasos **con contenido**, fallos primero; una trayectoria sin ninguno no se le pregunta al modelo y se reporta `SIN_CONTENIDO`, no `SIN_PATRON` | 400 pasos con 177 de contenido llegaban como seis líneas vacías: dream gastaba 38 k tokens en preguntar por siluetas y la respuesta "no hay patrón" se leía como si el material se hubiera mirado |
+| 4.3, 4.3.1 | `decisive` la enciende **sólo un fallo**; `tests_passed` se infiere del comando guardado | Marcaba el 38% de los pasos por mezclar diagnóstico con desenlace, y era el insumo del ranking, del desenlace y de la ventana de dream a la vez |

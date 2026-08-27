@@ -294,17 +294,25 @@ def _append_tool_step(payload, cfg, conn, *, failed):
         summary = (red.text(raw) or "")[:limit]
         error = None
 
-    # Heurística determinista de señal decisiva: un fallo de tool, o un comando de test
-    # que pasa. Documentada en spec §4.3.
+    # Heurística determinista de señal decisiva: **un fallo**. Nada más.
+    #
+    # Antes marcaba también todo comando de test que corriera, y medido sobre el store
+    # real eso era el 38% de los pasos: de los 159 decisivos de una trayectoria, 151 eran
+    # tests en verde. Una bandera que marca el 38% no señala nada, y no era cosmético —
+    # es el insumo de tres cosas a la vez: el peso `W_DECISIVE` del ranking, que se
+    # cobraba en casi toda trayectoria y por lo tanto no ordenaba; la ventana de seis
+    # pasos que ve dream, que caía sobre corridas verdes; y el desenlace.
+    #
+    # Un test que pasa es evidencia de **desenlace**, no de diagnóstico: dice que el
+    # trabajo terminó bien, no dónde se volvió concluyente el problema. Eso se infiere
+    # ahora del comando guardado (`_es_comando_de_test`), sin bandera de por medio. La
+    # spec §4.3 define `decisive` como "el paso donde la señal se volvió concluyente", y
+    # esto es la implementación acercándose a la definición, no la definición cambiando.
     #
     # Salvo una interrupción: `is_interrupt` significa que el usuario cortó, no que la
     # herramienta falló. Tratarlo como señal decisiva sería aprender del momento en que
     # alguien apretó Esc.
     decisive = bool(failed) and not payload.get("is_interrupt")
-    if not failed and tool == "run_shell":
-        command = str((payload.get("tool_input") or {}).get("command", ""))
-        if context.TEST_CMD_RE.search(command):
-            decisive = True
 
     store.append_step(conn, tid,
                       kind="tool_failure" if failed else "tool_use",
@@ -375,16 +383,35 @@ def on_pre_compact(payload, cfg, conn):
 
 
 # ----------------------------------------------------------------- Stop / SessionEnd
+def _es_comando_de_test(step) -> bool:
+    """¿Este paso corrió un comando de test y no falló?
+
+    Se lee del comando guardado, no de una bandera. Antes esto viajaba en `decisive`, y
+    mezclar diagnóstico con desenlace le costaba discriminación a las dos cosas: el
+    desenlace se calcula igual de bien acá, y `decisive` recupera su significado.
+
+    El comando está redactado, y eso no lo afecta: el redactor toca rutas, secretos e
+    identificadores del repo, no `make check` ni `pytest`.
+    """
+    if step["kind"] != "tool_use" or step["tool"] != "run_shell":
+        return False
+    try:
+        args = json.loads(step["args_json"] or "{}")
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(args, dict):
+        return False
+    return bool(context.TEST_CMD_RE.search(str(args.get("command", ""))))
+
+
 def _infer_outcome(conn, tid):
     steps = store.steps_of(conn, tid)
     if not steps:
         return "abandoned", None
     if any(s["contradicted"] for s in steps):
         return "user_corrected", "el usuario corrigió un paso"
-    passed = [s for s in steps if s["decisive"] and s["kind"] == "tool_use"
-              and s["tool"] == "run_shell"]
-    if passed:
-        return "tests_passed", "comando de test decisivo con salida 0"
+    if any(_es_comando_de_test(s) for s in steps):
+        return "tests_passed", "comando de test que no falló"
     return "unknown", None
 
 

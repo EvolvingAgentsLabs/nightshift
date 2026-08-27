@@ -36,21 +36,29 @@ CLAVES_REALES = {
 
 
 class SenalDecisivaTest(IsolatedStoreTest):
-    """La heurística de señal decisiva, medida contra una sesión real de 252 pasos.
+    """Qué enciende `decisive`, y qué cierra una trayectoria como `tests_passed`.
 
-    Buscando la subcadena en cualquier parte del comando, el 41% de los pasos quedaba
-    marcado como concluyente. Los comandos de una sesión de trabajo son compuestos y
-    llevan heredocs adentro: alcanzaba con que un **título de PR** o un **mensaje de
-    commit** mencionaran `make check` para que el paso contara como test que pasa.
-    Una señal que dispara en la mitad de los pasos no es una señal.
+    Son **dos cosas distintas** desde el 2026-08-27, y separarlas fue el arreglo: un
+    fallo es diagnóstico —dónde se volvió concluyente el problema— y un test que corre es
+    desenlace. Con las dos en la misma bandera, `decisive` marcaba el 38% de los pasos del
+    store real (151 de 159 en una trayectoria eran tests en verde) y no discriminaba nada,
+    ni para el ranking, ni para la ventana que ve dream.
+
+    La heurística de posición de comando **no se perdió**: se mudó al desenlace, que es de
+    donde nunca tendría que haberse ido. Sigue midiéndose contra los mismos casos reales:
+    un título de PR que dice `make check` no es un test que pasó.
     """
 
-    def decisivo(self, comando):
-        base = {"session_id": "dec-%d" % abs(hash(comando)), "cwd": "."}
+    def _capturar(self, comando, *, sesion=None):
+        base = {"session_id": sesion or "dec-%d" % abs(hash(comando)), "cwd": "."}
         hook.dispatch("SessionStart", dict(base))
         hook.dispatch("PostToolUse", dict(base, tool_name="Bash",
                                           tool_input={"command": comando},
                                           tool_response={"type": "text", "file": "ok"}))
+        return base
+
+    def decisivo(self, comando):
+        base = self._capturar(comando)
         conn = store.connect()
         try:
             tid = store.active_trajectory(conn, base["session_id"])["id"]
@@ -58,7 +66,22 @@ class SenalDecisivaTest(IsolatedStoreTest):
         finally:
             conn.close()
 
-    def test_un_comando_de_test_en_posicion_de_comando_es_decisivo(self):
+    def desenlace(self, comando):
+        base = self._capturar(comando)
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, base["session_id"])["id"]
+            return hook._infer_outcome(conn, tid)[0]
+        finally:
+            conn.close()
+
+    def test_un_comando_de_test_no_enciende_decisive(self):
+        """El 38% que no señalaba nada. Un test en verde no es un diagnóstico."""
+        for comando in ("make check", "pytest -q", "npm run test"):
+            with self.subTest(comando=comando):
+                self.assertFalse(self.decisivo(comando))
+
+    def test_un_comando_de_test_en_posicion_de_comando_cierra_como_tests_passed(self):
         for comando in ("make check",
                         "pytest -q",
                         "cd repo && python3 -m unittest tests.test_x -q",
@@ -66,7 +89,7 @@ class SenalDecisivaTest(IsolatedStoreTest):
                         "make lint ; make check",
                         "python3 -m pytest tests/"):
             with self.subTest(comando=comando):
-                self.assertTrue(self.decisivo(comando))
+                self.assertEqual(self.desenlace(comando), "tests_passed")
 
     def test_mencionarlo_adentro_de_otra_cosa_no_lo_es(self):
         """Los tres casos salieron de la sesión real, tal como se capturaron."""
@@ -77,8 +100,25 @@ class SenalDecisivaTest(IsolatedStoreTest):
         ]
         for comando in casos:
             with self.subTest(comando=comando[:40]):
-                self.assertFalse(self.decisivo(comando),
-                                 "un commit que habla de tests no es un test que pasó")
+                self.assertFalse(self.decisivo(comando))
+                self.assertNotEqual(self.desenlace(comando), "tests_passed",
+                                    "un commit que habla de tests no es un test que pasó")
+
+    def test_un_fallo_no_cierra_como_tests_passed(self):
+        """Un comando de test que **falla** llega por PostToolUseFailure: no es desenlace."""
+        base = {"session_id": "test-que-falla", "cwd": "."}
+        hook.dispatch("SessionStart", dict(base))
+        hook.dispatch("PostToolUseFailure", dict(base, tool_name="Bash", is_interrupt=False,
+                                                 tool_input={"command": "make check"},
+                                                 error="Exit code 1\nFAILED (failures=3)"))
+        conn = store.connect()
+        try:
+            tid = store.active_trajectory(conn, base["session_id"])["id"]
+            self.assertTrue(store.steps_of(conn, tid)[-1]["decisive"],
+                            "el fallo sí es la señal decisiva")
+            self.assertEqual(hook._infer_outcome(conn, tid)[0], "unknown")
+        finally:
+            conn.close()
 
     def test_un_fallo_sigue_siendo_decisivo(self):
         base = {"session_id": "fallo", "cwd": "."}
