@@ -1,9 +1,10 @@
 """Retrieval e inyección (M2), y el gate de M2: `why` reconstruye el origen."""
 
+import re
 import unittest
 
 from tests.base import IsolatedStoreTest
-from nightshift import config, hook, retrieve, store
+from nightshift import config, hook, redact, retrieve, store
 
 FP = "f" * 64
 
@@ -233,6 +234,128 @@ class RetrieveTest(IsolatedStoreTest):
             conn.close()
         self.assertIn(source[:8], texto)
         self.assertIn("UnicodeDecodeError en el borde", texto)
+
+    # ------------------------------------------------ enganche por fallo observado
+    def sembrar_con_fallo(self, *, error=None, resumen_de_test=None,
+                          task_type="debug_test_failure"):
+        """Una trayectoria cruda: un fallo observado, o un test decisivo en verde."""
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="vieja", repo_fingerprint=FP,
+                                        task_type=task_type, base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            if error is not None:
+                store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                                  error_message=error, decisive=True)
+            if resumen_de_test is not None:
+                # Un comando de test que **pasó**: `decisive` lo marca igual (spec §4.3).
+                store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                                  result_summary=resumen_de_test, decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+            return tid
+        finally:
+            conn.close()
+
+    def razones(self, prompt, task_type="debug_test_failure"):
+        conn = store.connect()
+        try:
+            scored = retrieve.candidates(conn, task_type=task_type, repo_fingerprint=FP,
+                                         cfg=config.load(), prompt=prompt)
+            return {row["id"]: (score, reason) for score, reason, row in scored}
+        finally:
+            conn.close()
+
+    def test_el_fallo_observado_de_una_trayectoria_cruda_engancha(self):
+        """La clave de recuperación es lo que se vio, no el tipo de tarea.
+
+        Sin esto, dos prompts que describen síntomas distintos devuelven exactamente el
+        mismo orden: medido sobre el store real antes del cambio.
+        """
+        visto = self.sembrar_con_fallo(error="UnicodeDecodeError al leer el manifiesto")
+        otro = self.sembrar_con_fallo(error="conexión rechazada contra el puerto")
+        razones = self.razones("vuelve el UnicodeDecodeError leyendo el manifiesto")
+        self.assertIn("failure_match", razones[visto][1])
+        self.assertNotIn("failure_match", razones[otro][1])
+        self.assertGreater(razones[visto][0], razones[otro][0])
+
+    def test_el_sintoma_puede_mas_que_la_recencia(self):
+        """Lo que decide es la señal, no cuál se capturó último."""
+        viejo = self.sembrar_con_fallo(error="UnicodeDecodeError al leer el manifiesto")
+        nuevo = self.sembrar_con_fallo(error="permiso denegado sobre el directorio")
+        razones = self.razones("otra vez el UnicodeDecodeError con el manifiesto")
+        self.assertGreater(razones[viejo][0], razones[nuevo][0],
+                           "una coincidencia de síntoma tiene que ganarle a la recencia")
+
+    def test_un_test_en_verde_no_es_un_enganche(self):
+        """`decisive` marca también los tests que pasan: el 38% de los pasos del store real.
+
+        Enganchar contra su salida haría que cualquier prompt que hable de tests coincida
+        con todo. El enganche mira fallos, y un test en verde no es un fallo.
+        """
+        verde = self.sembrar_con_fallo(
+            resumen_de_test="Ran 255 tests in 23.139s OK · make check gate: OK")
+        razones = self.razones("corré make check, los 255 tests tienen que quedar en OK")
+        self.assertNotIn("failure_match", razones[verde][1])
+
+    def test_los_marcadores_del_redactor_no_enganchan(self):
+        """`<REPO>`, `<PATH>`, `<SECRET>` son la huella de lo que se borró.
+
+        Aparecen en casi cualquier fallo capturado: contarlos sería hermanar dos
+        trayectorias por lo que **no** se guardó.
+        """
+        fila = self.sembrar_con_fallo(error="no encuentro <REPO><PATH> ni <SECRET>")
+        razones = self.razones("el repo tiene un path roto y un secret que no resuelve")
+        self.assertNotIn("failure_match", razones[fila][1])
+
+    def test_el_encabezado_del_harness_no_engancha(self):
+        """"Exit code 1" está en todos los fallos: es andamiaje, no síntoma."""
+        uno = self.sembrar_con_fallo(error="Exit code 1 parse error cerca de done")
+        otro = self.sembrar_con_fallo(error="Exit code 1 el manifiesto no valida")
+        razones = self.razones("me da exit code 1 y no entiendo por qué")
+        self.assertNotIn("failure_match", razones[uno][1])
+        self.assertNotIn("failure_match", razones[otro][1])
+
+    def test_la_lista_de_marcadores_sigue_el_paso_del_redactor(self):
+        """Si el redactor aprende un marcador nuevo, esta lista tiene que saberlo.
+
+        El test corre el redactor de verdad sobre material sucio y exige que cada
+        `<MARCADOR>` que produzca esté excluido del enganche. Sin esto, agregar una regla
+        de redacción abre una vía de falsos enganches en silencio.
+        """
+        red = redact.Redactor(identifiers=["nightshift"], home_dir="/home/x")
+        sucio = ("nightshift falló en /usr/local/lib/cosa.py con "
+                 "API_TOKEN=abcd1234efgh y ana@ejemplo.com y "
+                 + "a" * 40)
+        limpio = red.text(sucio)
+        marcadores = set(re.findall(r"<([A-Z_]+)>", limpio))
+        self.assertTrue(marcadores, "el redactor no produjo ningún marcador: revisá el material")
+        for marcador in marcadores:
+            self.assertIn(marcador.lower(), retrieve._MARCADORES_DE_REDACCION,
+                          "el redactor produce <%s> y el enganche lo contaría como "
+                          "contenido" % marcador)
+
+    def test_una_candidata_engancha_por_su_abstraccion_y_no_por_sus_fallos(self):
+        """Con abstracción manda la abstracción: es lo destilado, no la instancia."""
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="vieja", repo_fingerprint=FP,
+                                        task_type="debug_test_failure", base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="UnicodeDecodeError al leer el manifiesto",
+                              decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+            store.promote_to_candidate(
+                conn, tid,
+                abstraction={"pattern": "un borde binario tratado como texto",
+                             "signals": ["el lector asume codificación"],
+                             "decisive_signal": "el error aparece sólo con entrada binaria"},
+                valid_when=[{"condition": "hay un decodificador implícito",
+                             "source": "observed"}])
+        finally:
+            conn.close()
+        razones = self.razones("vuelve el UnicodeDecodeError leyendo el manifiesto")
+        self.assertNotIn("failure_match", razones[tid][1])
 
     def test_sin_historia_no_inyecta_nada(self):
         text, message = hook.dispatch("SessionStart",
