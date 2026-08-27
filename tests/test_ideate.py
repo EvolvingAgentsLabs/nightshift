@@ -195,7 +195,7 @@ class InyeccionTest(IsolatedStoreTest):
         self.assertTrue(chosen)
         self.assertIn("anticipados", texto)
         self.assertIn("NINGUNO fue observado", texto)
-        self.assertIn("cómo se ve el mecanismo", texto)
+        self.assertIn("qué se conserva y qué se pierde", texto)
         # Y la proyección no puede aparecer presentada como señal observada.
         linea_proyectada = next(l for l in texto.splitlines()
                                 if "totales de un reporte" in l)
@@ -213,6 +213,39 @@ class InyeccionTest(IsolatedStoreTest):
         self.assertIn("why", corto)
         self.assertTrue(corto.split(" […]")[0].endswith("."),
                         "tiene que cortar en punto: %r" % corto[-40:])
+
+    def test_el_diagrama_se_inyecta_entero_y_como_mermaid(self):
+        """Un diagrama es dibujo y texto a la vez: recortarlo no lo achica, lo rompe.
+
+        Y va en un bloque `mermaid` porque ahí es donde se renderiza. El tope de nodos se
+        pide en el prompt, que es donde se puede pedir brevedad sin romper la sintaxis.
+        """
+        conn = store.connect()
+        tid = _sembrar(conn)
+        diagrama = ("flowchart LR\n"
+                    "  A[clave cruda] -->|se normaliza| B[clave limada]\n"
+                    "  B --> C[(indice)]\n"
+                    "  A -->|consulta sin limar| C")
+        store.promote_to_candidate(
+            conn, tid, abstraction={"pattern": "El indice se arma con la clave "
+                                               "normalizada y se consulta con la cruda."},
+            valid_when=[], hypothesis=None, weight=0.6, diagram=diagrama)
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load())
+        texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                   task_type="debug_test_failure", repo_fingerprint=FP)
+        conn.close()
+        self.assertIn("```mermaid", texto)
+        for linea in diagrama.splitlines():
+            self.assertIn(linea, texto, "el diagrama llegó cortado")
+
+    def test_un_diagrama_con_una_ruta_voltea_la_consolidacion(self):
+        """Las etiquetas de un flowchart son justo donde alguien escribe una ruta."""
+        _, _, _, problemas = dream.validate(
+            {"pattern": "Una funcion de normalizacion compartida no cubre un caso.",
+             "diagram": "flowchart LR\n  A[/Users/alguien/proyecto/src] --> B[salida]"},
+            redactor=_redactor(), home_dir=None)
+        self.assertTrue(problemas, "una ruta en el diagrama tiene que rechazarse")
 
     def test_una_fila_vieja_sin_la_columna_no_rompe_nada(self):
         """La columna llega por migración: hay candidates consolidadas antes de ADR-004."""

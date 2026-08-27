@@ -152,8 +152,16 @@ def cmd_why(args) -> int:
                 "USD %.4f a precio de lista" % row["consolidation_cost_usd"]
                 if row["consolidation_cost_usd"] is not None
                 else "no reportado por el backend"))
+            if "diagram" in row.keys() and row["diagram"]:
+                print("  el mecanismo, dibujado:")
+                print()
+                print("    ```mermaid")
+                for linea in row["diagram"].splitlines():
+                    print("    %s" % linea)
+                print("    ```")
+                print()
             if "ideation" in row.keys() and row["ideation"]:
-                print("  mecanismo     : %s" % row["ideation"])
+                print("  se conserva/pierde: %s" % row["ideation"])
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
             if abstraction.get("decisive_signal"):
                 print("  señal decisiva: %s" % abstraction["decisive_signal"])
@@ -174,6 +182,26 @@ def cmd_why(args) -> int:
             for item in json.loads(row["valid_when_json"] or "[]"):
                 print("  aplica cuando : %s (%s)" % (item.get("condition", ""),
                                                      item.get("source", "inferred")))
+        # El contraste: qué cambió, qué compró, y cuándo esta opción seguía siendo la
+        # correcta. Es lo que convierte una alternativa descartada en conocimiento.
+        if "contrast_json" in row.keys() and row["contrast_json"]:
+            try:
+                contraste = json.loads(row["contrast_json"]) or {}
+            except ValueError:
+                contraste = {}
+            if contraste:
+                print()
+                print("por qué se descartó:")
+                print("  qué cambió    : %s" % contraste.get("changed", "—"))
+                if contraste.get("bought"):
+                    print("  qué compró    : %s" % contraste["bought"])
+                if contraste.get("cost"):
+                    print("  qué costó     : %s" % contraste["cost"])
+                for condicion in contraste.get("old_valid_when") or []:
+                    print("  seguía siendo la correcta cuando: %s" % condicion)
+                if not contraste.get("old_valid_when"):
+                    print("  no hay régimen donde ésta gane: la reemplazó del todo.")
+
         if row["superseded_by"]:
             print()
             print("contradicha por %s — esta trayectoria sobrevive enlazada, no se borró."
