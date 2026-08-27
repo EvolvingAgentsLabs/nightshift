@@ -400,6 +400,41 @@ descubrir, porque devolver `oldString` hacía que el resumen dijera que la edici
 producido el texto que **borró**. Las tools de MCP no se sondearon: para ésas hay un
 fallback que busca el primer valor con texto.
 
+### 5.10 La clave de recuperación de una trayectoria sin abstracción
+
+**Añadido en 0.3.5, de medir el ranking contra el store real.**
+
+Una `candidate` engancha con el prompt por las señales de su `abstraction` (§4.4). Una
+trayectoria **cruda** no tenía ningún enganche por síntoma: se rankeaba por repo, tipo de
+tarea, desenlace y recencia. Medido sobre el store real, dos prompts que describen
+síntomas distintos devolvían **el mismo orden**, con los mismos scores: el texto del
+prompt no cambiaba nada. Y como dream produce cero candidatas sobre sesiones de
+desarrollo largas (`LATER.md`), lo crudo es casi todo lo que se inyecta.
+
+El efecto colateral era una inversión de la jerarquía de evidencia del proyecto: un
+síntoma **proyectado** por el modelo, que nadie observó, puntuaba `W_PROJECTED_MATCH`,
+mientras un fallo que ocurrió de verdad puntuaba cero.
+
+La corrección: una trayectoria sin abstracción engancha por **los mensajes de error de
+sus pasos `tool_failure`**, con el motivo `failure_match` — nunca `signal_match`, que
+afirmaría una abstracción que no existe. Tres decisiones que la acompañan, y las tres
+salieron de medir, no de estimar:
+
+- **Sólo fallos, no todo paso decisivo.** `decisive` marca también cada comando de test
+  que corre: el 38% de los pasos del store real, y 151 de los 159 pasos decisivos de una
+  trayectoria eran tests en verde. Enganchar contra su salida haría que cualquier prompt
+  que mencione tests coincida con todo.
+- **El encabezado del harness no es síntoma.** `Exit code 1` abre todos los fallos: con
+  él adentro, "exit" y "code" ya alcanzaban las dos palabras que pide el enganche y
+  hermanaban un `parse error` con un error de formateo. Se saca para rankear; lo
+  guardado no se toca.
+- **Los marcadores del redactor tampoco.** `<REPO>`, `<PATH>`, `<SECRET>` son la huella
+  de lo que se borró: contarlos sería emparejar dos trayectorias por lo que **no** se
+  guardó.
+
+Con abstracción manda la abstracción: es lo destilado. El enganche por fallo es el piso,
+no un segundo voto.
+
 ### 5.5 Comandos
 
 Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
@@ -720,3 +755,9 @@ la spec y el benchmark negativo son publicables.
 | 2.2, 3.2, 6.1 | El modelo que consolida es Claude Code por defecto; el backend local queda por config | La calidad medida del modelo local no alcanzaba, y pedir ollama es más fricción que usar el agente que ya está instalado. El costo —las trayectorias redactadas salen de la máquina— está escrito en ADR-003 |
 | 4.4 | De otro repo se emite **sólo** la abstracción, nunca los pasos | El gate de cross-repo estaba en el ranking y no en la emisión: encender `cross_repo` hubiera cruzado detalle de repo |
 | 9 | `why` muestra la abstracción y los enlaces de contradicción | Una `candidate` se inyecta por su patrón; un `why` que no lo muestra no reconstruye el origen de lo inyectado |
+
+### Enmiendas 0.3.5 (de medir el ranking contra el store real)
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.1, 5.10 | Una trayectoria sin abstracción engancha con el prompt por los errores de sus pasos `tool_failure` (`failure_match`) | Sin eso, dos prompts con síntomas distintos daban el mismo orden: el retrieval de lo crudo era por repo y recencia, y un síntoma proyectado por el modelo pesaba más que un fallo observado |

@@ -40,7 +40,7 @@ Arrancá con `nightshift dev`.
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 266 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 273 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -230,6 +230,7 @@ Una sesión larga de desarrollo. Lo que hay que saber para no re-derivarlo:
 | **El presupuesto de M4 es tiempo** (PREREG §2.1) | Decidido por Matías. Medido: 37,8 s por celda de mediana, **1,1 h las 102 celdas**. La factibilidad no es el cuello de botella. |
 | **La matriz va repetición → fila** | Para que cortar por presupuesto deje los dos brazos con el mismo n. Con el orden anterior, una corrida cortada era un experimento torcido, no uno más chico. |
 | **Los dólares no son una factura** | El CLI reporta a precio de lista (`costBasis: "list"`); con suscripción no se factura. Los tokens son la unidad. Hay un test que falla si alguna línea con `USD` no lo dice. |
+| **El retrieval de lo crudo no miraba el prompt** (spec §5.10) | Medido: dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores. Sin abstracción no había enganche por síntoma, así que un síntoma **proyectado** por el modelo pesaba 0.75 y un fallo **observado** pesaba cero. Ahora una trayectoria cruda engancha por los errores de sus pasos `tool_failure`, con el motivo `failure_match`. Sólo fallos: `decisive` marca también los tests en verde, y son el 38% de los pasos. |
 | **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y sube los `TODO(Matias)` a 21. |
 
 ### Lo primero que tiene que mirar la sesión que sigue
@@ -242,6 +243,14 @@ decir: la máquina entera funciona y le está pasando al agente siluetas sin sus
 Es el mismo modo de falla de siempre —el silencio— en su versión más incómoda: ya no
 está roto, está *flojo*, y nada falla. `nightshift doctor` y `status` reportan el número.
 Empezá por ahí antes que por cualquier feature.
+
+**Y cuando empieces, desglosalo por trayectoria antes de arreglar nada.** Medido después:
+el promedio mezcla cohortes. Las trayectorias anteriores al arreglo de los campos del
+payload van del 58% al 100% de pasos vacíos; la primera capturada después va **1 de 52,
+el 2%**. La captura de hoy trae contenido; lo que no tiene cohortes es la métrica, y una
+alarma que suena para siempre es donde se esconde la regresión siguiente. El desglose y
+lo que queda sin medir —`Edit` y `Write` no los usó ninguna sesión posterior al arreglo—
+están en `LATER.md`.
 
 **Y dos ciclos de sueño sobre 400 pasos de desarrollo real produjeron cero candidatas.**
 Dream agrupa por tipo de tarea, así que un día entero es un grupo de uno y no hay nada

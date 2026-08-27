@@ -272,6 +272,14 @@ de `candidate` de arriba.
    `nightshift audit --min-sessions 5`; hoy sale 1 sólo por el conteo de sesiones (3 de
    5), sin ninguna fuga. Falta usar el plugin en dos sesiones reales más. Hasta que eso
    pase, M1 es código sin evidencia suficiente.
+6. **Si la configuración de retrieval entra al pre-registro.** PREREG §2 fija el modelo
+   del agente, el de consolidación y la `consolidation_strategy` porque cambian qué
+   **es** el brazo S1. La configuración de retrieval —`max_injected`, `cross_repo` y la
+   función de ranking de `retrieve.W_*`— decide qué se inyecta, que es literalmente el
+   tratamiento, y **no** está pre-registrada. El 2026-08-27 el ranking cambió (enganche
+   por fallo observado, spec §5.10) y nada en el pre-registro habría dejado constancia de
+   que el brazo cambió. Anotarlo en PREREG es de Matías: la regla 3 del pre-registro dice
+   que Claude Code lee y no propone, así que el agujero se deja escrito acá y no allá.
 
 ## Los dólares del benchmark no eran una factura
 
@@ -401,3 +409,81 @@ También: el bloque decía «es un boceto, no un tratado» y el modelo devolvía
 caracteres igual. La instrucción de brevedad no funcionaba. **Resuelto en ADR-005**: el
 dibujo se pide como diagrama Mermaid con tope de nodos, y la magnitud perdida como un
 campo aparte. Un diagrama tiene un límite natural que la prosa no tiene.
+
+## `decisive` marca el 38% de los pasos, y eso no es una señal decisiva
+
+Medido sobre el store real (471 pasos, 2026-08-27), no estimado:
+
+| | |
+|---|---|
+| pasos decisivos | 180 de 471 — **38%** |
+| de los 159 de una sola trayectoria | **151 son `tool_use`**: comandos de test que pasaron |
+| fallos de verdad (`tool_failure` con texto) | **4 en todo el store** |
+
+La spec §4.3 define `decisive` como "el paso donde la señal se volvió concluyente". La
+heurística implementada marca dos cosas distintas con la misma bandera: un fallo
+observado —que es diagnóstico— y cualquier comando de test que corrió —que es evidencia
+de **desenlace**. Mezcladas, ninguna de las dos discrimina.
+
+Dónde se paga hoy:
+
+- **En el ranking.** `W_DECISIVE` se cobra por tener *algún* paso decisivo, y como casi
+  toda trayectoria corre tests alguna vez, se cobra casi siempre: un peso que puntúa a
+  todos no ordena a nadie.
+- **En el desenlace.** `hook._infer_outcome` devuelve `tests_passed` si hay un paso
+  decisivo `tool_use` de shell. Un comando de test **que pasa** es un `tool_use`, sí; lo
+  que no se comprueba es que ése sea el último estado, ni cuál test.
+- **En dream.** Es lo que el prompt de consolidación le señala al modelo como "acá está
+  la señal". Si el 38% de los pasos es señal, no hay señal.
+
+El enganche por síntoma (spec §5.10) esquiva el problema mirando sólo `tool_failure`, que
+es la mitad no contaminada. Arreglar la bandera en sí es otra cosa: toca captura y
+desenlace a la vez, y hay que decidir si se parte en dos banderas (`decisive` diagnóstica
+y `outcome_signal`) o si se aprieta la heurística. **No lo abro acá**: cambia el
+significado de un campo del esquema y de una métrica que ya se reporta.
+
+## `valid_when` se muestra y no se busca
+
+Las precondiciones son la mitad del valor de una alternativa descartada —"la descartada
+seguía teniendo razón cuando el límite era realmente bajo"— y hoy son **sólo de salida**:
+`render()` las imprime, `candidates()` nunca las mira. Una trayectoria cuyas
+precondiciones describen exactamente la situación que el usuario tiene delante no puntúa
+por eso ni un punto.
+
+No lo hago junto con el enganche por fallo: son dos claves de recuperación distintas
+—una es "esto ya lo vi", la otra es "esto aplica acá"— y meterlas en el mismo commit hace
+imposible saber cuál de las dos movió el ranking cuando M4 lo mida.
+
+## La calidad de la captura promedia un bug ya arreglado
+
+`status` reporta **52% de pasos de tool sin contenido** y `doctor` mira la última
+trayectoria. Los dos números son ciertos y dicen cosas opuestas, porque el 52% es un
+promedio sobre las últimas cuatro trayectorias y dos de ellas son cascarón del bug de los
+campos del payload (2026-08-26). Desglosado:
+
+| trayectoria | pasos de tool | sin contenido |
+|---|---|---|
+| `8347ad4f` (pre-arreglo) | 384 | 223 (58%) |
+| `a49c1582` (pre-arreglo) | 7 | 7 (100%) |
+| `cbbd7ff0` (post-arreglo) | 52 | **1 (2%)** |
+
+La captura de hoy trae contenido en el 98% de los pasos. El alarma que HANDOFF le manda
+mirar primero a la sesión siguiente es, en su mayor parte, historia — y ése es el riesgo:
+una métrica que suena la alarma para siempre es una métrica en la que una regresión nueva
+se esconde dentro del promedio. Lo que falta es que la ventana distinga cohortes —o que
+el número sea por trayectoria y no un promedio— y esa decisión necesita mirar si vale la
+pena marcar las trayectorias degradadas en el store o dejarlas envejecer solas.
+
+Lo que **no** está medido después del arreglo: `Edit` y `Write`. Las dos aparecen vacías
+en las trayectorias viejas, ninguna sesión posterior al arreglo las usó (`cbbd7ff0` es
+todo `Bash`), y el sondeo de §5.9 dice que sus formas se leyeron bien. Nadie lo vio
+funcionar todavía.
+
+## La relación entre enganchar por síntoma y coincidir de tipo no está calibrada
+
+`W_FAILURE_MATCH` vale 1.5, lo mismo que `W_SIGNAL_MATCH`, y `W_SAME_TASK` vale 2.0. Es
+decir: hoy una coincidencia de **categoría** (hay seis tipos de tarea) pesa más que haber
+visto **ese mismo fallo**. Puede estar bien —el tipo de tarea es la clave estructural de
+la spec— o puede ser exactamente al revés. Es otro de los pesos elegidos a mano que M4 va
+a poder juzgar; queda anotado junto a los demás en "Diferido hasta M2".
+

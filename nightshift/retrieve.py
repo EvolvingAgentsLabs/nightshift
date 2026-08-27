@@ -31,10 +31,25 @@ W_DAY_DECAY = -0.05
 # la vio nadie. Pesarlas igual sería subir una conjetura a la categoría de evidencia.
 W_SIGNAL_MATCH = 1.5
 W_PROJECTED_MATCH = 0.75
+# Enganche por el fallo observado de una trayectoria **cruda**. Vale lo mismo que el
+# enganche por señal abstraída y no es una calibración: las dos son observaciones, y la
+# diferencia de confianza entre una trayectoria cruda y una consolidada ya la cobra
+# `injection_weight` (0.3 contra 0.6), que es donde el proyecto guarda cuánto se cree
+# una fila. Antes de esto, una trayectoria sin abstracción no tenía **ningún** enganche
+# por síntoma: se rankeaba por repo, tipo de tarea y recencia, así que dos prompts que
+# describen síntomas distintos daban el mismo orden — medido sobre el store real. Un
+# fallo que ocurrió de verdad pesaba cero mientras una conjetura proyectada por el
+# modelo pesaba 0.75. Eso invertía la jerarquía de evidencia del proyecto.
+W_FAILURE_MATCH = 1.5
 
 # Cuántas palabras de contenido tienen que coincidir para llamarlo enganche. Con una
 # sola, "test" alcanza para hermanar cualquier par de trayectorias de este repo.
 MIN_TOKENS_EN_COMUN = 2
+
+# Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
+# puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
+# para que el costo no dependa del largo de la sesión que se capturó.
+MAX_FALLOS_CONSULTADOS = 20
 
 # La ideación se pidió de tres a seis oraciones y el modelo devuelve, medido, cerca de
 # 1800 caracteres. Inyectarla entera gasta más contexto que las tres trayectorias juntas,
@@ -43,6 +58,13 @@ MIN_TOKENS_EN_COMUN = 2
 MAX_IDEACION_CHARS = 420
 
 _PALABRA_RE = re.compile(r"[a-z0-9_]{4,}")
+# El encabezado que el harness le pone a un comando que salió distinto de cero. Es
+# andamiaje, no síntoma: aparece en **todos** los fallos, así que dos palabras en común
+# —"exit" y "code"— alcanzaban para hermanar dos trayectorias que no comparten nada.
+# Medido sobre el store real: sin sacarlo, un prompt que dijera "exit code" enganchaba
+# con un `parse error near done` y con un error de formateo de cobertura por igual.
+# Se saca sólo para rankear; lo que está guardado no se toca.
+_ENCABEZADO_DE_FALLO_RE = re.compile(r"^\s*exit code\s+-?\d+\s*", re.I)
 # Palabras que aparecen en casi cualquier prompt de trabajo: coincidir en ellas no dice
 # nada. La lista es corta a propósito — filtrar de más es empezar a decidir qué se
 # parece a qué, y eso es justo lo que el ranking tiene que hacer de forma auditable.
@@ -52,6 +74,15 @@ sobre entre todo toda todos todas algo alguna alguno mismo misma solo sólo tamb
 también aunque entonces despues después antes ahora bien mejor peor mucho poco
 that this with from have there their which when where what
 """.split())
+
+# Los marcadores que deja el redactor. No son contenido: son la huella de lo que se
+# borró, y aparecen en casi cualquier fallo capturado (`Exit code 1 <REPO><PATH>`).
+# Contarlos como coincidencia hermanaría dos trayectorias por lo que **no** se guardó.
+# El test `test_redaccion.py` no existe para esto: hay un test acá que corre el redactor
+# de verdad y falla si aparece un marcador nuevo que esta lista no conozca.
+_MARCADORES_DE_REDACCION = frozenset(
+    "repo path secret credentials email blob truncated".split())
+_VACIAS = _VACIAS | _MARCADORES_DE_REDACCION
 
 
 def _tokens(texto):
@@ -81,6 +112,28 @@ def _enganche(tokens_prompt, frases):
         if comunes > mejor:
             mejor = comunes
     return mejor if mejor >= MIN_TOKENS_EN_COMUN else 0
+
+
+def _fallos_observados(conn, trajectory_id):
+    """Los mensajes de error de los pasos que fallaron de verdad.
+
+    **Sólo `tool_failure`**, y el motivo es una medición, no una preferencia: la
+    heurística de `decisive` marca también cada comando de test que corre, y sobre el
+    store real eso es el 38% de los pasos. Enganchar contra el texto de un test en verde
+    —"Ran 255 tests ... OK"— haría que cualquier prompt que hable de tests coincida con
+    todo, que es exactamente el fallo que ya costó una vez (HANDOFF §4: la heurística de
+    señal decisiva marcaba el 41% de los pasos porque buscaba el comando como subcadena).
+
+    Un fallo, en cambio, es una observación: lo que se vio cuando el problema se
+    manifestó. Es la clave de recuperación que corresponde a "el mismo bug con otra
+    cara" mientras no haya abstracción — y si la hay, manda la abstracción.
+    """
+    filas = conn.execute(
+        "SELECT error_message FROM steps WHERE trajectory_id = ? AND kind = 'tool_failure'"
+        " AND error_message IS NOT NULL AND error_message != ''"
+        " ORDER BY idx DESC LIMIT ?",
+        (trajectory_id, MAX_FALLOS_CONSULTADOS)).fetchall()
+    return [_ENCABEZADO_DE_FALLO_RE.sub("", f["error_message"]) for f in filas]
 
 
 def _age_days(created_at: str) -> float:
@@ -144,6 +197,14 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
         # `SessionStart` esto no aporta nada y no se cobra, que es lo correcto —
         # inventar un enganche sin texto sería el mismo error que contar `general`
         # como coincidencia de tipo de tarea.
+        if tokens_prompt and not row["abstraction_json"]:
+            # Sin abstracción, la única señal observada que tiene esta trayectoria son
+            # sus fallos. Es el caso mayoritario de un store real: dream produce cero
+            # candidatas sobre sesiones de desarrollo largas (LATER.md, "un día no es una
+            # trayectoria"), así que casi todo lo que se inyecta es crudo.
+            if _enganche(tokens_prompt, _fallos_observados(conn, row["id"])):
+                score += W_FAILURE_MATCH
+                reasons.append("failure_match")
         if tokens_prompt and row["abstraction_json"]:
             abstraccion = json.loads(row["abstraction_json"])
             senales = list(abstraccion.get("signals") or [])
