@@ -32,6 +32,45 @@ ideado le ganó al control, 16 turns contra 26. **Y los dos perdieron contra no 
 memoria, 13.** Con un brazo por celda eso no distingue nada: la varianza medida entre
 corridas idénticas ya es más grande que esa diferencia.
 
+## La ideación busca la visualización canónica, no cualquier dibujo
+
+La primera versión del bloque pedía "describí el mecanismo como un dibujo". Es la mitad de
+la idea. Lo que la completa —y lo que Matías planteó— es que hay explicaciones que sólo se
+entienden cuando alguien las dibuja **bien**, y el dibujo correcto no agrega información:
+saca la que sobra.
+
+La DFT no es una sumatoria con exponenciales: es enrollar la señal alrededor de un círculo
+a cada velocidad y mirar dónde queda el centro de masa. La convolución es dar vuelta una,
+deslizarla, y anotar el solapamiento. Una integral es una aplicación que acumula área. La
+transformada Z es una superficie donde los polos son postes y los ceros clavan al piso, y
+la respuesta en frecuencia es la altura del terreno cuando caminás el círculo unidad.
+
+El bloque pide eso: **la imagen más corta que vuelve obvio el invariante**, y de paso la
+pregunta que la DFT enseña a hacer — *qué magnitud se conserva y cuál se pierde*.
+
+Medido sobre el mismo corpus, con el mismo modelo, cambiando sólo el bloque:
+
+| | primera versión | con la visualización canónica |
+|---|---|---|
+| el dibujo | «una capa que tapa a otra» | «un import relativo es un vector en coordenadas locales; cargarlo suelto mueve el origen y el término desaparece» |
+| la magnitud perdida | no la busca | **N: cuántas aserciones se ejecutaron de verdad.** «Verde no significa nada se rompió, significa nada de lo que llegó a correr se rompió» |
+| proyecciones | 4, genéricas | 5, y una encontró un hueco real en este repo |
+| tokens de salida | 1.715 | 4.866 |
+
+La última fila es el costo y no se disimula: **casi el triple de salida por grupo.** Un
+dibujo mejor sale más caro, y con `dream_max_groups` sin tope una noche larga lo
+multiplica.
+
+**Lo que encontró.** De la proyección *«un test recién agregado no se ejecuta nunca y
+nadie lo advierte, porque el total no se compara contra ningún valor esperado»* salió
+`tests/test_suite.py`: la suite se audita a sí misma y falla si un archivo de tests deja
+de aportar. Ningún archivo aportaba cero ese día — que no es lo mismo que estar protegido.
+Es el mismo modo de falla que ya costó dos milestones acá: la captura guardaba estructura
+vacía y no fallaba nunca.
+
+Un mecanismo que produce conjeturas y una de ellas cierra un agujero real es la primera
+evidencia a favor de esto que no vino de compararse contra sí mismo.
+
 ## Decisión
 
 Dream idea el mecanismo, abstrae desde el dibujo, y **proyecta**: desde el mecanismo,

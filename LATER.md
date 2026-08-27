@@ -385,3 +385,18 @@ Lo que haría falta —segmentar una sesión larga en capítulos, probablemente 
 desenlace: cada `make check` en verde y cada merge cierra uno— es una capacidad que no
 está en el plan v0.3 y que no abro acá. Queda escrito con el dato que lo motivó: **dos
 ciclos de sueño sobre 400 pasos de desarrollo real produjeron cero candidatas.**
+
+## La ideación se fue a 4.866 tokens de salida por grupo
+
+Pedirle la visualización canónica —la DFT como centro de masa, la convolución como
+solapamiento— mejoró mucho el dibujo y casi **triplicó la salida**: 1.715 tokens antes,
+4.866 después, por grupo. El texto se inyecta recortado (`MAX_IDEACION_CHARS`), así que el
+costo es de consolidación, no de contexto.
+
+Con `dream_max_groups` sin tope, una noche con muchos grupos lo multiplica. No toco el
+default: el tope por corrida ya existe y cuánto vale una noche de dream es una decisión de
+Matías, no mía. Queda el número medido para que la decisión se tome con él.
+
+También: el bloque dice «es un boceto, no un tratado» y el modelo devuelve ~2.600
+caracteres igual. La instrucción de brevedad no funciona; lo que funcionaría es pedir el
+dibujo y la magnitud perdida en campos separados del JSON, en vez de prosa libre.
