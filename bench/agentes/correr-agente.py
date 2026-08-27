@@ -144,8 +144,29 @@ def main(argv):
             resultado = evento
     proceso.wait()
 
+    # ¿La fila S1 recibió memoria? Es un hecho **operativo**, no un resultado: si el
+    # tratamiento no se aplicó, la comparación no mide nada, y eso hay que poder verlo
+    # sin mirar quién resolvió. La familia C con `cross_repo` apagado es exactamente ese
+    # caso: las celdas terminan bien y no reciben nada.
+    inyectadas = None
+    if fila == "S1":
+        inyectadas = 0
+        try:
+            import sqlite3
+
+            db = store / "trajectories.sqlite3"
+            if db.is_file():
+                conexion = sqlite3.connect(str(db))
+                inyectadas = conexion.execute(
+                    "SELECT COUNT(*) FROM injections WHERE session_id = ?",
+                    (sesion,)).fetchone()[0]
+                conexion.close()
+        except Exception:
+            inyectadas = None
+
     limite = int(entorno["NIGHTSHIFT_BENCH_TOOL_LIMIT"])
     metricas = {
+        "injections": inyectadas,
         "tool_calls": len(contador),
         "num_turns": (resultado or {}).get("num_turns"),
         "session_id": sesion,

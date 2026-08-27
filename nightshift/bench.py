@@ -326,6 +326,18 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
     """
     cwd = cwd or fixture["cwd"]
     task = next(t for t in fixture["tasks"] if t["id"] == cell["task"])
+
+    # Una tarea puede correr **dentro** de su repositorio y no en la raíz del directorio
+    # de trabajo. Importa porque el agente lee `NIGHTSHIFT_BENCH_WORKDIR` para saber dónde
+    # trabajar, y ahí es donde nightshift calcula el fingerprint del repo: si corre en la
+    # raíz, las dos mitades de la familia C quedan con el mismo fingerprint y la familia
+    # que mide transferencia cross-repo no cruza nada. Lo encontró un ensayo sellado.
+    raiz = cwd
+    if task.get("cwd"):
+        cwd = str(Path(cwd) / task["cwd"])
+        env = dict(env or os.environ)
+        env["NIGHTSHIFT_BENCH_WORKDIR"] = cwd
+
     registro = dict(cell)
     registro.update({"started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                      "tool_calls": None, "error": None})
@@ -365,7 +377,7 @@ def run_cell(cell, fixture, *, agent_command, timeout, env=None, cwd=None,
         # con `tool_calls` dejaba el costo de la corrida sin registrar — y una corrida de
         # 102 celdas cuyo costo nadie anotó no se puede volver a justificar.
         for clave in ("tool_calls", "num_turns", "cost_usd", "tool_limit",
-                      "tool_limit_exceeded"):
+                      "tool_limit_exceeded", "injections"):
             if clave in metricas:
                 registro[clave] = metricas[clave]
         if metricas.get("session_id"):
@@ -426,12 +438,15 @@ def check_fixture(fixture, *, timeout=120, log=None) -> dict:
         referencia = task.get("reference_fix") or fixture.get("reference_fix")
         with tempfile.TemporaryDirectory(prefix="nightshift-fixcheck-") as tmp:
             trabajo = prepare_workdir(fixture, Path(tmp) / "repo")
-            antes, _, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout, env=entorno)
+            # La tarea puede correr dentro de su propio repositorio: el gate va donde va
+            # la tarea, o comprueba otra cosa.
+            donde = str(Path(trabajo) / task["cwd"]) if task.get("cwd") else trabajo
+            antes, _, _, _ = _run(fixture["gate"], cwd=donde, timeout=timeout, env=entorno)
             despues = None
             if referencia:
                 origen, destino = referencia["apply"]
                 shutil.copyfile(Path(trabajo) / origen, Path(trabajo) / destino)
-                despues, _, _, _ = _run(fixture["gate"], cwd=trabajo, timeout=timeout,
+                despues, _, _, _ = _run(fixture["gate"], cwd=donde, timeout=timeout,
                                         env=entorno)
         problemas = []
         if antes == 0:
@@ -494,6 +509,21 @@ def operational_summary(records) -> dict:
         "limit_exceeded": sum(1 for r in records if r.get("tool_limit_exceeded")),
         # Se dice cuántas celdas produjeron dato, no qué dato produjeron.
         "with_outcome": sum(1 for r in records if r.get("resolved") is not None),
+        # Y si el tratamiento se aplicó. Una fila S1 que no recibió una sola memoria no
+        # es "nightshift perdió": es que nightshift no participó.
+        "treated": {
+            # Sólo las celdas que se **miden**: que una tarea de aprendizaje reciba
+            # memoria no dice nada de la comparación, y que una de medición no la reciba
+            # lo dice todo.
+            fila: {
+                "cells": len([r for r in records if r["row"] == fila
+                              and r.get("phase") == "measure"]),
+                "with_memory": len([r for r in records if r["row"] == fila
+                                    and r.get("phase") == "measure"
+                                    and (r.get("injections") or 0) > 0]),
+            }
+            for fila in sorted({r["row"] for r in records})
+        },
     }
 
 

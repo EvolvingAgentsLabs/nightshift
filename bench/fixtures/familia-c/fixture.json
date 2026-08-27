@@ -5,7 +5,7 @@
   "fixed_order": true,
   "gate": [
     "/bin/sh",
-    "gate.sh"
+    "../gate.sh"
   ],
   "tasks": [
     {
@@ -18,7 +18,8 @@
           "repo-alfa/recolector/cadena.py"
         ]
       },
-      "prompt": "En `repo-alfa`, el promedio de las lecturas da 0 y los datos de entrada están bien. Encontralo y arreglalo."
+      "prompt": "En `repo-alfa`, el promedio de las lecturas da 0 y los datos de entrada están bien. Encontralo y arreglalo.",
+      "cwd": "repo-alfa"
     },
     {
       "id": "alfa_rotulo",
@@ -30,7 +31,8 @@
           "repo-alfa/recolector/cadena.py"
         ]
       },
-      "prompt": "En `repo-alfa`, algunos rótulos salen vacíos y no aparece ningún error. Encontralo y arreglalo."
+      "prompt": "En `repo-alfa`, algunos rótulos salen vacíos y no aparece ningún error. Encontralo y arreglalo.",
+      "cwd": "repo-alfa"
     },
     {
       "id": "beta_indice",
@@ -42,7 +44,8 @@
           "repo-beta/catalogo/secuencia.py"
         ]
       },
-      "prompt": "En `repo-beta`, faltan fichas en el índice y no aparece ningún error. Encontralo y arreglalo."
+      "prompt": "En `repo-beta`, faltan fichas en el índice y no aparece ningún error. Encontralo y arreglalo.",
+      "cwd": "repo-beta"
     },
     {
       "id": "beta_encabezado",
@@ -54,8 +57,12 @@
           "repo-beta/catalogo/secuencia.py"
         ]
       },
-      "prompt": "En `repo-beta`, algunos títulos salen vacíos y el año en 0. Encontralo y arreglalo."
+      "prompt": "En `repo-beta`, algunos títulos salen vacíos y el año en 0. Encontralo y arreglalo.",
+      "cwd": "repo-beta"
     }
   ],
-  "repo_url": "https://example.invalid/pipeline-fixture.git"
+  "repos": {
+    "repo-alfa": "https://example.invalid/recolector-fixture.git",
+    "repo-beta": "https://example.invalid/catalogo-fixture.git"
+  }
 }
