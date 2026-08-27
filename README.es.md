@@ -40,6 +40,35 @@ flowchart LR
   style P stroke-dasharray: 5 5
 ```
 
+## Las tres ideas
+
+**CTE — la cadena de pensamiento *es* la cadena de ejecución.** En un agente de
+programación no son dos cosas. El razonamiento que sobrevive no es un monólogo interno:
+es la secuencia que tocó el filesystem — hipótesis → comando → error → corrección → señal
+decisiva → fix. Esa cadena es lo que se captura, redactada, como trayectoria. La spec la
+nombra *CTE capture* en la matriz de capacidades (§1.2).
+
+**Recorrer la cadena hacia adelante, no hacia atrás.** Una cadena de pensamiento
+normalmente explica algo que ya pasó. Dream la recorre al revés — trayectoria → mecanismo
+→ abstracción → **conjetura** — y proyecta síntomas que nadie observó. Eso es lo que
+permite que la memoria se enganche con un problema *antes* de que su síntoma haya
+aparecido una vez. Lo proyectado se guarda aparte, pesa exactamente la mitad, y se anuncia
+siempre como conjetura ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). Si esa
+frontera se borra, esto deja de ser memoria.
+
+**Idear en vez de razonar.** El prompt de consolidación arranca negándose a razonar:
+*"no razones todavía: buscá la imagen."* Hay explicaciones que sólo se entienden cuando
+alguien las dibuja **bien**, y el dibujo correcto no agrega información: saca la que
+sobra. La transformada discreta de Fourier no es una sumatoria con exponenciales: es
+enrollar la señal alrededor de un círculo a cada velocidad y mirar dónde queda el centro
+de masa. La convolución es dar vuelta una, deslizarla, y anotar el solapamiento. Al modelo
+se le pide **la imagen más corta que vuelve obvio el invariante**, y recién después que
+abstraiga desde el dibujo.
+
+La apuesta es falsable —*el dibujo de un mecanismo es invariante entre síntomas de un modo
+que la prosa no lo es*— y el costo está medido, no escondido: pedir la visualización
+canónica casi **triplicó** los tokens de salida por grupo, 1.715 → 4.866.
+
 ## Qué no es
 
 Claude Code ya trae **Auto Memory** (notas declarativas por repo) y **Auto Dream**
