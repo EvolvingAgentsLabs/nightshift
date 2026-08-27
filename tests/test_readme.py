@@ -219,6 +219,28 @@ class AfirmacionesTest(unittest.TestCase):
                                       "%s está en verde y su gate dice: %s"
                                       % (celdas[0], celdas[2][:90]))
 
+    def test_la_licencia_que_declara_el_readme_es_la_del_repo(self):
+        """Los dos READMEs decían MIT y el archivo es Apache 2.0.
+
+        Es el tipo de dato que nadie vuelve a mirar después de escribirlo una vez, y el
+        único del README que tiene consecuencias legales para quien lo use. La fuente es
+        `LICENSE`; el README no puede decir otra cosa.
+        """
+        licencia = (RAIZ / "LICENSE").read_text(encoding="utf-8")
+        familia = ("Apache License" in licencia and "Version 2.0" in licencia
+                   and "Apache 2.0" or None)
+        self.assertIsNotNone(familia, "no se reconoce la licencia de `LICENSE`")
+        for nombre in READMES:
+            contenido = texto(nombre)
+            with self.subTest(readme=nombre):
+                self.assertIn(familia, contenido,
+                              "%s no declara la licencia del repo (%s)"
+                              % (nombre, familia))
+                for otra in ("MIT", "GPL", "BSD"):
+                    self.assertNotIn(otra, contenido,
+                                     "%s nombra %s y la licencia es %s"
+                                     % (nombre, otra, familia))
+
     def test_el_readme_sigue_diciendo_que_nada_esta_verificado(self):
         """Mientras `verify` no exista, decir lo contrario sería el peor error del repo."""
         from nightshift import store
