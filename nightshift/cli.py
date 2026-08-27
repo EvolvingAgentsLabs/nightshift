@@ -400,12 +400,26 @@ def _print_dream_report(report):
               % len(report["superseded"]))
         for item in report["superseded"]:
             print("  %s  <- superseded_by %s" % (item["trajectory"][:8], item["by"][:8]))
-    if report["skipped"]:
+    # Dos motivos distintos de salto, y se imprimen separados a propósito: "el modelo
+    # miró y no había patrón" y "no había nada capturado que mirar" se leen igual en un
+    # resumen y significan cosas opuestas. La segunda es un problema de captura.
+    from . import dream as dream_mod
+
+    sin_patron = [i for i in report["skipped"] if i["reason"] != dream_mod.SIN_CONTENIDO]
+    sin_contenido = [i for i in report["skipped"] if i["reason"] == dream_mod.SIN_CONTENIDO]
+    if sin_patron:
         print()
         print("grupos sin patrón común (%d) — el modelo dijo que no comparten nada:"
-              % len(report["skipped"]))
-        for item in report["skipped"]:
+              % len(sin_patron))
+        for item in sin_patron:
             print("  %s" % item["trajectory"][:8])
+    if sin_contenido:
+        print()
+        print("grupos sin contenido capturado (%d) — no se le preguntó al modelo:"
+              % len(sin_contenido))
+        for item in sin_contenido:
+            print("  %s" % item["trajectory"][:8])
+        print("  no es una noche tranquila: es captura vacía. `nightshift doctor`.")
     if report["rejected"]:
         print()
         print("grupos descartados (%d) — el modelo no produjo algo persistible:"
@@ -483,10 +497,25 @@ def cmd_dream(args) -> int:
         # no un fallo. Salir 1 acá haría que una noche normal figure como corrida fallida
         # en `schedule status`, y el gate de M3 —tres noches sin intervención— dejaría de
         # poder distinguir una noche tranquila de una que hay que ir a mirar.
-        code, note = 0, "sin patrón común en %d grupo(s): noche tranquila" % len(
-            report["skipped"])
-        print("\nel modelo no encontró patrón común en %d grupo(s)." % len(report["skipped"]),
-              file=sys.stderr)
+        #
+        # Un grupo saltado por **captura vacía** es otra cosa: dream funcionó, la captura
+        # no. Sigue saliendo 0 —el problema es aguas arriba, y `doctor` es quien falla por
+        # eso— pero el registro de la corrida no puede decir "noche tranquila", porque es
+        # justo la noche que hay que ir a mirar.
+        from . import dream as dream_mod
+
+        vacios = len([i for i in report["skipped"]
+                      if i["reason"] == dream_mod.SIN_CONTENIDO])
+        if vacios:
+            code, note = 0, ("%d grupo(s) sin contenido capturado: revisá la captura, "
+                             "no es una noche tranquila" % vacios)
+            print("\n%d grupo(s) no se le preguntaron al modelo: no tenían ningún paso "
+                  "con contenido.\ncorré `nightshift doctor`." % vacios, file=sys.stderr)
+        else:
+            code, note = 0, "sin patrón común en %d grupo(s): noche tranquila" % len(
+                report["skipped"])
+            print("\nel modelo no encontró patrón común en %d grupo(s)."
+                  % len(report["skipped"]), file=sys.stderr)
     else:
         code, note = 1, "había material y no salió ninguna candidata"
         print("\ndream no consolidó nada de %d trayectoria(s)." % report["trajectories"],
