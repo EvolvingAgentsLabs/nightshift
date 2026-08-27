@@ -81,6 +81,121 @@ class DreamTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def seed_vacia(self, conn, *, pasos=6, task_type="debug_test_failure"):
+        """Una silueta: pasos capturados sin una sola línea de contenido.
+
+        Es la forma real de una trayectoria anterior al arreglo de los campos del payload
+        (spec §5.9), y sigue siendo la forma que toma cualquier regresión de captura.
+        """
+        tid = store.open_trajectory(conn, session_id="s", repo_fingerprint="f" * 64,
+                                    task_type=task_type, base_commit="abc1234",
+                                    redaction={"redactor_version": "0.1.0"})
+        for _ in range(pasos):
+            store.append_step(conn, tid, kind="tool_use", tool="run_shell", decisive=True)
+        store.close_trajectory(conn, tid, result="tests_passed")
+        return tid
+
+    # --------------------------------------------- qué pasos ve el modelo, y cuáles no
+    def test_el_prompt_muestra_los_pasos_con_contenido_y_no_las_siluetas(self):
+        """El bug medido: 400 pasos, 177 con contenido, y al modelo llegaban 6 vacíos.
+
+        `decisive` marca el 38% de los pasos sin exigirles contenido, así que la ventana
+        de 6 caía entera sobre pasos vacíos mientras los que tenían texto no se miraban.
+        """
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="s", repo_fingerprint="f" * 64,
+                                        task_type="debug_test_failure", base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            for _ in range(20):           # las siluetas, decisivas y primeras
+                store.append_step(conn, tid, kind="tool_use", tool="run_shell", decisive=True)
+            store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                              result_summary="el contenido que sí se capturó")
+            store.close_trajectory(conn, tid, result="tests_passed")
+            texto = dream.describe(conn, store.get_trajectory(conn, tid))
+        finally:
+            conn.close()
+        self.assertIn("el contenido que sí se capturó", texto)
+        self.assertNotIn("(sin resumen)", texto)
+
+    def test_el_fallo_va_antes_que_el_test_en_verde(self):
+        """Seis lugares y un orden: el momento en que el problema se manifestó primero."""
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="s", repo_fingerprint="f" * 64,
+                                        task_type="debug_test_failure", base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            for i in range(dream.MAX_STEPS_EN_PROMPT):
+                store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                                  result_summary="Ran 255 tests OK · corrida %d" % i,
+                                  decisive=True)
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="el decodificador explota en el primer byte",
+                              decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+            texto = dream.describe(conn, store.get_trajectory(conn, tid))
+        finally:
+            conn.close()
+        self.assertIn("el decodificador explota", texto,
+                      "el único fallo de la trayectoria no puede quedar fuera del prompt")
+
+    def test_una_silueta_no_se_le_pregunta_al_modelo(self):
+        """Preguntar por seis líneas vacías cuesta 38k tokens y devuelve "no hay patrón".
+
+        Y esa respuesta después se lee como si el material se hubiera mirado, que es
+        precisamente cómo el bug de la captura sobrevivió dos milestones.
+        """
+        conn = store.connect()
+        try:
+            tid = self.seed_vacia(conn)
+        finally:
+            conn.close()
+        model = FakeModel(BUENA)
+        report = self.run_dream(model)
+
+        self.assertEqual(model.calls, 0, "no se le pregunta al modelo por una silueta")
+        self.assertEqual(report["candidates"], [])
+        self.assertEqual([i["reason"] for i in report["skipped"]], [dream.SIN_CONTENIDO])
+        self.assertEqual(self.row(tid)["status"], "closed")
+
+    def test_sin_contenido_no_es_sin_patron(self):
+        """Dos motivos opuestos de salto no pueden reportarse con la misma etiqueta."""
+        self.assertNotEqual(dream.SIN_CONTENIDO, dream.SIN_PATRON)
+        conn = store.connect()
+        try:
+            self.seed_vacia(conn)
+        finally:
+            conn.close()
+        report = self.run_dream(FakeModel(BUENA))
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            cli._print_dream_report(report)
+        texto = salida.getvalue()
+        self.assertIn("sin contenido capturado", texto)
+        self.assertNotIn("sin patrón común", texto)
+
+    def test_la_silueta_no_se_lleva_puesto_al_grupo(self):
+        """Una con contenido y una silueta **más nueva**: se promueve la que tiene texto.
+
+        El orden importa para que el test sirva: el representante se elige por desenlace y,
+        entre iguales, por el más nuevo. Si la silueta es la última, sin el guard sería
+        ella la promovida — con la abstracción que salió de la otra trayectoria.
+        """
+        conn = store.connect()
+        try:
+            bueno = self.seed(conn)
+            silueta = self.seed_vacia(conn)
+        finally:
+            conn.close()
+        model = FakeModel(BUENA)
+        report = self.run_dream(model)
+
+        self.assertEqual(model.calls, 1)
+        self.assertEqual([c["trajectory"] for c in report["candidates"]], [bueno],
+                         "el representante tiene que salir de las que tienen contenido")
+        self.assertEqual(self.row(silueta)["status"], "closed",
+                         "una silueta no se promueve con la abstracción de otra")
+
     # ------------------------------------------------------------------ consolidar
     def test_una_cerrada_llega_a_candidate(self):
         conn = store.connect()

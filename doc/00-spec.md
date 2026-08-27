@@ -498,6 +498,33 @@ consolidó o no había nada que consolidar; `1` había material y no salió ning
 candidata; `2` **no hay modelo local**, y dream no cae a una API remota (§2.2) ni a una
 heurística que finja ser consolidación.
 
+**Enmienda 0.3.5 — qué pasos ve el modelo.** El prompt muestra `MAX_STEPS_EN_PROMPT`
+pasos por trayectoria, y los elegía por la bandera `decisive`. Como `decisive` marca
+también cada comando de test que corre —el 38% de los pasos del store real— y no exige
+que el paso tenga contenido, la ventana caía sobre pasos vacíos: **una trayectoria de 400
+pasos con 177 con contenido llegaba al modelo como seis líneas `(sin resumen)`**, y el
+modelo respondía, correctamente, que no había patrón. Medido con el modelo real: la misma
+trayectoria, el mismo store y el mismo costo (~38 k tokens de entrada) devuelve `sin
+patrón común` antes del cambio y una `candidate` después.
+
+Dos correcciones:
+
+1. Al prompt van los pasos **con contenido**, ordenados por lo que enseñan: primero los
+   `tool_failure` —el momento en que el problema se manifestó—, después los pasos que el
+   usuario contradijo, después los decisivos, después el resto. Un paso sin texto no es
+   evidencia débil: es la ausencia de evidencia ocupando un lugar.
+2. Una trayectoria **sin ningún paso con contenido no se le pregunta al modelo**. Se
+   salta con el motivo `SIN_CONTENIDO`, que se reporta separado de `SIN_PATRON`: uno es
+   "el modelo miró y no había patrón", el otro es "no se capturó nada que mirar", y
+   confundirlos es exactamente cómo el bug de los campos del payload (§5.9) sobrevivió
+   dos milestones. La corrida sigue saliendo 0 —dream funcionó, la captura no— pero su
+   registro dice "revisá la captura" en vez de "noche tranquila".
+
+Una `candidate` **no** requiere que varias trayectorias compartan un patrón. Se comprobó
+con el modelo real: un grupo de una sola trayectoria con contenido produce candidata. El
+agrupamiento sirve para encontrar contradicciones (§4.2), no es una condición de
+evidencia.
+
 ### 6.2 Fase 2 — `verify` (nueva)
 
 Una trayectoria `candidate` se promueve a `procedure` **sólo si reproducirla pasa el
@@ -761,3 +788,4 @@ la spec y el benchmark negativo son publicables.
 | § | Enmienda | Por qué |
 |---|---|---|
 | 5.1, 5.10 | Una trayectoria sin abstracción engancha con el prompt por los errores de sus pasos `tool_failure` (`failure_match`) | Sin eso, dos prompts con síntomas distintos daban el mismo orden: el retrieval de lo crudo era por repo y recencia, y un síntoma proyectado por el modelo pesaba más que un fallo observado |
+| 6.1 | Al prompt de dream van los pasos **con contenido**, fallos primero; una trayectoria sin ninguno no se le pregunta al modelo y se reporta `SIN_CONTENIDO`, no `SIN_PATRON` | 400 pasos con 177 de contenido llegaban como seis líneas vacías: dream gastaba 38 k tokens en preguntar por siluetas y la respuesta "no hay patrón" se leía como si el material se hubiera mirado |

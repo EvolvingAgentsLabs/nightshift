@@ -44,6 +44,10 @@ REINTENTOS = 2
 
 # Respuesta legítima del modelo, no un error: estas trayectorias no comparten patrón.
 SIN_PATRON = "el modelo dijo que no hay patrón común"
+# Distinto de SIN_PATRON, y la diferencia importa: uno es "el modelo miró y no había
+# patrón", el otro es "no se capturó nada que mirar". Confundirlos es exactamente cómo
+# el bug de los campos del payload sobrevivió dos milestones (spec §5.9).
+SIN_CONTENIDO = "la trayectoria no tiene ningún paso con contenido capturado"
 
 # Un modelo que piensa en voz alta antes de responder. No es error: se descarta.
 THINKING_RE = re.compile(r"<think(?:ing)?>.*?</think(?:ing)?>", re.S | re.I)
@@ -401,18 +405,59 @@ def contradicted_by(conn, group, winner):
 
 
 # ------------------------------------------------------------------- el prompt
+def texto_del_paso(step) -> str:
+    """Lo que ese paso tiene para decir. Vacío si no capturó nada."""
+    return ((step["error_message"] or "") or (step["result_summary"] or "")).strip()
+
+
+# Orden en que se llenan los MAX_STEPS_EN_PROMPT lugares del prompt. Un paso sin texto
+# no compite por un lugar: no lo tiene.
+def _prioridad(step) -> int:
+    if step["kind"] == "tool_failure":
+        return 0                      # el momento en que el problema se manifestó
+    if step["contradicted"]:
+        return 1                      # "no, eso está mal": la señal negativa más barata
+    if step["decisive"]:
+        return 2
+    return 3
+
+
+def pasos_para_el_prompt(steps):
+    """Los pasos que dream ve de una trayectoria: los que tienen algo escrito.
+
+    Esto fue un bug de verdad, medido el 2026-08-27 sobre el store real. Una trayectoria
+    de 400 pasos con 177 de contenido llegaba al modelo como **seis líneas vacías**, y el
+    modelo respondía —correctamente— que no había patrón. La selección era "los decisivos
+    primero", y `decisive` marca el 38% de los pasos sin exigirles contenido, así que la
+    ventana caía entera sobre pasos vacíos mientras 177 con contenido no se miraban.
+
+    Un paso sin texto no es evidencia débil: es la ausencia de evidencia, y ocupa un lugar
+    que sí tiene quien lo use.
+    """
+    con_texto = [s for s in steps if texto_del_paso(s)]
+    con_texto.sort(key=lambda s: (_prioridad(s), s["idx"]))
+    elegidos = con_texto[:MAX_STEPS_EN_PROMPT]
+    return sorted(elegidos, key=lambda s: s["idx"])
+
+
+def tiene_contenido(conn, row) -> bool:
+    """¿Esta trayectoria tiene algo que abstraer, o es una silueta?"""
+    return any(texto_del_paso(s) for s in store.steps_of(conn, row["id"]))
+
+
 def describe(conn, row) -> str:
     steps = store.steps_of(conn, row["id"])
-    decisive = [s for s in steps if s["decisive"]]
-    shown = (decisive + [s for s in steps if not s["decisive"]])[:MAX_STEPS_EN_PROMPT]
-    shown.sort(key=lambda s: s["idx"])
+    shown = pasos_para_el_prompt(steps)
     lines = ["- trayectoria `%s` · tipo `%s` · desenlace `%s`"
              % (row["id"][:8], row["task_type"], row["outcome_result"] or "unknown")]
+    if not shown:
+        lines.append("  - (sin ningún paso con contenido capturado)")
+        return "\n".join(lines)
     for step in shown:
-        detail = (step["error_message"] or step["result_summary"] or "")[:MAX_CHARS_POR_PASO]
+        detail = texto_del_paso(step)[:MAX_CHARS_POR_PASO]
         lines.append("  - %s%s (`%s`): %s"
                      % (step["kind"], " DECISIVO" if step["decisive"] else "",
-                        step["tool"] or "—", detail or "(sin resumen)"))
+                        step["tool"] or "—", detail))
     return "\n".join(lines)
 
 
@@ -783,11 +828,27 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     for group in limitados:
         reporte["groups"] += 1
         reporte["trajectories"] += len(group)
-        winner = representative(group)
-        say("grupo de %d · representante %s (%s)"
-            % (len(group), winner["id"][:8], winner["task_type"]))
 
-        prompt = build_prompt(conn, group, ideate=idear)
+        # Las siluetas no van al modelo. Preguntarle por seis líneas vacías cuesta —
+        # medido, 38.127 tokens de entrada por un grupo— y la respuesta que devuelve es
+        # "no hay patrón", que después se lee como si el material se hubiera mirado.
+        utiles = [row for row in group if tiene_contenido(conn, row)]
+        if not utiles:
+            say("grupo de %d · sin contenido capturado: no se le pregunta al modelo"
+                % len(group))
+            reporte["skipped"].append({"trajectory": group[-1]["id"],
+                                       "reason": SIN_CONTENIDO})
+            continue
+
+        # El representante se elige entre las que tienen contenido: promover una silueta
+        # con la abstracción que salió de otra trayectoria sería atribuirla mal.
+        winner = representative(utiles)
+        vacias = len(group) - len(utiles)
+        say("grupo de %d%s · representante %s (%s)"
+            % (len(group), " (%d sin contenido, no se muestran)" % vacias if vacias else "",
+               winner["id"][:8], winner["task_type"]))
+
+        prompt = build_prompt(conn, utiles, ideate=idear)
         abstraction = valid_when = hypothesis = None
         problemas = []
         costo_antes = getattr(model, "total_cost", 0.0) or 0.0

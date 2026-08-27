@@ -394,6 +394,37 @@ desenlace: cada `make check` en verde y cada merge cierra uno— es una capacida
 está en el plan v0.3 y que no abro acá. Queda escrito con el dato que lo motivó: **dos
 ciclos de sueño sobre 400 pasos de desarrollo real produjeron cero candidatas.**
 
+### Corrección del 2026-08-27: el diagnóstico de arriba era el equivocado
+
+Lo anterior queda como estaba porque es lo que se creyó y sobre eso se decidió. **No era
+la causa.** Se aisló la variable corriendo el modelo de verdad sobre stores desechables:
+
+| Experimento | Resultado |
+|---|---|
+| Grupo de **una** trayectoria con contenido (`cbbd7ff0`) | **candidata** |
+| Grupo de dos (`8347ad4f` + `cbbd7ff0`) | **candidata** + una contradicción enlazada |
+| Grupo de una silueta (`a49c1582`, todos los pasos vacíos) | sin patrón común |
+| Grupo de **una**: los 400 pasos, 177 con contenido | **sin patrón común** ← el caso a explicar |
+
+Un grupo de uno **sí** produce candidata: la hipótesis de que hacía falta compartir
+patrón entre trayectorias era falsa, y el prompt —que pide "el patrón que comparten"— no
+era lo que bloqueaba. Lo que bloqueaba era **qué pasos veía el modelo**: seis por
+trayectoria, elegidos por la bandera `decisive`, sin exigirles contenido. Para esa
+trayectoria los seis salieron vacíos mientras 177 pasos con texto no se miraban.
+
+Arreglado (spec §6.1, enmienda 0.3.5): al prompt van los pasos con contenido, fallos
+primero. La misma trayectoria, el mismo store, el mismo costo (~38 k tokens de entrada):
+antes `sin patrón común`, después una candidata sobre el problema real de esa sesión.
+
+**Lo del capítulo sigue en pie, pero como problema de calidad, no de cantidad.** Un día
+entero sigue siendo una trayectoria sola, y de un día heterogéneo sale una candidata que
+lo promedia. Que ahora salga *algo* no vuelve buena la unidad de consolidación.
+
+Y queda una lección sobre este mismo archivo: **una explicación plausible anotada como
+hallazgo es exactamente el tipo de memoria que este proyecto dice no querer.** El párrafo
+de arriba se escribió sin aislar la variable, y sonaba lo bastante bien como para que
+nadie lo revisara durante un día.
+
 ## La ideación se fue a 4.866 tokens de salida por grupo
 
 Pedirle la visualización canónica —la DFT como centro de masa, la convolución como
