@@ -459,6 +459,17 @@ salieron de medir, no de estimar:
 Con abstracción manda la abstracción: es lo destilado. El enganche por fallo es el piso,
 no un segundo voto.
 
+**Y la precondición es la otra clave.** `valid_when` se imprimía en la inyección y no se
+buscaba nunca: una trayectoria cuya condición describe exactamente la situación que el
+usuario tiene delante no puntuaba por eso. Ahora engancha con el motivo
+`precondition_match`, y pesa menos que una señal observada y más que un síntoma
+proyectado. El orden no es arbitrario: `signals` sale de lo que está en los pasos,
+`valid_when` lo **infiere** el modelo desde esos pasos, y `projected_signals` es lo que
+nadie vio. Observado > inferido > conjeturado.
+
+Son dos preguntas distintas y por eso son dos motivos distintos en el `why`: una señal
+dice *esto ya lo vi*, una precondición dice *esto aplica acá*.
+
 ### 5.5 Comandos
 
 Las skills de un plugin llevan el namespace del plugin, así que los nombres reales son
@@ -814,3 +825,4 @@ la spec y el benchmark negativo son publicables.
 | 5.1, 5.10 | Una trayectoria sin abstracción engancha con el prompt por los errores de sus pasos `tool_failure` (`failure_match`) | Sin eso, dos prompts con síntomas distintos daban el mismo orden: el retrieval de lo crudo era por repo y recencia, y un síntoma proyectado por el modelo pesaba más que un fallo observado |
 | 6.1 | Al prompt de dream van los pasos **con contenido**, fallos primero; una trayectoria sin ninguno no se le pregunta al modelo y se reporta `SIN_CONTENIDO`, no `SIN_PATRON` | 400 pasos con 177 de contenido llegaban como seis líneas vacías: dream gastaba 38 k tokens en preguntar por siluetas y la respuesta "no hay patrón" se leía como si el material se hubiera mirado |
 | 4.3, 4.3.1 | `decisive` la enciende **sólo un fallo**; `tests_passed` se infiere del comando guardado | Marcaba el 38% de los pasos por mezclar diagnóstico con desenlace, y era el insumo del ranking, del desenlace y de la ventana de dream a la vez |
+| 5.10 | `valid_when` entra al ranking con el motivo `precondition_match` | Era la mitad del valor de conservar lo descartado (§4.2) y sólo se imprimía: "esto aplica acá" es una clave de recuperación distinta de "esto ya lo vi" |

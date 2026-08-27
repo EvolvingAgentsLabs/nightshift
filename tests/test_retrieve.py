@@ -357,6 +357,47 @@ class RetrieveTest(IsolatedStoreTest):
         razones = self.razones("vuelve el UnicodeDecodeError leyendo el manifiesto")
         self.assertNotIn("failure_match", razones[tid][1])
 
+    def sembrar_candidata(self, *, patron, senales, condiciones):
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="vieja", repo_fingerprint=FP,
+                                        task_type="debug_test_failure", base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                              error_message="algo que no se parece a nada", decisive=True)
+            store.close_trajectory(conn, tid, result="tests_passed")
+            store.promote_to_candidate(
+                conn, tid,
+                abstraction={"pattern": patron, "signals": senales, "decisive_signal": None},
+                valid_when=[{"condition": c, "source": "inferred"} for c in condiciones])
+            return tid
+        finally:
+            conn.close()
+
+    def test_la_precondicion_engancha_aunque_el_sintoma_no(self):
+        """"Esto aplica acá" es una clave distinta de "esto ya lo vi".
+
+        La precondición es la mitad del valor de conservar lo descartado (spec §4.2): sin
+        ella, una alternativa cuya condición describe la situación de enfrente no puntúa.
+        """
+        aplica = self.sembrar_candidata(
+            patron="un limite configurado por debajo del trabajo real",
+            senales=["la suite corta antes de terminar"],
+            condiciones=["el proceso corre detras de un proxy con timeout propio"])
+        otra = self.sembrar_candidata(
+            patron="un decodificador implicito",
+            senales=["falla en el primer byte"],
+            condiciones=["la entrada no es ascii puro"])
+        razones = self.razones("esto corre detras de un proxy y no se por que corta")
+        self.assertIn("precondition_match", razones[aplica][1])
+        self.assertNotIn("precondition_match", razones[otra][1])
+        self.assertGreater(razones[aplica][0], razones[otra][0])
+
+    def test_la_precondicion_pesa_menos_que_la_senal_observada(self):
+        """Observado > inferido. El orden es la jerarquía de evidencia del proyecto."""
+        self.assertLess(retrieve.W_PRECONDITION_MATCH, retrieve.W_SIGNAL_MATCH)
+        self.assertGreater(retrieve.W_PRECONDITION_MATCH, retrieve.W_PROJECTED_MATCH)
+
     def test_sin_historia_no_inyecta_nada(self):
         text, message = hook.dispatch("SessionStart",
                                       {"session_id": "limpia", "cwd": "."})
