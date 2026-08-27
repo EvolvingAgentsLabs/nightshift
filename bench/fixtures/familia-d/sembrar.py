@@ -20,7 +20,18 @@ RAIZ = pathlib.Path(__file__).resolve().parent
 DESTINO = pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_STORE")
                        or (pathlib.Path(os.environ.get("NIGHTSHIFT_BENCH_WORKDIR",
                                                        str(RAIZ))) / ".store"))
-FINGERPRINT = "d" * 64
+def fingerprint_del_repo():
+    """El fingerprint **del repo de la celda**, no uno inventado.
+
+    Sembrar con un fingerprint cualquiera hace que el retrieval trate la historia como
+    "de otro repositorio" y la descarte: la familia D mediría sobre cero memorias
+    inyectadas. Lo encontró un ensayo sellado, antes de que hubiera umbrales.
+    """
+    import subprocess
+    destino = os.environ.get("NIGHTSHIFT_BENCH_WORKDIR", str(RAIZ))
+    sys.path.insert(0, os.environ.get("NIGHTSHIFT_ROOT", ""))
+    from nightshift import context
+    return context.repo_fingerprint(destino)
 
 
 def main():
@@ -31,6 +42,7 @@ def main():
         print("no encuentro el paquete nightshift: fijá NIGHTSHIFT_ROOT", file=sys.stderr)
         return 2
 
+    fingerprint = fingerprint_del_repo()
     DESTINO.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DESTINO / "trajectories.sqlite3"))
     conn.executescript(store.SCHEMA_SQL)
@@ -44,7 +56,7 @@ def main():
             "INSERT INTO trajectories (id, created_at, closed_at, status, harness_name,"
             " session_id, repo_fingerprint, task_type, outcome_result, injection_weight,"
             " redaction_json) VALUES (?,?,?,'closed','claude-code',?,?,?,?,0.3,?)",
-            (tid, creado, creado, "historia-%s" % item["id"], FINGERPRINT,
+            (tid, creado, creado, "historia-%s" % item["id"], fingerprint,
              item["task_type"], item["outcome"],
              json.dumps({"redactor_version": "0.1.0"})))
         conn.execute(

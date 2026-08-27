@@ -122,6 +122,39 @@ nightshift dream --lookback-days 3
 
 Consolidar cáscaras produce candidatas vacías, y una candidata vacía se inyecta igual.
 
+## 4.5 Fase 1.5 — el ensayo sellado
+
+Antes de congelar nada, conviene saber si la máquina corre entera y cuánto cuesta. Y
+saberlo **sin ver el efecto**, porque quien fija los umbrales no puede haberlo visto.
+
+```sh
+nightshift bench rehearse --fixture bench/fixtures/familia-d/fixture.json \
+  --agent "python3 {agentes}/correr-agente.py {row} {prompt}" --repeats 1
+```
+
+`rehearse` corre con el pre-registro abierto —`run` se niega, y son cosas distintas— y
+reporta **sólo salud**: cuántas celdas terminaron, cuánto tardaron, cuánto costaron,
+cuántas produjeron dato medible, y cuáles fallaron y por qué. No dice si resolvieron, ni
+en el reporte ni en la línea de progreso: sellar el final no serviría de nada si el
+progreso lo va contando.
+
+Los resultados quedan escritos y marcados como ensayo. `bench report --unseal` los
+muestra y deja dicho que se los vio — si el pre-registro todavía no estaba congelado, eso
+va a su registro de enmiendas.
+
+**Lo que el primer ensayo encontró, antes de que existieran umbrales:**
+
+| Hallazgo | Qué habría pasado sin el ensayo |
+|---|---|
+| La historia sembrada de la familia D usaba un fingerprint inventado, así que el retrieval la descartaba por "de otro repo" | La familia D habría medido precisión sobre **cero memorias inyectadas** |
+| La fila S0 de la familia D no tiene inyecciones que clasificar | Ya estaba anotado; el ensayo lo confirmó con la corrida delante |
+| Costo real | **USD 0,19 por celda** con `sonnet` → ~USD 20 las 102 celdas |
+
+Ese primer dato es el tipo de cosa que sólo aparece corriendo, y es la cuarta amenaza a
+la validez que no estaba en §5.
+
+**Gate:** `bench rehearse` sale 0 sobre las tres familias.
+
 ## 5. Fase 2 — correr M4
 
 ### 2.0 Antes de arrancar
@@ -231,6 +264,7 @@ encender la transferencia cross-repo (es una constante del experimento: va al pr
 | Fase | Termina cuando |
 |---|---|
 | 0 | ADR-001 respondido con fecha **y** `nightshift bench check` sale 0 |
+| 1.5 | `nightshift bench rehearse` sale 0 sobre las tres familias, sin desellar nada |
 | 1 | `nightshift audit --min-sessions 5` sale 0 **y** `schedule status` muestra 3 noches seguidas sin intervención |
 | 2 | `nightshift bench report` imprime un veredicto que no es "indecidible" |
 | 3 | M5 arrancado, o la spec congelada y publicada |

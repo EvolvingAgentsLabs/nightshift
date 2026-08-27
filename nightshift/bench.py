@@ -452,6 +452,51 @@ def check_fixture(fixture, *, timeout=120, log=None) -> dict:
             "ok": all(not r["problems"] for r in resultados)}
 
 
+# ------------------------------------------------------------------ ensayo sellado
+# Lo que un ensayo puede reportar sin contaminar el pre-registro. Son las cosas que
+# dicen si la máquina funciona; ninguna dice si nightshift sirve.
+CAMPOS_OPERATIVOS = ("row", "repeat", "task", "phase", "seconds", "agent_exit", "error",
+                     "cost_usd", "num_turns", "tool_limit_exceeded")
+
+
+def operational_summary(records) -> dict:
+    """Salud de la corrida, **sin el resultado**.
+
+    Existe por PREREG §5: "el operador ve resultados parciales y ajusta". Un ensayo sirve
+    para descubrir que una celda se cuelga, que el gate del fixture no corre en la copia
+    o que 102 sesiones cuestan más de lo que se creía. Nada de eso necesita saber cuántas
+    tareas resolvió cada fila — y saberlo antes de congelar los umbrales le pone un
+    incentivo a quien los fija.
+
+    Por eso este resumen **no mira `resolved` ni `false_stale_ratio`**. No es que los
+    oculte al final: es que no los toca.
+    """
+    total = len(records)
+    # "Completada" es que el agente terminó bien. Que además el fixture haya podido
+    # medirla es otra cosa, y se cuenta aparte: en la familia D la fila S0 no tiene
+    # inyecciones que clasificar y eso es un agujero conocido del pre-registro, no una
+    # celda que falló.
+    completadas = [r for r in records if r.get("agent_exit") == 0]
+    con_error = [r for r in records if r.get("error")]
+    segundos = [r.get("seconds") or 0 for r in records]
+    costos = [r["cost_usd"] for r in records if r.get("cost_usd") is not None]
+    calls = [r["tool_calls"] for r in records if r.get("tool_calls") is not None]
+    return {
+        "cells": total,
+        "completed": len(completadas),
+        "errored": len(con_error),
+        "errors": [{"row": r["row"], "task": r["task"], "error": (r.get("error") or "")[:120]}
+                   for r in con_error][:10],
+        "seconds_total": round(sum(segundos), 1),
+        "seconds_median": median(segundos),
+        "cost_usd_total": round(sum(costos), 4) if costos else None,
+        "tool_calls_median": median(calls),
+        "limit_exceeded": sum(1 for r in records if r.get("tool_limit_exceeded")),
+        # Se dice cuántas celdas produjeron dato, no qué dato produjeron.
+        "with_outcome": sum(1 for r in records if r.get("resolved") is not None),
+    }
+
+
 # ------------------------------------------------------------------------- resumen
 def median(values):
     values = sorted(v for v in values if v is not None)

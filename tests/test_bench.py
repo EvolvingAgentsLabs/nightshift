@@ -377,6 +377,82 @@ class CliTest(IsolatedStoreTest):
         self.assertFalse(data["ready"], "el pre-registro sigue en borrador")
         self.assertTrue(data["blockers"])
 
+    def test_el_ensayo_no_muestra_el_resultado(self):
+        """Sellar el reporte final no sirve si el progreso lo va contando.
+
+        Un ensayo corre sin pre-registro congelado. Ver el efecto ahí es elegir los
+        umbrales sabiendo el efecto, que es lo que el pre-registro existe para impedir
+        (PREREG §5: "el operador ve resultados parciales y ajusta").
+        """
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\ncat <<'FIN'\n"
+                         'NIGHTSHIFT_BENCH {"tool_calls": 5, "cost_usd": 0.1}\n'
+                         "FIN\n", encoding="utf-8")
+        falso.chmod(0o755)
+
+        code, out, err = self.run_cli(
+            ["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(falso), "--rows", "S1", "--repeats", "1", "--timeout", "60"])
+        self.assertIn(code, (0, 1), err)
+
+        # Ni el progreso ni el reporte pueden decir si resolvió.
+        self.assertNotIn("resuelto", out)
+        self.assertNotIn("resolución", out)
+        # Lo operativo sí: es para lo que existe.
+        for esperado in ("completadas", "tiempo", "costo", "sellado"):
+            self.assertIn(esperado, out)
+
+    def test_el_ensayo_se_niega_a_ser_la_corrida(self):
+        """Un ensayo queda marcado en su registro y `report` no lo confunde."""
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        falso.chmod(0o755)
+        self.run_cli(["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+                      "--agent", str(falso), "--rows", "S1", "--repeats", "1",
+                      "--timeout", "60"])
+
+        corrida = sorted((Path(self.home) / "bench").glob("*"))[-1]
+        meta = json.loads((corrida / "meta.json").read_text(encoding="utf-8"))
+        self.assertTrue(meta["rehearsal"], "el ensayo queda marcado en el registro")
+
+        code, out, _ = self.run_cli(["bench", "report"])
+        self.assertIn("(ensayo)", out)
+        self.assertIn("sellados", out)
+        self.assertNotIn("veredicto", out)
+
+        code, out, _ = self.run_cli(["bench", "report", "--unseal"])
+        self.assertIn("DESSELLADO", out)
+        self.assertIn("registro de enmiendas", out,
+                      "desellar antes de congelar tiene que quedar anotado")
+
+    def test_el_ensayo_corre_con_el_prereg_abierto(self):
+        """Es el punto: `run` se niega, `rehearse` no. Son cosas distintas."""
+        import tempfile
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        falso = Path(tmp.name) / "agente.sh"
+        falso.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        falso.chmod(0o755)
+
+        code_run, _, err = self.run_cli(
+            ["bench", "run", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(falso), "--rows", "S1", "--repeats", "1"])
+        self.assertEqual(code_run, 3, "correr con el pre-registro abierto está prohibido")
+
+        code_ensayo, out, _ = self.run_cli(
+            ["bench", "rehearse", "--fixture", str(FIXTURES / "fixture-a.json"),
+             "--agent", str(falso), "--rows", "S1", "--repeats", "1", "--timeout", "60"])
+        self.assertIn(code_ensayo, (0, 1), "el ensayo sí puede correr")
+
     def test_report_sin_corridas_lo_dice(self):
         code, _, err = self.run_cli(["bench", "report"])
         self.assertEqual(code, 1)
