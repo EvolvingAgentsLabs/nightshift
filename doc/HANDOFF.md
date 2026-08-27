@@ -41,7 +41,7 @@ Arrancá con `nightshift dev`.
 | Cohorte de captura: `status` no promedia entre generaciones | `store.COHORTE_DE_CAPTURA` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 288 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 299 tests, selftest |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
 ### No construido
@@ -240,6 +240,54 @@ Una sesión larga de desarrollo. Lo que hay que saber para no re-derivarlo:
 | **Los dólares no son una factura** | El CLI reporta a precio de lista (`costBasis: "list"`); con suscripción no se factura. Los tokens son la unidad. Hay un test que falla si alguna línea con `USD` no lo dice. |
 | **El retrieval de lo crudo no miraba el prompt** (spec §5.10) | Medido: dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores. Sin abstracción no había enganche por síntoma, así que un síntoma **proyectado** por el modelo pesaba 0.75 y un fallo **observado** pesaba cero. Ahora una trayectoria cruda engancha por los errores de sus pasos `tool_failure`, con el motivo `failure_match`. Sólo fallos: `decisive` marca también los tests en verde, y son el 38% de los pasos. |
 | **`consolidation_strategy` es una constante del experimento** | `observed` u `ideate`. Cambia qué **es** el brazo S1: una corrida con una no es comparable con otra. Está en PREREG y subió los `TODO(Matias)` a 21; la configuración de retrieval los llevó a 22. |
+
+### Lo que cambió el 2026-08-27 (tarde), y por qué toca el brazo del benchmark
+
+**El enganche por síntoma no sobrevivía a la paráfrasis, y nadie lo había medido.** La
+spec §5.10 verificó que el ranking *discrimina* —dos prompts distintos, órdenes
+distintos— pero nunca que aguante que el usuario lo diga con sus palabras, que es la
+única forma en que se dice. Medido sobre el store real: **1 de 6 paráfrasis enganchaba.**
+
+La causa era un piso único de dos palabras en común para dos clases de texto que no se
+parecen: una oración que el modelo destiló (sin relleno, donde una palabra ya es señal) y
+un volcado de error (casi todo andamiaje del harness). Ahora son dos pisos —enmienda
+0.3.6, spec §5.10— y ninguna coincidencia puede apoyarse sólo en predicados de fallo
+(`falla`, `error`, `bug`), que dicen **que** algo se rompió y no **qué**.
+
+Después: **4 de 6**, con el control negativo en cero las dos veces.
+
+**Esto cambió qué es el brazo `S1`**, y por eso está escrito en tres lados: spec §5.10 +
+tabla de enmiendas, `LATER.md`, y `experimentos/05-enganche-por-parafrasis.py`, que es la
+medición que lo motivó. PREREG §2 pide que la configuración de retrieval sea una constante
+del experimento; el pre-registro sigue en BORRADOR así que el cambio es legítimo, pero
+**silencioso hubiera sido exactamente el error que este repo ya documentó** cuando el
+ranking cambió tres veces en una sesión sin dejar constancia.
+
+Lo que **no** se arregló y queda medido en `LATER.md`: 2 de 6 paráfrasis siguen sin
+enganchar porque no comparten *ninguna* palabra con la frase que las describe —
+`resumen`/`memoria consolidada`, `métrica`/`contador de cobertura`. Es sinónimo, no
+morfología: `difflib` y el prefijo se probaron y no compran nada. Necesita embeddings,
+que chocan con ADR-003, y compite con M5 después del veredicto.
+
+### Y el puntaje de las proyecciones estaba inflado
+
+Decía "seis proyecciones: 2 confirmadas, 2 refutadas, 2 abiertas" en el README, el
+README.es y `experimentos/README.md`. **Dos de esas cuentas no existen.** El store tiene
+una sola candidata con cuatro proyecciones: **2 confirmadas, 1 refutada, 1 abierta**. La
+segunda refutación que se reportaba no está en el store, ni en los logs, ni en ninguna
+salida de dream — probablemente era una paráfrasis de memoria de la proyección que
+ADR-004 **confirmó** y que produjo `tests/test_suite.py`, con el veredicto dado vuelta.
+
+Se puede contar en una línea, y conviene que la próxima sesión lo haga antes de citar
+cualquier número:
+
+```sh
+sqlite3 ~/.nightshift/trajectories.sqlite3 \
+  "select projected_signals_json from trajectories where status='candidate';"
+```
+
+También estaba mal la hora: la corrida que produjo la candidata fue la de **15:25:34Z**;
+la de 15:27 produjo **cero**.
 
 ### Lo primero que tiene que mirar la sesión que sigue
 

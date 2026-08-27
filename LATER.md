@@ -369,17 +369,43 @@ sobre el store real.
 > junta que gotea hacia adentro, un tubo que sigue teniendo presión aguas abajo aunque ya
 > no lleve fluido.»
 
-Y proyectó cuatro síntomas. Dos se pueden comprobar contra el código hoy, y los comprobé:
+Y proyectó cuatro síntomas. Una se puede comprobar contra el código hoy, y la comprobé:
 
 - *«los contadores de cobertura reportan salud plena porque cuentan registros presentes,
   no registros con contenido»* — **no se sostiene**: `with_outcome` cuenta veredictos
   reales del gate y `capture_quality` mide el vacío explícitamente. Es el bug que ya se
   arregló en el gate de M1, y no quedó otro igual.
-- *«un gate que pasa en verde habiendo ejecutado cero tests»* — **no se sostiene**: el
-  gate del fixture sale 1 y `discover` sobre un directorio vacío sale 5.
 
-Dos conjeturas comprobadas y descartadas. Eso es lo que las distingue de un dato, y es
+Una conjetura comprobada y descartada. Eso es lo que la distingue de un dato, y es
 exactamente el trabajo que `verify` (M5) va a tener que hacer solo.
+
+### Corrección del 2026-08-27 (tarde): acá había una segunda refutación que no existe
+
+**Este párrafo decía dos, y la segunda no es trazable.** Afirmaba haber refutado también
+*«un gate que pasa en verde habiendo ejecutado cero tests»*, atribuyéndola a las mismas
+cuatro proyecciones de esta consolidación. Buscada de nuevo: **esa frase no está en el
+store, ni en los logs, ni en ninguna salida guardada de dream.** Las cuatro proyecciones
+de la candidata `fff6af83` son, textuales:
+
+1. «El retrieval devuelve coincidencias por forma estructural sin relación con el
+   contenido del trabajo.» — **confirmada** (spec §5.10)
+2. «Las memorias consolidadas de trabajos distintos resultan casi idénticas entre sí.» —
+   **abierta**
+3. «Los contadores de cobertura reportan salud plena porque cuentan registros presentes,
+   no registros con contenido.» — **refutada**, arriba
+4. «Una revisión manual de un registro reciente muestra la estructura completa y todos los
+   campos de texto en blanco.» — **confirmada** (spec §6.1)
+
+Lo más probable es que sea una paráfrasis de memoria de la proyección del experimento de
+ideación —*«un test recién agregado no se ejecuta nunca y nadie lo advierte, porque el
+total no se compara contra ningún valor esperado»*— que ADR-004 **confirmó** y que produjo
+`tests/test_suite.py`. Si es así, el párrafo original le dio vuelta el veredicto a la única
+proyección que este proyecto puede mostrar habiendo cerrado un agujero real.
+
+**Y eso es exactamente lo que este archivo dice tres secciones más arriba:** "una
+explicación plausible anotada como hallazgo es exactamente el tipo de memoria que este
+proyecto dice no querer". Costó otra vez, en la misma página, y esta vez sobre el único
+número que el proyecto publica. Queda escrita la corrección y no se borra el error.
 
 **Y lo que NO consolidó es el hallazgo.** La trayectoria de esta sesión —400 pasos, un
 día entero de desarrollo— salió como *«sin patrón común»* en los dos ciclos. No es un
@@ -584,9 +610,58 @@ cuesta una consolidación por camino y queda para después del veredicto: si M4 
 no se construye, y si dice go compite con M5 (`verify`) por ser lo siguiente.
 
 **Lo primero que mostró el prototipo, y es incómodo:** de las cuatro proyecciones que dream
-escribió el 2026-08-27 a las 15:27 sobre el store de este repo, **dos se confirmaron esa
-misma tarde** —el retrieval que coincidía por forma sin mirar contenido, y el registro con
-la estructura completa y los campos de texto en blanco—. Ninguna de las dos se encontró
+escribió el 2026-08-27 sobre el store de este repo —en la corrida de las **15:25:34Z**, que
+es la que produjo la candidata; la de las 15:27 produjo cero—, **dos se confirmaron esa
+misma tarde**: el retrieval que coincidía por forma sin mirar contenido, y el registro con
+la estructura completa y los campos de texto en blanco. Ninguna de las dos se encontró
 *por* la proyección: estaban escritas, inyectadas y disponibles, y el trabajo las
 redescubrió midiendo por otro motivo. Una conjetura que nadie resuelve no es memoria, es
-una nota. El detalle, con las dos que **no** se sostuvieron, está en `experimentos/README.md`.
+una nota.
+
+El puntaje completo y trazable es **cuatro proyecciones: 2 confirmadas, 1 refutada, 1
+abierta**, de una sola candidata en un solo store. Antes acá decía "2 y 2 sobre seis", y
+las dos cuentas de más no existen — la corrección está más arriba, en la sección de esta
+misma consolidación.
+
+## El enganche por síntoma no sabe de sinónimos
+
+Encontrado el 2026-08-27 midiendo lo que nadie había medido: la spec §5.10 verificó que el
+ranking **discrimina** —dos prompts distintos, órdenes distintos— pero nunca que
+**sobreviva a la paráfrasis**, que es la única forma en que una persona escribe. Se caía a
+1 de 6 sobre el store real. La enmienda 0.3.6 lo llevó a 4 de 6 y el detalle está en
+`experimentos/05-enganche-por-parafrasis.py`.
+
+**Las otras dos no se arreglan bajando un piso.** Son estas:
+
+- «dos resúmenes de tareas diferentes me salieron prácticamente iguales», que tendría que
+  enganchar con «las memorias consolidadas de trabajos distintos resultan casi idénticas
+  entre sí».
+- «las métricas dicen que está todo bien pero es mentira», contra «los contadores de
+  cobertura reportan salud plena porque cuentan registros presentes».
+
+No comparten **ninguna** palabra de contenido con la frase que las describe. `resumen` y
+`memoria consolidada`, `métrica` y `contador de cobertura`, `mentira` y `salud plena` son
+el mismo concepto con vocabulario distinto, y la intersección de tokens no tiene forma de
+saberlo. Se probaron dos sustitutos de stdlib y **ninguno compra nada**, con su número en
+el experimento:
+
+| matcher | paráfrasis | falsos |
+|---|---|---|
+| antes: piso único 2 | 3/14 | 0/6 |
+| ahora: destilado piso 1 | 9/14 | 0/6 |
+| prefijo de 5 caracteres | 3/14 | 0/6 |
+| `difflib` a 0.82 | 3/14 | 0/6 |
+
+Los dos últimos atacan morfología —plurales, tipeos— y el problema es semántico. Lo que lo
+resolvería son embeddings, y ahí choca con dos cosas a la vez: **ADR-003** (sólo stdlib,
+sin red, nada que pida una API key nueva) y el hecho de que un índice vectorial local es la
+primera pieza del proyecto que necesitaría un modelo corriendo en el camino caliente de un
+hook, que tiene que salir en milisegundos y salir 0 siempre.
+
+**No lo abro**, y no por costo sino por orden: es una mejora del brazo `S1` y M4 todavía no
+dijo si el brazo `S1` vale la pena. Si M4 da no-go, esto no se construye. Si da go, compite
+con M5 (`verify`) por ser lo siguiente — y `verify` gana, porque hoy nada llega a
+`procedure` y eso es un agujero más grande que un enganche que falla en 2 de 6.
+
+Queda escrito con el número que lo motiva, que es lo que le faltaba a la versión anterior
+de esta página.

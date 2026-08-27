@@ -88,7 +88,7 @@ On 2026-08-27 the plugin consolidated its own development store and, from the dr
 the mechanism, **projected four symptoms nobody had observed** ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)).
 That same afternoon, measuring for an unrelated reason, two of them turned out to be real:
 
-| What dream projected at 15:27 | What was measured hours later |
+| What dream projected at 15:25 | What was measured hours later |
 |---|---|
 | «Retrieval returns matches by structural shape, unrelated to the content of the work.» | Two prompts describing different symptoms returned the same ranking and the same scores: retrieval of raw trajectories never looked at the prompt |
 | «A manual review of a recent record shows the full structure and every text field blank.» | Dream's own prompt showed six `(no summary)` steps out of a 400-step trajectory that had 177 steps with content |
@@ -102,9 +102,18 @@ Three things have to be said about that, or it is a fairy tale:
   projection with options so a person can resolve it, without writing to the store and
   **without promoting anything** — a human saying yes is not a reproduction against a
   gate ([ADR-002](doc/adr/ADR-002-verify-gate.md)).
-- **Two other projections were checked and did not hold.** Six projections, two
-  confirmed, two refuted, two open, one store. That is an anecdote with a numerator, not
-  a result.
+- **Of the other two, one was checked against the code and did not hold; one is still
+  open.** Four projections: two confirmed, one refuted, one open — one candidate, one
+  store. That is an anecdote with a numerator, not a result, and the numerator is
+  countable:
+  ```sh
+  sqlite3 ~/.nightshift/trajectories.sqlite3 \
+    "select projected_signals_json from trajectories where status='candidate';"
+  ```
+  This line used to read *"six projections, two confirmed, two refuted, two open"*. Two of
+  those counts did not exist. The correction is in [`LATER.md`](LATER.md); the inflated
+  number survived in the one place where this project publishes its score, which is the
+  same failure mode the repo spends three sections documenting.
 - **The same session found three defects in the treatment arm itself** — retrieval
   ignoring the prompt, dream reading empty steps, the rehearsal blaming dream for its own
   broken `HOME`. All three were invisible because every hook exits 0 by design. They are

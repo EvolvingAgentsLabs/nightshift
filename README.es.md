@@ -89,7 +89,7 @@ mecanismo, **proyectó cuatro síntomas que nadie había observado**
 ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). Esa misma tarde, midiendo por otro
 motivo, dos resultaron ciertos:
 
-| Lo que dream proyectó a las 15:27 | Lo que se midió horas después |
+| Lo que dream proyectó a las 15:25 | Lo que se midió horas después |
 |---|---|
 | «El retrieval devuelve coincidencias por forma estructural sin relación con el contenido del trabajo.» | Dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores: el retrieval de lo crudo no miraba el prompt |
 | «Una revisión manual de un registro reciente muestra la estructura completa y todos los campos de texto en blanco.» | El prompt del propio dream mostraba seis pasos `(sin resumen)` de una trayectoria de 400 pasos que tenía 177 con contenido |
@@ -103,9 +103,18 @@ Tres cosas hay que decir de eso, o es un cuento:
   con opciones para que una persona la resuelva, sin escribir en el store y **sin
   promover nada** — que un humano diga que sí no es una reproducción contra un gate
   ([ADR-002](doc/adr/ADR-002-verify-gate.md)).
-- **Otras dos proyecciones se comprobaron y no se sostenían.** Seis proyecciones: dos
-  confirmadas, dos refutadas, dos abiertas, un store. Es una anécdota con numerador, no
-  un resultado.
+- **De las otras dos, una se comprobó contra el código y no se sostenía; la otra sigue
+  abierta.** Cuatro proyecciones: dos confirmadas, una refutada, una abierta — una
+  candidata, un store. Es una anécdota con numerador, no un resultado, y el numerador se
+  puede contar:
+  ```sh
+  sqlite3 ~/.nightshift/trajectories.sqlite3 \
+    "select projected_signals_json from trajectories where status='candidate';"
+  ```
+  Acá decía *«seis proyecciones: dos confirmadas, dos refutadas, dos abiertas»*. Dos de
+  esas cuentas no existían. La corrección está en [`LATER.md`](LATER.md); que el número
+  inflado sobreviviera en el único lugar donde este proyecto publica su puntaje es el
+  mismo modo de falla que el repo lleva tres secciones documentando.
 - **La misma sesión encontró tres defectos en el brazo del tratamiento** — el retrieval
   que no miraba el prompt, dream leyendo pasos vacíos, y el ensayo culpando a dream de su
   propio `HOME` roto. Los tres eran invisibles porque todos los hooks salen 0 por diseño.

@@ -13,6 +13,7 @@ suma al conteo del gate de M1.**
 | [02](02-lo-descartado-no-se-pierde.sh) | Lo que se descartó sobrevive enlazado, con su precondición | 1 dream |
 | [03](03-cinco-ciclos-sobre-si-mismo.sh) | Cinco ciclos del plugin sobre sus propios problemas | 5 sesiones + 5 dreams |
 | [04](04-ideacion-visual.sh) | Un bloque `ideate` antes de abstraer: ¿el dibujo transfiere mejor que la prosa? | 6 sesiones + 2 consolidaciones |
+| [05](05-enganche-por-parafrasis.py) | ¿El enganche por síntoma sobrevive a que lo digas con otras palabras? | nada: compara frases |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -20,8 +21,13 @@ suma al conteo del gate de M1.**
 ./experimentos/02-lo-descartado-no-se-pierde.sh
 ./experimentos/03-cinco-ciclos-sobre-si-mismo.sh
 ./experimentos/04-ideacion-visual.sh
+python3 experimentos/05-enganche-por-parafrasis.py --alternativas
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
+
+De los cinco, el **05** es el único que cambió el plugin: encontró que el enganche por
+síntoma se caía a cero en cuanto el usuario parafraseaba, y de ahí salió la enmienda 0.3.6
+de la spec. Los otros cuatro miden y no tocan nada.
 
 ---
 
@@ -282,6 +288,63 @@ plugin por el camino normal y no antes.
 
 ---
 
+## 05 — El enganche contra la paráfrasis
+
+**La capacidad que ilustra:** ninguna nueva. Prueba si las que ya están declaradas
+funcionan cuando el usuario habla como habla una persona.
+
+**De dónde sale.** La spec §5.10 se escribió midiendo el ranking contra el store real, y
+lo que midió fue **discriminación**: que dos prompts con síntomas distintos no devuelvan el
+mismo orden. Quedó verificado. Lo que nadie midió es la otra mitad, y es la del README:
+*«cuando abrís la sesión siguiente y describís lo que te está pasando, te devuelve lo que
+ya se probó»*. Nadie describe un síntoma con las palabras exactas con las que un modelo lo
+escribió la noche anterior.
+
+**El montaje.** Las frases reales de la única candidata del store de este repo
+(`fff6af83`), contra tres corpus de prompts: la frase textual (control positivo), catorce
+paráfrasis de cómo lo diría una persona, y seis prompts de otro planeta (control negativo).
+
+### Lo que dio
+
+| | antes | después |
+|---|---|---|
+| paráfrasis que enganchan (corpus del experimento) | 3 de 14 | **9 de 14** |
+| paráfrasis que enganchan (store real, extremo a extremo) | 1 de 6 | **4 de 6** |
+| control negativo | 0 de 6 | 0 de 6 |
+
+**El enganche por síntoma se caía a cero en cuanto se parafraseaba**, que es la única
+forma en que alguien lo escribe. La causa: `_enganche` pedía dos palabras de contenido en
+común, y les cobraba el mismo peaje a dos clases de texto que no se parecen — una oración
+que el modelo destiló, donde no hay relleno, y un volcado de error, que es casi todo
+andamiaje del harness.
+
+De acá salió la **enmienda 0.3.6**: dos pisos en vez de uno. Con la medición que dice por
+qué el de lo crudo **no** baja — bajarlo produce un falso positivo sobre los errores reales
+de este store, y dejarlo en 2 no produce ninguno, que es el caso que §5.10 ya había
+documentado con `Exit code 1`.
+
+**Y un segundo hallazgo, del propio arreglo.** Bajar el piso de lo destilado introdujo un
+falso positivo: «el deploy falla con un certificado SSL vencido» enganchaba con «esa etapa
+no falla ante contenido ausente» por la palabra `falla` y nada más. Medido sobre nueve
+prompts ajenos, los enganches de una sola palabra se reparten limpio: los verdaderos los
+carga un sustantivo del dominio (`vacio`, `texto`, `registro`, `paso`) y el único falso lo
+carga un predicado (`falla`). De ahí `_PREDICADOS_DE_FALLO`: dicen **que** algo se rompió,
+no **qué**, y no pueden sostener un enganche solas.
+
+**Lo que este experimento no demuestra:** que nightshift sirva. Que la memoria aparezca no
+es que ayude — eso lo decide M4. Y las paráfrasis las escribió quien mide, así que son
+material de trabajo: están en texto plano dentro del archivo para que se discutan de a una.
+El único lado que no depende de ese criterio es el control negativo.
+
+**Dos de seis siguen sin enganchar**, y no se disimulan: «dos resúmenes de tareas
+diferentes me salieron prácticamente iguales» y «las métricas dicen que está todo bien pero
+es mentira». Ninguna comparte una sola palabra de contenido con el patrón que las
+describiría. Eso es un problema de sinónimo, no de morfología: `difflib` y el emparejado por
+prefijo se probaron y no compran nada — están en el archivo, con su número. Resolverlo
+necesita embeddings, que chocan con ADR-003 (stdlib, sin red). Queda en `LATER.md`.
+
+---
+
 ## Cómo leer todo esto
 
 Ninguno de los tres experimentos responde la pregunta del proyecto. Muestran **qué hace la
@@ -334,12 +397,12 @@ para que nadie tenga que mentir para seguir.
 
 ### Lo primero que mostró, sobre el store de este repo
 
-El 2026-08-27 a las 15:27 dream consolidó una candidata sobre el bug de los campos del
+El 2026-08-27 a las 15:25:34Z dream consolidó una candidata sobre el bug de los campos del
 payload, y proyectó cuatro síntomas que nadie había visto. Esa misma tarde, midiendo por
 otro motivo —una revisión externa del modelo mental—, **dos de los cuatro resultaron
 ciertos**:
 
-| Lo que dream proyectó a las 15:27 | Lo que se midió después |
+| Lo que dream proyectó a las 15:25 | Lo que se midió después |
 |---|---|
 | «El retrieval devuelve coincidencias por forma estructural sin relación con el contenido del trabajo.» | Dos prompts con síntomas distintos devolvían el mismo orden y los mismos scores: el retrieval de lo crudo no miraba el prompt (spec §5.10) |
 | «Una revisión manual de un registro reciente muestra la estructura completa y todos los campos de texto en blanco.» | El prompt de dream mostraba seis pasos `(sin resumen)` de una trayectoria de 400 pasos con 177 con contenido (spec §6.1) |
@@ -348,6 +411,47 @@ ciertos**:
 disponibles, y el trabajo las redescubrió midiendo. Eso es exactamente el agujero que este
 experimento tantea: una conjetura que nadie resuelve no es memoria, es una nota.
 
-Para balance, y porque el proyecto reporta lo que no favorece: de otra candidata se
-comprobaron dos proyecciones contra el código y **no se sostenían** (`LATER.md`). El
-puntaje hasta acá es 2 y 2, sobre seis proyecciones, con n=1 store.
+Para balance, y porque el proyecto reporta lo que no favorece: de las otras dos, una se
+comprobó contra el código y **no se sostenía** (`LATER.md`), y la otra sigue abierta.
+
+**El puntaje completo, y es el único que se puede abrir y contar:**
+
+| | |
+|---|---|
+| proyecciones | **4**, todas de la candidata `fff6af83` |
+| confirmadas | 2 — el retrieval por forma, y el registro con los campos en blanco |
+| refutadas | 1 — los contadores de cobertura |
+| abiertas | 1 — «las memorias consolidadas de trabajos distintos resultan casi idénticas entre sí» |
+| stores | 1 |
+
+**Sobre la que sigue abierta, hay un dato y no alcanza para cerrarla.** El 2026-08-27, con
+la captura ya arreglada, un `dream --dry-run` sobre el store real produjo una segunda
+candidata de trabajo genuinamente distinto al de la primera:
+
+| candidata | patrón |
+|---|---|
+| `fff6af83` (`general`) | «Una cadena de captura conserva la estructura de cada paso pero pierde su contenido…» |
+| `cbbd7ff0` (`implement_feature`) | «El trabajo se verifica adentro del artefacto y se ejecuta afuera: el veredicto verde lo emite un gate que lee el módulo afectado como archivo…» |
+
+No se parecen en nada, que es lo contrario de lo que la proyección anticipa. **Y aun así se
+queda abierta**, por tres motivos que conviene no saltear: es n=2, salió de un dry-run que
+no escribió nada, y sobre todo la conjetura nació **mientras la captura estaba vacía** — si
+todos los pasos llegan sin contenido, dos consolidaciones cualesquiera *sí* saldrían casi
+idénticas. Lo más probable es que fuera cierta bajo las condiciones que la produjeron y
+haya dejado de serlo al arreglarse la captura, y eso no es "refutada": es una conjetura
+cuya precondición cambió. Distinguir las dos cosas es exactamente el trabajo que `verify`
+(M5) va a tener que hacer solo.
+
+```sh
+sqlite3 ~/.nightshift/trajectories.sqlite3 \
+  "select projected_signals_json from trajectories where status='candidate';"
+```
+
+**Acá decía "2 y 2, sobre seis proyecciones", y era falso.** Las dos cuentas de más no
+existen: la segunda refutación que se reportaba no está en el store, ni en los logs, ni en
+ninguna salida guardada de dream. La corrección, con lo que probablemente pasó, está en
+`LATER.md`. Que el número inflado haya sobrevivido en el único lugar donde el proyecto
+publica su puntaje es el mismo modo de falla que este repo lleva tres secciones
+documentando: **una explicación plausible anotada como hallazgo.**
+
+Una anécdota con numerador, y el numerador tiene que ser el de verdad.

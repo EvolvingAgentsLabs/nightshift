@@ -11,14 +11,14 @@ FP = "f" * 64
 
 class RetrieveTest(IsolatedStoreTest):
     def seed(self, *, task_type="debug_test_failure", fingerprint=FP, result="tests_passed",
-             decisive=True):
+             decisive=True, error="UnicodeDecodeError en el borde"):
         conn = store.connect()
         try:
             tid = store.open_trajectory(conn, session_id="vieja", repo_fingerprint=fingerprint,
                                         task_type=task_type, base_commit="abc1234",
                                         redaction={"redactor_version": "0.1.0"})
             store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
-                              error_message="UnicodeDecodeError en el borde", decisive=decisive)
+                              error_message=error, decisive=decisive)
             store.close_trajectory(conn, tid, result=result)
             return tid
         finally:
@@ -397,6 +397,102 @@ class RetrieveTest(IsolatedStoreTest):
         """Observado > inferido. El orden es la jerarquía de evidencia del proyecto."""
         self.assertLess(retrieve.W_PRECONDITION_MATCH, retrieve.W_SIGNAL_MATCH)
         self.assertGreater(retrieve.W_PRECONDITION_MATCH, retrieve.W_PROJECTED_MATCH)
+
+    # ── El piso del enganche: destilado y crudo no son la misma clase de texto ────────
+    # Enmienda 0.3.6. La spec §5.10 midió que dos prompts con síntomas distintos den
+    # órdenes distintos —discriminación— y eso quedó verificado. Lo que nunca se midió es
+    # lo que hace una persona: describir el síntoma **con sus palabras**. Medido con
+    # `experimentos/05-enganche-por-parafrasis.py` sobre las frases reales de la candidata
+    # `fff6af83`, el enganche se caía a 3 de 14 paráfrasis con el piso único en 2.
+
+    def test_una_palabra_destilada_alcanza_para_enganchar(self):
+        """Una frase de `abstraction` es una oración curada, no un volcado de error.
+
+        El modelo la escribió destilando: no tiene relleno, así que una sola palabra de
+        contenido compartida ya es señal. Este es el caso que hace que la memoria aparezca
+        cuando el usuario dice "no me quedó ninguna **descripción**" y el patrón guardado
+        habla de "el resumen llega vacío": una palabra en común, y es la que importa.
+        """
+        tid = self.sembrar_candidata(
+            patron="la cadena conserva la estructura y pierde el contenido",
+            senales=["los pasos llegan sin descripcion"],
+            condiciones=[])
+        razones = self.razones("ninguna de las acciones que ejecute quedo con descripcion")
+        self.assertIn("signal_match", razones[tid][1])
+
+    def test_una_palabra_cruda_no_alcanza(self):
+        """Un mensaje de error crudo es mayormente andamiaje del harness.
+
+        Es el caso que spec §5.10 documentó: con el piso en 1, "exit" y "code" hermanaban
+        un `parse error` con un error de formateo. Medido sobre el store real de este
+        repo, bajar **este** piso a 1 produce un falso positivo y dejarlo en 2, ninguno.
+        Por eso el arreglo es que haya dos pisos, no que baje el único que había.
+        """
+        tid = self.seed(error="ImportError al cargar el modulo de reportes")
+        razones = self.razones("tengo un ImportError en otra cosa totalmente distinta")
+        self.assertNotIn("failure_match", razones.get(tid, (0, ""))[1])
+
+    def test_el_piso_de_lo_destilado_es_mas_bajo_que_el_de_lo_crudo(self):
+        """La spec ya afirmaba la jerarquía en prosa; el código la contradecía.
+
+        "Con abstracción manda la abstracción: es lo destilado. El enganche por fallo es
+        el piso" (§5.10). Un piso único les cobraba el mismo peaje a las dos.
+        """
+        self.assertLess(retrieve.MIN_TOKENS_DESTILADO, retrieve.MIN_TOKENS_CRUDO)
+
+    def test_un_predicado_de_fallo_no_engancha_solo(self):
+        """"Algo falla" es cierto en cualquier prompt de debugging.
+
+        Apareció al bajar el piso de lo destilado a 1: la condición "esa etapa no falla
+        ante contenido ausente" enganchaba con "el deploy falla con un certificado ssl
+        vencido" por la palabra `falla` y nada más. Es el mismo caso que `Exit code 1`
+        (spec §5.10), del lado destilado.
+        """
+        tid = self.sembrar_candidata(
+            patron="una etapa que no valida contenido",
+            senales=["la etapa no falla ante contenido ausente"],
+            condiciones=["esa etapa no falla ante contenido ausente"])
+        motivos = self.razones("el deploy falla con un certificado ssl vencido")\
+            .get(tid, (0, ""))[1]
+        self.assertNotIn("signal_match", motivos)
+        self.assertNotIn("precondition_match", motivos)
+
+    def test_un_predicado_de_fallo_si_suma_como_segunda_palabra(self):
+        """No es una palabra vacía: acompañada dice de qué se habla.
+
+        La distinción importa. Sacarla del vocabulario perdería enganches legítimos; lo
+        que no puede es sostener uno ella sola.
+        """
+        tid = self.sembrar_candidata(
+            patron="una etapa que no valida contenido",
+            senales=["la extraccion falla ante contenido ausente"],
+            condiciones=[])
+        motivos = self.razones("la extraccion me falla siempre")[tid][1]
+        self.assertIn("signal_match", motivos)
+
+    def test_el_control_negativo_sigue_sin_enganchar(self):
+        """Bajar un piso sólo sirve si no engancha con cualquier cosa.
+
+        Si estos prompts empiezan a puntuar, el matcher dejó de reconocer síntomas y pasó
+        a reconocer texto — que es el fallo que el proyecto ya pagó dos veces.
+        """
+        tid = self.sembrar_candidata(
+            patron="la cadena conserva la estructura y pierde el contenido",
+            senales=["los pasos llegan sin descripcion",
+                     "el desenlace de cada trayectoria es desconocido"],
+            condiciones=["la etapa de extraccion nunca escribe el campo"])
+        ajenos = [
+            "el css del boton de login quedo desalineado en mobile",
+            "el deploy a produccion falla con un error de certificado ssl vencido",
+            "quiero renombrar la variable foo a bar en todo el proyecto",
+            "como configuro el timezone del servidor",
+        ]
+        for prompt in ajenos:
+            with self.subTest(prompt=prompt):
+                motivos = self.razones(prompt).get(tid, (0, ""))[1]
+                self.assertNotIn("signal_match", motivos)
+                self.assertNotIn("precondition_match", motivos)
+                self.assertNotIn("projected_match", motivos)
 
     def test_sin_historia_no_inyecta_nada(self):
         text, message = hook.dispatch("SessionStart",
