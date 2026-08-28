@@ -21,6 +21,7 @@ suma al conteo del gate de M1.**
 | [11](11-la-profecia-tiene-notario.py) | ¿Cuánta de la evidencia del proyecto sobrevive a que la revise un script? | nada: lee el store y corre git |
 | [12](12-sensibilidad.py) | ¿Llega la conjetura el día que hace falta? Necesita un retenido escrito por una persona | nada, y hoy está BLOCKED |
 | [13](13-cuanto-discrimina-el-enganche.py) | ¿Cuánto discrimina el enganche cuando el store crece? Empezó por un verbo | nada: lee el store |
+| [14](14-la-escena-antes-del-diagrama.py) | Los dos medios de idear sobre el mismo corpus: ¿el modelo traduce de verdad a una escena física? | 2 llamadas al modelo |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -36,6 +37,7 @@ python3 experimentos/10-abstencion.py --repeticiones 3
 python3 experimentos/11-la-profecia-tiene-notario.py
 python3 experimentos/12-sensibilidad.py
 python3 experimentos/13-cuanto-discrimina-el-enganche.py
+python3 experimentos/14-la-escena-antes-del-diagrama.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 

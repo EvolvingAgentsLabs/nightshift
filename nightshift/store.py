@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS trajectories (
     projected_signals_json TEXT,
     contrast_json TEXT,
     diagram TEXT,
+    physical_scene TEXT,
+    logogram TEXT,
     superseded_by TEXT,
     verified_json TEXT,
     injection_weight REAL,
@@ -135,7 +137,8 @@ COLUMNAS_AGREGADAS = {
                      ("ideation", "TEXT"), ("projected_signals_json", "TEXT"),
                      ("contrast_json", "TEXT"), ("diagram", "TEXT"),
                      ("capture_cohort", "INTEGER"), ("corroboration_json", "TEXT"),
-                     ("origin", "TEXT")],
+                     ("origin", "TEXT"), ("physical_scene", "TEXT"),
+                     ("logogram", "TEXT")],
 }
 
 # Qué generación del código de captura escribió esta trayectoria.
@@ -503,7 +506,8 @@ def recent_runs(conn, limit=10):
 # ------------------------------------------------------------------- dream (M3)
 def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypothesis=None,
                          weight=0.6, consolidation_model=None, consolidation_cost_usd=None,
-                         ideation=None, projected_signals=None, diagram=None):
+                         ideation=None, projected_signals=None, diagram=None,
+                         physical_scene=None, logogram=None):
     """`closed` → `candidate`, con la abstracción que produjo dream fase 1.
 
     No es `procedure`: nada llega ahí sin `verified`, y `verify` es M5. El peso de
@@ -514,6 +518,11 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
     observó. Los dos se guardan aparte de `abstraction` justamente porque no son lo
     mismo: `signals` se vio, `projected_signals` se anticipó. Mezclarlos sería subir
     una conjetura a la categoría de observación, y el retrieval las pesa distinto.
+
+    `physical_scene` y `logogram` son el otro medio de idear (ADR-007): la escena y el
+    signo que la nombra. Se guardan en columnas propias y no dentro de `abstraction_json`
+    por el mismo motivo que el diagrama — `trajectory.v1` define qué hay en ese JSON— y
+    **ninguno de los dos es superficie de búsqueda**: se muestran, no se buscan.
 
     `consolidation_model` y `consolidation_cost_usd` son la respuesta a "¿con qué se
     abstrajo esto y cuánto costó?" — sin registrarlos por trayectoria, la condición de
@@ -529,12 +538,13 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
         " valid_when_json = ?, injection_weight = ?,"
         " hypothesis = COALESCE(hypothesis, ?), consolidation_model = ?,"
         " consolidation_cost_usd = ?, ideation = ?, projected_signals_json = ?,"
-        " diagram = ? WHERE id = ? AND status = 'closed'",
+        " diagram = ?, physical_scene = ?, logogram = ?"
+        " WHERE id = ? AND status = 'closed'",
         (json.dumps(abstraction, ensure_ascii=False),
          json.dumps(valid_when or [], ensure_ascii=False), weight, hypothesis,
          consolidation_model, consolidation_cost_usd, ideation,
          json.dumps(projected_signals, ensure_ascii=False) if projected_signals else None,
-         diagram, trajectory_id))
+         diagram, physical_scene, logogram, trajectory_id))
     conn.commit()
     estado = conn.execute("SELECT status FROM trajectories WHERE id = ?",
                           (trajectory_id,)).fetchone()["status"]

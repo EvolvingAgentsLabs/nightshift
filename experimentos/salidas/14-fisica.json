@@ -1,0 +1,31 @@
+{
+  "physical_scene": "En el galpón, cada bulto sale con una chapita de bronce grabada con el portón del fondo al que hay que llevarlo. El capataz pesa la pila, cuenta las chapitas, ve que hay una por bulto: la balanza cierra y el turno cierra. Nadie camina hasta el fondo con una chapita en la mano a probar si el portón que nombra sigue en la pared, y desde la última reforma varias de esas paredes son ladrillo liso. Otras chapitas van escritas con tiza, falta revisar, y el roce de la cinta las va borrando, así que llegan al muelle con el mismo aspecto liso que las que ya pasaron por el inspector. Lo que se conserva por todo el recorrido es el peso y el número de chapitas; lo que se pierde es lo único que no pesa: que detrás del nombre grabado haya de verdad un portón. El que mira desde la puerta ve una pila prolija y un conteo exacto, y se entera meses después, cuando alguien empuja un carro hasta el fondo y encuentra la pared.",
+  "logogram": "llave sin puerta",
+  "pattern": "El sistema registra referencias a destinos que viven en otro lado, un ejecutable a invocar más tarde, una etiqueta de estado que otro va a leer, y las transporta intactas mientras ninguna etapa las resuelve: la comprobación automatizada verifica presencia y cantidad, no correspondencia. La comprobación real sólo aparece cuando alguien la improvisa a mano, por fuera del chequeo permanente, así que su cobertura dura lo que dura la sesión. El fix es mover la resolución al punto donde la referencia se registra, o al chequeo que ya corre siempre, en vez de dejarla en el contexto efímero que la observa una sola vez.",
+  "hypothesis": "El cierre en verde no significa nada porque cada fallo real cae fuera del chequeo automatizado, en pasos improvisados a mano.",
+  "hypothesis_step": 1,
+  "signals": [
+    "la corrida cierra en verde y la comprobación que importaba se hizo a mano, aparte",
+    "el chequeo cuenta cuántas referencias hay pero nunca intenta usar ninguna",
+    "algo quedó registrado apuntando a un ejecutable y nadie confirmó que siga existiendo",
+    "una etiqueta de estado viaja río abajo y quien la lee la toma como aprobación",
+    "la propiedad derivada se calculaba dentro del contexto efímero que la miraba y se iba con él"
+  ],
+  "decisive_signal": "Al preguntar explícitamente qué chequeo permanente cubre esto, la respuesta fue que el existente sólo cuenta cuántas referencias hay; la verificación de que apunten a algo existente se había hecho a mano en esa misma sesión y no queda de una vez para la siguiente.",
+  "valid_when": [
+    "la referencia se escribe en un lugar y su destino vive en otro",
+    "el chequeo automatizado valida forma o cantidad, no resolución",
+    "quien registra la referencia no es quien la va a ejecutar",
+    "las etiquetas de estado viajan sin el contexto que les daba sentido",
+    "el destino puede cambiar después del momento en que se registró"
+  ],
+  "projected_signals": [
+    "el destino existía cuando se registró y desapareció después: la comprobación sigue en verde porque sólo mira el instante del registro",
+    "la referencia se resuelve en la máquina de quien la escribió y no en la de otro, y ninguna corrida compartida lo nota",
+    "se agregan más referencias, el conteo sube y eso se lee como más cobertura aunque ninguna se haya probado",
+    "una ruta absoluta o un intérprete anotado quedan apuntando a algo movido tras una reinstalación, y la tarea nocturna deja de correr en silencio, sin dejar rastro de fallo",
+    "dos estados distintos terminan indistinguibles río abajo y el recuento de cada uno sigue cuadrando"
+  ],
+  "diagram": null,
+  "mechanism": "Lo que se conserva a lo largo del recorrido es la forma de la referencia: que exista, que haya una por cada cosa, que el total cuadre. Lo que se pierde sin que ninguna etapa se queje es la correspondencia entre la referencia y su destino, y la carga de contexto de las etiquetas de estado, que más adelante se leen como visto bueno. Se pierde exactamente en el cuadro donde la comprobación permanente cuenta en vez de resolver: ahí la referencia queda sin nada detrás y sigue viajando igual de liviana. Recién se nota cuando alguien intenta usarla de verdad, mucho después y por fuera de todo chequeo."
+}

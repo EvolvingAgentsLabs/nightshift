@@ -1,0 +1,30 @@
+{
+  "pattern": "Un nombre escrito en un lugar —el comando de una unidad programada, el documento citado por un chequeo, la etiqueta de estado que acompaña a un dato— se consume después, en otro proceso y en otro momento. El chequeo automatizado confirma que el nombre está presente y bien formado, pero nunca lo resuelve, así que el vínculo entre el nombre y su referente queda sin gate y el trabajo cierra en verde. La forma del fix es mover la resolución adentro del chequeo: que el gate dereferencie cada nombre en vez de contarlo, en el mismo contexto donde después se va a usar.",
+  "hypothesis": "Se arrancó creyendo que el problema era que el trabajo cierra en verde porque el gate automatizado pasa, mientras los fallos reales ocurren afuera, en comandos improvisados que nadie automatizó.",
+  "hypothesis_step": 1,
+  "signals": [
+    "La corrida termina en verde y los fallos reales aparecen recién al tipear comandos a mano",
+    "La tarea programada quedó registrada apuntando a un comando y hay que verificar aparte si ese comando existe",
+    "El chequeo enumera y cuenta los documentos citados pero nunca abre lo que citan",
+    "Una etiqueta de estado viaja junto al dato hasta el consumidor y se lee como si fuera verificada",
+    "Una propiedad derivada se calculaba una sola vez dentro del contexto efímero que la observaba"
+  ],
+  "decisive_signal": "Verificar a mano que los comandos citados existieran dio cero faltantes, pero ese resultado lo produjo una inspección improvisada: el chequeo que se creía cobertura sólo enumeraba archivos y contaba apariciones, así que un nombre roto habría pasado igual de verde.",
+  "valid_when": [
+    "Un nombre se escribe en un lugar y se usa en otro proceso o en otro momento",
+    "El chequeo automático corre en un contexto distinto del que consume el nombre",
+    "El consumidor no puede quejarse porque sale 0 o no tiene observador",
+    "Junto al dato viaja una etiqueta de estado o de origen que el consumidor interpreta",
+    "La cobertura declarada se apoya en contar referencias, no en resolverlas"
+  ],
+  "projected_signals": [
+    "La tarea programada corre todas las noches, falla al arrancar porque el comando ya no existe, y el registro de corridas igual anota que corrió",
+    "Se renombra un subcomando y los ejemplos de la documentación siguen pasando el chequeo hasta que alguien los copia y pega",
+    "Un identificador referenciado desde otra tabla queda huérfano y el conteo de integridad sigue dando el número esperado",
+    "Un valor pasado como nombre de backend no coincide con ninguno registrado y cae al valor por defecto en silencio, sin error",
+    "Una memoria marcada como reemplazada se inyecta igual porque la etiqueta llegó intacta pero nadie la interpretó en el punto de uso"
+  ],
+  "diagram": "flowchart LR\n  A[\"Alguien escribe un nombre: comando, archivo o etiqueta\"] -- \"cadena literal\" --> B[\"Queda guardado en la unidad, el documento o el registro\"]\n  B -- \"cadena literal\" --> C{\"El chequeo la mira\"}\n  C -- \"la cuenta y la compara, no la resuelve\" --> D[\"Verde\"]\n  B -- \"misma cadena, otro proceso, horas despues\" --> E[\"El consumidor intenta usarla de verdad\"]\n  E -- \"aca se pierde el vinculo con el referente\" --> F[\"Nadie garantizo que exista ni que siga significando lo mismo\"]\n  F -- \"sale 0, sin observador\" --> G[\"Silencio\"]\n  D --> H[\"El trabajo se declara cerrado\"]\n  G --> H",
+  "mechanism": "Lo que se conserva de punta a punta es la cadena de caracteres: llega intacta al consumidor, sin que ninguna etapa la deforme. Lo que se pierde es su vínculo con el referente —que el comando exista, que la etiqueta siga significando lo mismo en el punto de uso— y se pierde exactamente en el cuadro donde el chequeo la trata como texto a comparar en vez de intentar resolverla. La imagen canónica es un puntero copiado entre dos espacios de direcciones, o un enlace simbólico colgante: los bits viajan perfectos y la dirección ya no apunta a nada, y la copia nunca falla porque copiar bits siempre funciona.",
+  "signals_note": null
+}

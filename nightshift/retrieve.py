@@ -472,6 +472,22 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
                 lines.append(row["diagram"])
                 lines.append("```")
                 lines.append("")
+            # El otro medio de idear (ADR-007): la escena física y el signo que la nombra.
+            # Van enteros y en este orden —primero el nombre, después la imagen— porque el
+            # logograma es lo que se retiene de un vistazo y la escena, lo que se recorre
+            # cuando el nombre resultó pertinente.
+            #
+            # Se **muestran**, y no entran en la superficie de búsqueda. Es una decisión y
+            # está medida: contra una compresión de dos a cuatro palabras el enganche por
+            # palabras funciona peor que contra un síntoma, no mejor, y agregar superficie
+            # es lo que H17 castigó. Evocar un logograma desde el prompt necesitaría
+            # embeddings, que chocan con ADR-003.
+            if "logogram" in row.keys() and row["logogram"]:
+                lines.append("- el mecanismo, en un signo: **%s**" % row["logogram"])
+            if "physical_scene" in row.keys() and row["physical_scene"]:
+                lines.append("- el mecanismo, como escena física — es una imagen del "
+                             "mecanismo, no del código:")
+                lines.append("  %s" % row["physical_scene"])
             if "ideation" in row.keys() and row["ideation"]:
                 lines.append("- qué se conserva y qué se pierde: %s"
                              % _recortar(row["ideation"]))
