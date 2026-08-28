@@ -98,21 +98,34 @@ perdidos.
 
 **Y la grande, medida sobre el store real con 17 prompts verdaderos y 24 ajenos:**
 
-| piso | verdaderos | ajenos |
-|---|---|---|
-| **1 (hoy)** | 15 de 17 (88%) | **17 de 24 (71%)** |
-| 2 | 5 de 17 (29%) | 2 de 24 (8%) |
-| 3 | 1 de 17 (6%) | 0 de 24 (0%) |
+| piso | engancha algo | engancha la que corresponde | y entra en el top-3 | ajenos |
+|---|---|---|---|---|
+| **1 (hoy)** | 15 de 17 | 11 de 17 | **4 de 17** | 17 de 24 |
+| 2 | 5 de 17 | 5 de 17 | **5 de 17** | 2 de 24 |
+| 3 | 1 de 17 | 0 de 17 | 0 de 17 | 0 de 24 |
 
-La enmienda 0.3.6 midió el piso contra **una sola candidata** y para ese store eligió bien:
-6% de falsos positivos, documentado. El store creció a seis candidatas y veintiocho
-conjeturas, y con seis superficies distintas casi cualquier prompt encuentra una palabra en
-común con alguna. **No es un bug, y no lo arregla una lista de palabras.**
+**Las tres columnas de verdaderos no dicen lo mismo, y sólo la tercera importa.** Preguntar
+"¿engancha algo?" cuenta como acierto que la paráfrasis de `fff6af83` enganche con
+`07695a69`: es un falso positivo con otro nombre. Y una memoria correcta que engancha pero
+queda cuarta no llegó a ningún lado, porque `max_injected` es 3.
 
-**Lo que se aprendió, y vale más que el número:** la discriminación no es una propiedad del
-texto de una conjetura, es una propiedad del **store entero**, y se degrada a medida que
-crece. El 6% que midió el `09` era correcto y describía un store de una memoria. Cualquier
-umbral fijado contra un store chico va a envejecer.
+Con el piso de hoy engancha algo el 88% de los prompts y **la memoria que corresponde entra
+en la inyección 4 de 17**: las otras la desplazan. Con piso 2 entra **5 de 17 — más** — y los
+falsos positivos caen de 17 a 2.
+
+**Subir el piso no es un intercambio: es mejor en las dos mitades.** Lo que se pierde al
+bajarlo no son enganches útiles, son enganches con la memoria equivocada que además tapan a
+la correcta.
+
+La enmienda 0.3.6 midió el piso contra **una sola candidata**, donde "engancha algo" y
+"engancha la que corresponde" son la misma pregunta. Con seis candidatas se separan, y ahí
+se ve que el piso bajo compra ruido. No estuvo mal medida: midió lo que se podía medir con
+el store que había.
+
+**Corrección de la primera versión de esta entrada, escrita el mismo día:** decía que subir
+el piso era *"un intercambio, no una mejora — 10 enganches verdaderos por 15 falsos
+positivos"*. Estaba mal, y el error era el mismo de siempre: contar como enganche verdadero
+uno que apunta a la memoria equivocada. Esos 10 no llegaban a ninguna parte.
 
 ### Lo que NO se hizo
 
@@ -120,10 +133,11 @@ No se tocó `_PREDICADOS_DE_FALLO` ni `MIN_TOKENS_DESTILADO`. Los dos verbos gra
 17: es una mejora chica y real, pero entra junto con la decisión grande o no entra —parchear
 la lista ahora dejaría el número en 14 de 24 y la sensación de que se arregló algo.
 
-Subir el piso a 2 es **spec** (enmienda 0.3.6 lo fijó en 1) y es un intercambio, no una
-mejora: 10 enganches verdaderos por 15 falsos positivos. Lo decide Matías, y la pregunta de
-diseño que abre es si el piso puede ser fijo: un umbral que se eligió con una memoria en el
-store no puede seguir siendo el mismo con veintiocho.
+Subir el piso a 2 es **spec** (enmienda 0.3.6 lo fijó en 1) y lo decide Matías. La medición
+lo favorece en las dos mitades, y la pregunta de diseño que abre es más grande que el
+número: si el piso puede ser fijo. Un umbral elegido con una memoria en el store no puede
+seguir siendo el mismo con veintiocho, y hoy no hay nada que lo revise cuando el store
+crece.
 
 ---
 
