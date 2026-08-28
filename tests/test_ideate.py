@@ -408,3 +408,118 @@ class InyeccionTest(IsolatedStoreTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DiagramaValidoTest(IsolatedStoreTest):
+    """F3 — el dibujo tiene que ser un dibujo.
+
+    Hasta acá el diagrama se revisaba **sólo por fugas** y se inyectaba entero dentro de un
+    bloque ```mermaid, que promete renderizar. Un dibujo roto es peor que ninguno: ocupa el
+    lugar del dibujo y no dice nada.
+
+    Esto valida **sintaxis, no verdad**, y la distinción no es cosmética: el diagrama de la
+    candidata `1f94f424` es Mermaid perfectamente válido y describe un mecanismo que no
+    existe. Eso lo ataca F2, no esto.
+    """
+
+    BUENO = ("flowchart LR\n"
+             "  A[clave cruda] -->|se normaliza| B[clave limada]\n"
+             "  B --> C[(indice)]\n"
+             "  A -->|consulta sin limar| C")
+
+    def test_un_diagrama_bien_formado_pasa(self):
+        self.assertEqual(dream.validate_diagram(self.BUENO), [])
+
+    def test_sin_cabecera_no_es_un_diagrama(self):
+        self.assertTrue(dream.validate_diagram("A --> B\n  B --> C"))
+
+    def test_corchetes_desbalanceados(self):
+        self.assertTrue(dream.validate_diagram("flowchart LR\n  A[clave --> B[otra]"))
+
+    def test_un_backtick_rompe_el_bloque_al_inyectarlo(self):
+        """Es el único carácter que rompe el continente y no el contenido: cierra el
+        bloque ```mermaid y desde ahí el resto de la memoria se lee como prosa."""
+        self.assertTrue(dream.validate_diagram("flowchart LR\n  A[`x`] --> B"))
+
+    def test_un_plano_no_es_un_dibujo(self):
+        """El tope de nodos estaba sólo en el prompt, que es un pedido y no un gate."""
+        lineas = ["flowchart LR"] + ["  N%d --> N%d" % (i, i + 1) for i in range(20)]
+        problemas = dream.validate_diagram("\n".join(lineas))
+        self.assertTrue([p for p in problemas if "nodos" in p])
+
+    def test_un_diagrama_roto_no_llega_a_candidate(self):
+        """Entra por el mismo camino que una fuga: rechazo, y el bucle reintenta."""
+        _, _, _, problemas = dream.validate(
+            {"pattern": "Una funcion de normalizacion compartida no cubre un caso.",
+             "diagram": "flowchart LR\n  A[clave --> B[otra]"},
+            redactor=_redactor(), home_dir=None)
+        self.assertTrue([p for p in problemas if p.startswith("diagram:")])
+
+
+class LecturaDelRepoTest(IsolatedStoreTest):
+    """F2 — no toda línea capturada es evidencia.
+
+    Medido sobre el store real el 2026-08-28: el **50% y el 67%** de los pasos de las dos
+    últimas trayectorias son el repositorio leyéndose a sí mismo, y hasta acá llegaban al
+    modelo con el mismo rango que un fallo.
+    """
+
+    def _paso(self, conn, tid, **kwargs):
+        store.append_step(conn, tid, kind=kwargs.pop("kind", "tool_use"),
+                          tool=kwargs.pop("tool", "run_shell"), **kwargs)
+        return store.steps_of(conn, tid)[-1]
+
+    def test_un_grep_es_el_repo_hablando_de_si_mismo(self):
+        conn = store.connect()
+        tid = _sembrar(conn)
+        for comando in ("grep -n bandera nightshift/hook.py",
+                        "cat doc/00-spec.md", "git log --oneline -5",
+                        "sed -n '10,20p' cli.py"):
+            paso = self._paso(conn, tid, args={"command": comando},
+                              result_summary="lo que dice el archivo")
+            self.assertTrue(dream.es_lectura(paso), comando)
+        conn.close()
+
+    def test_correr_los_tests_es_ejercitar_y_no_leer(self):
+        """Aunque el comando compuesto tenga un `grep` adentro."""
+        conn = store.connect()
+        tid = _sembrar(conn)
+        paso = self._paso(conn, tid, args={"command": "make check | grep -E 'gate:'"},
+                          result_summary="gate: OK")
+        conn.close()
+        self.assertFalse(dream.es_lectura(paso))
+
+    def test_un_fallo_nunca_es_lectura(self):
+        """Que algo haya salido distinto de cero **es** una observación de esta sesión."""
+        conn = store.connect()
+        tid = _sembrar(conn)
+        paso = self._paso(conn, tid, kind="tool_failure",
+                          args={"command": "grep -n algo archivo.py"},
+                          error_message="Exit code 2")
+        conn.close()
+        self.assertFalse(dream.es_lectura(paso))
+
+    def test_el_prompt_etiqueta_las_lecturas(self):
+        """Sin la etiqueta, un `grep` llega al modelo con el mismo rango que un fallo."""
+        conn = store.connect()
+        tid = _sembrar(conn)
+        self._paso(conn, tid, args={"command": "grep -n bandera hook.py"},
+                   result_summary="308: sin bandera de por medio")
+        texto = dream.describe(conn, store.get_trajectory(conn, tid))
+        conn.close()
+        self.assertIn("LECTURA-DEL-REPO", texto)
+        self.assertIn("no son", dream.PROMPT.split("LECTURA-DEL-REPO")[1][:200],
+                      "el prompt tiene que explicar qué significa la etiqueta")
+
+    def test_las_lecturas_no_cuentan_como_ancla_de_la_hipotesis(self):
+        conn = store.connect()
+        tid = _sembrar(conn)
+        self._paso(conn, tid, args={"command": "grep -n algo archivo.py"},
+                   result_summary="lo que dice el archivo")
+        row = store.get_trajectory(conn, tid)
+        indices = dream.indices_de_observacion(conn, [row])
+        pasos = store.steps_of(conn, row["id"])
+        conn.close()
+        lecturas = {int(s["idx"]) for s in pasos if dream.es_lectura(s)}
+        self.assertTrue(lecturas, "el fixture no produjo ninguna lectura")
+        self.assertFalse(indices & lecturas)

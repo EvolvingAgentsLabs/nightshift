@@ -504,6 +504,36 @@ def _prioridad(step) -> int:
     return 3
 
 
+def es_lectura(step) -> bool:
+    """¿Este paso **leyó** el repositorio, en vez de ejercitarlo? (plan §7, F2)
+
+    Determinista, del comando guardado, igual que `_es_comando_de_test` y por el mismo
+    motivo: una bandera calculada en la captura no sobrevive a un cambio de criterio, y
+    esto se puede recalcular sobre lo que ya está en el store.
+
+    Un fallo nunca es lectura, aunque el comando sea un `grep`: que algo haya salido
+    distinto de cero **es** una observación de esta sesión.
+    """
+    if step["kind"] in ("tool_failure", "observation") or step["contradicted"]:
+        return False
+    if context.normalize_tool(step["tool_native"]) in context.READ_TOOLS:
+        return True
+    if step["tool"] in context.READ_TOOLS:
+        return True
+    if step["tool"] != "run_shell":
+        return False
+    try:
+        args = json.loads(step["args_json"] or "{}")
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(args, dict):
+        return False
+    comando = str(args.get("command", ""))
+    if context.TEST_CMD_RE.search(comando):
+        return False        # correr los tests es ejercitar, no leer
+    return bool(context.READ_CMD_RE.search(comando))
+
+
 def pasos_para_el_prompt(steps):
     """Los pasos que dream ve de una trayectoria: los que tienen algo escrito.
 
@@ -522,6 +552,20 @@ def pasos_para_el_prompt(steps):
     return sorted(elegidos, key=lambda s: s["idx"])
 
 
+def indices_de_observacion(conn, rows) -> set:
+    """Índices de los pasos que observan algo de esta sesión, en todo el grupo.
+
+    Todo lo que no sea lectura del repositorio: fallos, tests, correcciones, ediciones,
+    el sello del turno. Es el conjunto contra el que se ancla `hypothesis_step`.
+    """
+    indices = set()
+    for row in rows:
+        for step in store.steps_of(conn, row["id"]):
+            if not es_lectura(step):
+                indices.add(int(step["idx"]))
+    return indices
+
+
 def tiene_contenido(conn, row) -> bool:
     """¿Esta trayectoria tiene algo que abstraer, o es una silueta?"""
     return any(texto_del_paso(s) for s in store.steps_of(conn, row["id"]))
@@ -537,9 +581,14 @@ def describe(conn, row) -> str:
         return "\n".join(lines)
     for step in shown:
         detail = texto_del_paso(step)[:MAX_CHARS_POR_PASO]
-        lines.append("  - %s%s (`%s`): %s"
-                     % (step["kind"], " DECISIVO" if step["decisive"] else "",
-                        step["tool"] or "—", detail))
+        # Una lectura va etiquetada. No es un adorno: sin la etiqueta, la salida de un
+        # `grep` llega al modelo con el mismo rango que un fallo, y el modelo la usa
+        # como observación sobre este trabajo — que es exactamente lo que produjo la
+        # candidata falsa del 2026-08-28.
+        etiqueta = " LECTURA-DEL-REPO" if es_lectura(step) else (
+            " DECISIVO" if step["decisive"] else "")
+        lines.append("  - [%d] %s%s (`%s`): %s"
+                     % (step["idx"], step["kind"], etiqueta, step["tool"] or "—", detail))
     return "\n".join(lines)
 
 
@@ -618,7 +667,8 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
 
 {
   "pattern": "forma del problema y del fix, en 1-3 oraciones",
-  "hypothesis": "la hipótesis con la que arrancó el trabajo, en una oración",
+  "hypothesis": "la hipótesis con la que arrancó el trabajo, en una oración, o null",
+  "hypothesis_step": 3,
   "signals": ["señal observable que indica que este patrón aplica"],
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
   "valid_when": ["precondición bajo la que este procedimiento aplica"],
@@ -634,9 +684,15 @@ Reglas duras. Una respuesta que las rompa se descarta:
   `../`. Si necesitás nombrar un archivo, decí "el módulo afectado".
 - Todo en español, sin markdown, sin backticks dentro de los strings.
 - `signals` y `valid_when`: como mucho 5 elementos cada uno, oraciones cortas.
+- Cada paso viene con su índice entre corchetes. Los marcados **LECTURA-DEL-REPO** son el
+  repositorio hablando de sí mismo —salida de `grep`, de `cat`, de `git log`— y **no son
+  observaciones sobre este trabajo**: un comentario del código puede describir un diseño
+  viejo, ajeno o ya revertido. Sirven de contexto y nunca de evidencia. Si el único
+  respaldo de algo que ibas a escribir es una LECTURA-DEL-REPO, no lo escribas.
 - `hypothesis` es **el primer eslabón de la cadena causal**: con qué se creyó que era el
-  problema al empezar, aunque después resultara equivocada. Si de los pasos no se puede
-  inferir ninguna, poné null en vez de escribir una obvia.
+  problema al empezar, aunque después resultara equivocada. Va con `hypothesis_step`, el
+  índice del paso **que no sea LECTURA-DEL-REPO** del que la inferiste. Si no podés
+  señalar uno, poné las dos en null: una hipótesis obvia inventada es peor que ninguna.
 - `signals` es lo que SE VIO en estas trayectorias. `projected_signals` es lo que el
   mismo mecanismo produciría en otra parte y no se vio. Nunca pongas en `signals` algo
   que no esté en los pasos: la diferencia entre observar y anticipar es la única que
@@ -751,6 +807,77 @@ def build_prompt(conn, group, *, ideate=True) -> str:
     return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
 
 
+# --------------------------------------------------------- el dibujo, como dibujo
+#
+# Hasta acá el diagrama se revisaba **sólo por fugas** y se inyectaba entero dentro de un
+# bloque ` ```mermaid `, que promete renderizar. Un dibujo roto es peor que ninguno:
+# ocupa el lugar del dibujo y no dice nada.
+#
+# Esto valida **sintaxis, no verdad**, y la distinción importa porque es fácil dejarla
+# implícita: el diagrama de la candidata `1f94f424` es Mermaid perfectamente válido y
+# describe un mecanismo que no existe. Para eso está la clasificación de pasos de más
+# abajo, no esto.
+CABECERAS_MERMAID = ("flowchart", "graph", "sequencediagram", "statediagram-v2",
+                     "statediagram", "classdiagram", "erdiagram")
+MAX_NODOS_DIAGRAMA = 10
+# Las aristas de Mermaid en el subconjunto que el prompt pide. `-->`, `---`, `-.->`,
+# `==>`, con o sin etiqueta, y las de `sequenceDiagram` (`->>`, `-->>`).
+_ARISTA_RE = re.compile(r"(-{2,3}>>?|-\.->|={2,3}>|-{2,3}|->>)")
+# Un identificador de nodo: lo que va antes del corchete, el paréntesis o la llave.
+_NODO_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*(?:[\[\(\{]|$|\s)")
+
+
+def validate_diagram(diagram: str):
+    """Motivos por los que este texto no es un diagrama utilizable. Vacío = está bien.
+
+    Determinista y con stdlib: la validez de Mermaid es sintáctica y decidible, así que
+    preguntársela a un modelo sería cambiar un gate por un juicio (CLAUDE.md, regla 2).
+    """
+    problemas = []
+    lineas = [l.strip() for l in (diagram or "").splitlines() if l.strip()]
+    if not lineas:
+        return ["el diagrama está vacío"]
+
+    cabecera = lineas[0].lower()
+    if not any(cabecera.startswith(c) for c in CABECERAS_MERMAID):
+        problemas.append("la primera línea no declara un tipo de diagrama conocido: %r"
+                         % lineas[0][:40])
+
+    cuerpo = "\n".join(lineas[1:])
+    # Un backtick suelto cierra el bloque ` ```mermaid ` al inyectarlo y desde ahí el
+    # resto de la memoria se lee como prosa. Es el único carácter que rompe el continente
+    # y no el contenido.
+    if "`" in diagram:
+        problemas.append("el diagrama tiene un backtick: rompe el bloque al inyectarlo")
+    for abre, cierra in (("[", "]"), ("(", ")"), ("{", "}")):
+        if cuerpo.count(abre) != cuerpo.count(cierra):
+            problemas.append("corchetes `%s%s` desbalanceados: %d contra %d"
+                             % (abre, cierra, cuerpo.count(abre), cuerpo.count(cierra)))
+
+    nodos = set()
+    for linea in lineas[1:]:
+        if linea.lower().startswith(("subgraph", "end", "style", "classdef", "click",
+                                     "direction", "participant", "note", "%%")):
+            continue
+        for parte in _ARISTA_RE.split(linea):
+            parte = parte.strip()
+            if not parte or _ARISTA_RE.fullmatch(parte):
+                continue
+            # La etiqueta de una arista (`|así|`) no declara un nodo.
+            parte = re.sub(r"\|[^|]*\|", " ", parte).strip()
+            match = _NODO_RE.match(parte)
+            if match:
+                nodos.add(match.group(1))
+    if len(nodos) > MAX_NODOS_DIAGRAMA:
+        # El tope estaba sólo en el prompt, que es una pedido y no un gate. Un diagrama
+        # que no entra de un vistazo no es un dibujo, es un plano.
+        problemas.append("%d nodos: el tope es %d, y un diagrama que no entra de un"
+                         " vistazo no es un dibujo" % (len(nodos), MAX_NODOS_DIAGRAMA))
+    if not nodos:
+        problemas.append("no se reconoce ningún nodo: no hay dibujo")
+    return problemas
+
+
 # ---------------------------------------------------------------- validación
 def _leaks(text, field, redactor, home_dir):
     """Motivos por los que un texto producido por el modelo no puede persistirse."""
@@ -765,7 +892,7 @@ def _leaks(text, field, redactor, home_dir):
     return problemas
 
 
-def validate(data, *, redactor, home_dir, ideation=None):
+def validate(data, *, redactor, home_dir, ideation=None, observation_indices=None):
     """Devuelve `(abstraction, valid_when, hypothesis, problemas)`.
 
     Con problemas, no se persiste nada.
@@ -816,6 +943,20 @@ def validate(data, *, redactor, home_dir, ideation=None):
     if isinstance(hypothesis, str) and hypothesis.strip():
         hypothesis = " ".join(hypothesis.split())
         problemas.extend(_leaks(hypothesis, "hypothesis", redactor, home_dir))
+        # **El primer eslabón se ancla o no existe** (plan §7, F2). `observation_indices`
+        # son los pasos que NO son lectura del repo: los que observan algo de esta sesión.
+        #
+        # Esto no vuelve verdadera una hipótesis —el modelo puede citar un paso que no
+        # dice lo que él cree— pero le pone un costo a inventar y la hace auditable con
+        # `why`. Y sobre todo cierra el caso medido: la hipótesis falsa del 2026-08-28
+        # salía de dos `grep`, y contra lecturas ya no se puede anclar.
+        if observation_indices is not None:
+            paso = data.get("hypothesis_step")
+            if not isinstance(paso, int) or paso not in observation_indices:
+                # No es un rechazo de la consolidación entera: la hipótesis es un campo
+                # opcional y `null` es una respuesta válida. Volteart todo el grupo por
+                # esto perdería el patrón, que es lo que sí vale.
+                hypothesis = None
     else:
         hypothesis = None
 
@@ -839,6 +980,9 @@ def validate(data, *, redactor, home_dir, ideation=None):
         # Al diagrama no se le colapsan los saltos de línea: en Mermaid son sintaxis.
         diagram = diagram.strip()
         problemas.extend(_leaks(diagram, "diagram", redactor, home_dir))
+        # Y como diagrama, no sólo como texto. Un rechazo acá entra al mismo bucle de
+        # reintentos que una fuga: el modelo recibe el motivo y vuelve a intentar.
+        problemas.extend("diagram: %s" % p for p in validate_diagram(diagram))
     else:
         diagram = None
 
@@ -978,7 +1122,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                 continue
             abstraction, valid_when, hypothesis, problemas = validate(
                 data, redactor=redactor, home_dir=home_dir,
-                ideation=getattr(model, "last_ideation", None))
+                ideation=getattr(model, "last_ideation", None),
+                observation_indices=indices_de_observacion(conn, utiles))
             if not problemas:
                 break
             if problemas == [SIN_PATRON]:

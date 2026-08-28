@@ -71,6 +71,30 @@ TEST_CMD_RE = re.compile(
     r"gradle test)\b")
 
 
+# Comandos que **leen** el repositorio en vez de ejercitarlo (plan §7, F2).
+#
+# La distinción no es cosmética y salió de un caso medido. La candidata `1f94f424`
+# abstrajo un mecanismo que no existe, y no lo alucinó: levantó dos salidas de `grep`
+# —un comentario que decía "sin bandera de por medio" y un docstring que decía "el comando
+# está redactado, y eso no lo afecta"— y las trató como observaciones sobre el bug que se
+# estaba arreglando. Eran comentarios sobre un diseño **viejo y ya cambiado**.
+#
+# Un fallo, un test, una corrección son evidencia de esta sesión. La salida de un `grep` es
+# el repositorio hablando de sí mismo, y puede estar describiendo algo ajeno, viejo o ya
+# revertido. Anclar a un paso no distingue las dos cosas: las dos son pasos reales.
+#
+# Se ancla al principio de la línea o después de un separador, igual que `TEST_CMD_RE` y
+# por el mismo motivo: un `grep` adentro de un heredoc no vuelve lectura al comando entero.
+READ_CMD_RE = re.compile(
+    r"(?im)(?:^|[;&|]|\$\(|\n)\s*(?:sudo\s+)*"
+    r"(grep|rg|ag|ack|cat|head|tail|less|more|find|fd|ls|tree|wc|file|stat|"
+    r"sed\s+-n|awk|jq|column|sort|uniq|"
+    r"git\s+(?:log|show|diff|blame|status|branch|remote))\b")
+
+# Las herramientas nativas que sólo leen. Vienen normalizadas por `normalize_tool`.
+READ_TOOLS = frozenset(("read_file", "search", "fetch"))
+
+
 def normalize_tool(native: str | None) -> str:
     if not native:
         return "other"
