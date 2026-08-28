@@ -71,6 +71,17 @@ vacía y no fallaba nunca.
 Un mecanismo que produce conjeturas y una de ellas cierra un agujero real es la primera
 evidencia a favor de esto que no vino de compararse contra sí mismo.
 
+**Segunda vez, el 2026-08-27, y esta vez el ciclo cerró entero sobre el propio repo.**
+Dream consolidó una sesión de desarrollo y proyectó cinco síntomas que nadie había
+observado; la sesión siguiente los fue a mirar contra el código. Dos estaban —el panel de
+salud del ensayo decía "la máquina corre entera" con cero celdas y salía 0, por el camino
+normal de una corrida sin ninguna repetición completa—, una tercera estaba en forma
+latente, una se refutó y la quinta es una decisión abierta que no cierra un agente. El
+detalle, con el veredicto de cada una y sin redondear la cuenta, está en `LATER.md`.
+
+Sigue sin ser evidencia de que **idear** produzca mejores proyecciones que no idear: eso
+necesita el control de `experimentos/ideate.py` sobre volumen que todavía no hay.
+
 ## Decisión
 
 Dream idea el mecanismo, abstrae desde el dibujo, y **proyecta**: desde el mecanismo,

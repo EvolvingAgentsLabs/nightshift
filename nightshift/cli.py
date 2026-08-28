@@ -1114,13 +1114,32 @@ def _render_sealed(registros, destino) -> int:
         for item in salud["errors"]:
             print("  %-3s %-16s %s" % (item["row"], item["task"], item["error"]))
     print()
+    # **Un ensayo de cero celdas no es un ensayo en verde.** El panel entero cuantifica
+    # sobre `registros`, y todo cuantificador universal sobre una colección vacía es
+    # verdadero: "0 de 0 completadas", "0 de 0 con dato medible", ninguna fila sin tratar,
+    # ningún error. Sin este guard el resumen decía "la máquina corre entera" y salía 0.
+    #
+    # No es hipotético y no hace falta un archivo corrupto: `bench run` reemplaza
+    # `registros` por `integridad["usable_records"]`, que es **vacío** cuando ninguna
+    # repetición quedó completa en las dos filas. Esa corrida imprimía "Ninguna repetición
+    # quedó completa: no hay nada que comparar" y, tres líneas después, "la máquina corre
+    # entera" con exit 0. El texto se contradecía y el que decide es el exit code.
+    sin_medir = not salud["cells"]
+    # Y una fila que aparece con **cero** celdas de medición cuenta igual que una que
+    # tiene celdas y no recibió memoria: el `d["cells"] and` de antes la dejaba pasar,
+    # que es la misma vacuidad un nivel más abajo.
     sin_tratar = [f for f, d in salud.get("treated", {}).items()
-                  if f != "S0" and d["cells"] and not d["with_memory"]]
-    if sin_tratar:
+                  if f != "S0" and not d["with_memory"]]
+    sin_dato = salud["with_outcome"] < salud["cells"]
+    if sin_medir:
+        print("el ensayo NO produjo una sola celda. Esto no es un ensayo en verde: es un")
+        print("ensayo que no ocurrió, y `0 de 0` no es cobertura plena. Mirá si la corrida")
+        print("se cortó antes de completar una repetición en las dos filas.")
+    elif sin_tratar:
         print("la fila %s no recibió memoria en ninguna celda: la comparación no mediría"
               % ", ".join(sin_tratar))
         print("nada. Arreglalo antes de congelar.")
-    elif salud["errored"] or salud["with_outcome"] < salud["cells"]:
+    elif salud["errored"] or sin_dato:
         print("el ensayo encontró problemas: arreglalos antes de congelar nada.")
     else:
         print("la máquina corre entera. Lo que midió queda sellado hasta que el")
@@ -1128,7 +1147,10 @@ def _render_sealed(registros, destino) -> int:
         print("umbrales, que es lo que el pre-registro existe para impedir.")
     print()
     print("resultados en %s/results.jsonl · `bench report --unseal` los muestra" % destino)
-    return 1 if (salud["errored"] or sin_tratar) else 0
+    # El exit code dice lo mismo que el texto. Antes `with_outcome < cells` imprimía "el
+    # ensayo encontró problemas" y salía 0: quien lea el código de salida —un timer, un
+    # CI— leía lo contrario de lo que decía la pantalla.
+    return 1 if (sin_medir or salud["errored"] or sin_tratar or sin_dato) else 0
 
 
 def _bench_report(args, prereg) -> int:

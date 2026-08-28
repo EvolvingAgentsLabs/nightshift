@@ -28,8 +28,16 @@ except AttributeError:
     stdlib = None
 local = {"nightshift", "tests"}
 bad = []
-for path in sorted(pathlib.Path(".").glob("{nightshift,tests}/**/*.py")) or \
-        sorted(list(pathlib.Path("nightshift").rglob("*.py")) + list(pathlib.Path("tests").rglob("*.py"))):
+# `pathlib` no expande llaves: el patrón `{nightshift,tests}/**/*.py` que había acá
+# devolvía **cero** archivos y el chequeo entero se apoyaba en el `or` de atrás sin que
+# nadie lo notara. Un linter que pasa porque su lista quedó vacía no está defendiendo
+# nada, así que la lista se arma explícita y se afirma que no está vacía.
+archivos = sorted(list(pathlib.Path("nightshift").rglob("*.py"))
+                  + list(pathlib.Path("tests").rglob("*.py")))
+if not archivos:
+    print("SIN ARCHIVOS: el chequeo de stdlib no miró nada")
+    raise SystemExit(0)
+for path in archivos:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -48,7 +56,9 @@ for path in sorted(pathlib.Path(".").glob("{nightshift,tests}/**/*.py")) or \
 print("\n".join(sorted(set(bad))))
 PY
 )
-if [ -z "$third_party" ]; then
+if [ "$third_party" = "SIN ARCHIVOS: el chequeo de stdlib no miró nada" ]; then
+  err "el chequeo de stdlib no encontró un solo archivo: pasó por vacío, no por limpio"
+elif [ -z "$third_party" ]; then
   ok "ningún import de tercero"
 else
   echo "$third_party" | sed 's/^/           /'
