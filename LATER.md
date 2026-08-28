@@ -541,6 +541,14 @@ spec §5.6 evita hacer en `Stop`. Es legítimo porque lo pide una persona en el 
 elige, y no es gratis: una sesión mal cortada produce dos capítulos que ninguno cuenta la
 historia entera. Nadie midió todavía cuánto cuesta eso.
 
+**Y la primera corrida real encontró un bug que la suite no vio**, que es la única razón
+por la que vale la pena escribir esto acá. `seal_chapter` guardaba `evidence or MARCA`, y
+con un desenlace `tests_passed` —que trae evidencia propia— el marcador de "sellado a
+demanda" desaparecía: justo en el caso informativo, que es donde más importa distinguir un
+borde puesto a mano de uno puesto por `SessionEnd`. El test que había cubría sólo la rama
+sin evidencia y pasaba en verde. Es el mismo modo de falla que este archivo documenta dos
+veces más arriba, y esta vez lo encontró correr el comando sobre el propio repo, no leerlo.
+
 Y queda una lección sobre este mismo archivo: **una explicación plausible anotada como
 hallazgo es exactamente el tipo de memoria que este proyecto dice no querer.** El párrafo
 de arriba se escribió sin aislar la variable, y sonaba lo bastante bien como para que

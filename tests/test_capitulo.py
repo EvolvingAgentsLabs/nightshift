@@ -63,6 +63,31 @@ class SellarTest(IsolatedStoreTest):
         self.assertEqual(viejos, ["primero", "segundo"])
         self.assertEqual(nuevos, ["tercero"])
 
+    def test_la_marca_de_capitulo_sobrevive_a_un_desenlace_con_evidencia(self):
+        """El bug que encontró la primera corrida real, y el test que no lo vio.
+
+        La primera versión guardaba `evidence or MARCA`. Con `tests_passed` —que trae su
+        propia evidencia— el marcador desaparecía, justo en el caso informativo. El test
+        que había cubría sólo la rama sin evidencia y pasaba en verde.
+        """
+        conn = store.connect()
+        tid = _abrir(conn, "s8")
+        # El desenlace se lee del comando guardado, no de una bandera (`_es_comando_de_test`).
+        store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                          args={"command": "make check"},
+                          result_summary="Ran 317 tests OK")
+        resultado_esperado, evidencia_propia = hook._infer_outcome(conn, tid)
+        self.assertTrue(evidencia_propia, "este test no prueba nada sin evidencia propia")
+
+        dream.seal_chapter(conn, store.get_trajectory(conn, tid))
+        row = store.get_trajectory(conn, tid)
+        conn.close()
+        self.assertEqual(row["outcome_result"], resultado_esperado)
+        self.assertIn(evidencia_propia, row["outcome_evidence"],
+                      "la evidencia del desenlace no se pierde")
+        self.assertIn(dream.MARCA_DE_CAPITULO, row["outcome_evidence"],
+                      "y el borde puesto a mano tampoco")
+
     def test_el_desenlace_lo_infiere_la_misma_regla_que_session_end(self):
         """No hay una segunda heurística para lo mismo, y la evidencia dice quién selló."""
         conn = store.connect()
@@ -75,7 +100,7 @@ class SellarTest(IsolatedStoreTest):
         conn.close()
         self.assertEqual(resultado, esperado)
         self.assertEqual(row["outcome_result"], esperado)
-        self.assertIn("a demanda", row["outcome_evidence"] or "",
+        self.assertIn(dream.MARCA_DE_CAPITULO, row["outcome_evidence"] or "",
                       "el store tiene que poder distinguir un borde puesto a mano")
 
     def test_un_capitulo_de_otro_repo_no_aparece(self):

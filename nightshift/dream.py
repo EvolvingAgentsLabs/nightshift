@@ -410,6 +410,12 @@ def groups(conn, *, lookback_days=7, limit=200):
 # a mitad de sesión, que es el peor modo de falla de este proyecto.
 
 
+# Queda en `outcome_evidence`. Una trayectoria sellada a mano y una cerrada por fin de
+# sesión no son la misma clase de dato, y el store tiene que poder distinguirlas sin
+# adivinar.
+MARCA_DE_CAPITULO = "capítulo sellado a demanda, sesión en curso"
+
+
 def open_chapters(conn, repo_fingerprint=None, limit=10):
     """Trayectorias `open`, la de actividad más reciente primero.
 
@@ -443,9 +449,14 @@ def seal_chapter(conn, row):
     from .hook import _infer_outcome        # tardío: `hook` no importa `dream`
 
     result, evidence = _infer_outcome(conn, row["id"])
-    estado = store.close_trajectory(
-        conn, row["id"], result=result,
-        evidence=evidence or "capítulo sellado a demanda, sesión en curso")
+    # El marcador va **siempre**, no sólo cuando no hay otra evidencia. La primera versión
+    # ponía `evidence or MARCA`, y en la primera corrida real sobre este repo el desenlace
+    # salió `tests_passed` con evidencia propia: el marcador desapareció exactamente en el
+    # caso informativo, que es donde más importa poder distinguir un borde puesto a mano de
+    # uno puesto por `SessionEnd`. El test que había cubría sólo la rama sin evidencia y
+    # pasaba en verde — el mismo modo de falla que este repo ya documentó dos veces.
+    evidence = "%s · %s" % (evidence, MARCA_DE_CAPITULO) if evidence else MARCA_DE_CAPITULO
+    estado = store.close_trajectory(conn, row["id"], result=result, evidence=evidence)
     return estado, result
 
 
