@@ -402,8 +402,8 @@ class InyeccionTest(IsolatedStoreTest):
             conn, tid, abstraction={"pattern": "Un patron cualquiera que sirve de prueba."},
             valid_when=[], hypothesis=None, weight=0.6)
         row = store.get_trajectory(conn, tid)
+        self.assertEqual(retrieve._proyectadas(conn, row), ([], [], 0))
         conn.close()
-        self.assertEqual(retrieve._proyectadas(row), [])
 
 
 if __name__ == "__main__":

@@ -90,13 +90,26 @@ CREATE TABLE IF NOT EXISTS runs (
     cost_usd REAL,
     note TEXT
 );
+CREATE TABLE IF NOT EXISTS projections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trajectory_id TEXT NOT NULL,
+    idx INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    resolved_at TEXT,
+    evidence TEXT,
+    resolved_by TEXT,
+    UNIQUE(trajectory_id, idx)
+);
+CREATE INDEX IF NOT EXISTS idx_proj_status ON projections(status);
 CREATE INDEX IF NOT EXISTS idx_runs_started ON runs(started_at);
 CREATE INDEX IF NOT EXISTS idx_traj_session ON trajectories(session_id);
 CREATE INDEX IF NOT EXISTS idx_traj_task ON trajectories(task_type, status);
 CREATE INDEX IF NOT EXISTS idx_inj_session ON injections(session_id);
 """
 
-SCHEMA_REVISION = "3"
+SCHEMA_REVISION = "4"
 
 
 def now() -> str:
@@ -286,6 +299,112 @@ def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None
     return status
 
 
+# ------------------------------------------------------------- proyecciones (F1)
+#
+# Una conjetura que nadie resuelve no es memoria, es una nota. Hasta acá las proyecciones
+# vivían sólo dentro de `projected_signals_json`, que es el dato original y **no se toca**:
+# lo define el esquema `trajectory.v1`. Esta tabla es el **estado** de cada una, que es
+# otra cosa y no cabía en un array de strings.
+#
+# Tres estados y nada más: `open` (nadie la miró), `confirmed` (alguien la vio pasar),
+# `refuted` (alguien sabe por qué no puede pasar). No hay un cuarto para "probablemente":
+# el valor de esto es que obliga a decidir, y un estado tibio es la forma elegante de no
+# resolver nada.
+PROJECTION_STATES = ("open", "confirmed", "refuted")
+
+
+def sync_projections(conn, trajectory_id=None) -> int:
+    """Refleja `projected_signals_json` en la tabla. Idempotente. Devuelve cuántas agregó.
+
+    El `UNIQUE(trajectory_id, idx)` hace el trabajo: correrlo dos veces no duplica nada y
+    **nunca pisa un estado ya resuelto**, que es lo único que esta función no puede hacer.
+    """
+    sql = ("SELECT id, projected_signals_json FROM trajectories"
+           " WHERE projected_signals_json IS NOT NULL AND projected_signals_json != ''")
+    params = []
+    if trajectory_id:
+        sql += " AND id = ?"
+        params.append(trajectory_id)
+    agregadas = 0
+    for fila in conn.execute(sql, params).fetchall():
+        try:
+            items = json.loads(fila["projected_signals_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(items, list):
+            continue
+        for idx, texto in enumerate(items):
+            if not isinstance(texto, str) or not texto.strip():
+                continue
+            cursor = conn.execute(
+                "INSERT OR IGNORE INTO projections (trajectory_id, idx, text, status,"
+                " created_at) VALUES (?,?,?,'open',?)",
+                (fila["id"], idx, texto.strip(), now()))
+            agregadas += cursor.rowcount or 0
+    if agregadas:
+        conn.commit()
+    return agregadas
+
+
+def projections_of(conn, trajectory_id, *, status=None):
+    sql = "SELECT * FROM projections WHERE trajectory_id = ?"
+    params = [trajectory_id]
+    if status:
+        sql += " AND status = ?"
+        params.append(status)
+    return conn.execute(sql + " ORDER BY idx", params).fetchall()
+
+
+def all_projections(conn, *, status=None, limit=200):
+    sql = "SELECT * FROM projections"
+    params = []
+    if status:
+        sql += " WHERE status = ?"
+        params.append(status)
+    sql += " ORDER BY (status = 'open') DESC, created_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    return conn.execute(sql, params).fetchall()
+
+
+def resolve_projection(conn, projection_id, *, status, evidence, resolved_by) -> bool:
+    """Resuelve una conjetura. Devuelve si tocó una fila.
+
+    `evidence` es obligatoria en los dos sentidos, y no es simetría por prolijidad:
+    **refutar sin motivo es olvidar con otro nombre**, y confirmar sin motivo es el modo
+    de falla que este repo ya documentó — una explicación plausible anotada como hallazgo.
+    Quien resuelve también queda escrito: un veredicto sin autor no se puede revisar.
+    """
+    if status not in ("confirmed", "refuted"):
+        raise ValueError("un veredicto es `confirmed` o `refuted`: %r" % (status,))
+    if not (evidence or "").strip():
+        raise ValueError("resolver sin evidencia es olvidar con otro nombre")
+    if not (resolved_by or "").strip():
+        raise ValueError("un veredicto sin autor no se puede revisar")
+    cursor = conn.execute(
+        "UPDATE projections SET status = ?, resolved_at = ?, evidence = ?, resolved_by = ?"
+        " WHERE id = ?",
+        (status, now(), " ".join(evidence.split()), resolved_by.strip(), projection_id))
+    conn.commit()
+    return bool(cursor.rowcount)
+
+
+def projection_stats(conn) -> dict:
+    """El marcador de las conjeturas. Es el número que el README no tenía."""
+    filas = conn.execute(
+        "SELECT status, COUNT(*) AS n FROM projections GROUP BY status").fetchall()
+    cuenta = {estado: 0 for estado in PROJECTION_STATES}
+    for fila in filas:
+        if fila["status"] in cuenta:
+            cuenta[fila["status"]] = fila["n"]
+    resueltas = cuenta["confirmed"] + cuenta["refuted"]
+    return {"open": cuenta["open"], "confirmed": cuenta["confirmed"],
+            "refuted": cuenta["refuted"], "resolved": resueltas,
+            "total": resueltas + cuenta["open"],
+            # `None` y no 0.0: nadie resolvió ninguna todavía es distinto de ninguna
+            # acertó, y confundirlos es exactamente el verde vacuo que ya costó un fix.
+            "hit_rate": (cuenta["confirmed"] / resueltas) if resueltas else None}
+
+
 # --------------------------------------------------------------- corridas (M3-b)
 def record_run(conn, *, command, backend=None, started_at=None, exit_code=None,
                trajectories=0, candidates=0, superseded=0, rejected=0, cost_usd=None,
@@ -346,8 +465,15 @@ def promote_to_candidate(conn, trajectory_id, *, abstraction, valid_when, hypoth
          json.dumps(projected_signals, ensure_ascii=False) if projected_signals else None,
          diagram, trajectory_id))
     conn.commit()
-    return conn.execute("SELECT status FROM trajectories WHERE id = ?",
-                        (trajectory_id,)).fetchone()["status"]
+    estado = conn.execute("SELECT status FROM trajectories WHERE id = ?",
+                          (trajectory_id,)).fetchone()["status"]
+    # Las conjeturas entran a su tabla en el mismo momento en que se escribe el JSON del
+    # que salen. Sincronizar después, desde otro lado, deja una ventana en la que una
+    # proyección existe y no tiene estado — y una conjetura sin estado es la nota que este
+    # proyecto dice no querer.
+    if estado == "candidate":
+        sync_projections(conn, trajectory_id)
+    return estado
 
 
 def mark_superseded(conn, old_id, new_id, *, contrast=None):

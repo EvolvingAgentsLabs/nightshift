@@ -100,6 +100,7 @@ claude --plugin-dir .          # load it in this session
 |---|---|
 | `/nightshift:status` | what is stored, what got injected here |
 | `/nightshift:why <id>` | where an injection came from, step by step |
+| `/nightshift:resolve` | did a projected symptom happen? record it, with evidence |
 | `/nightshift:dream` | consolidate now instead of waiting for the night |
 | `/nightshift:sleep` | seal the current chapter and dream on it, mid-session |
 | `/nightshift:schedule` | install the nightly run |

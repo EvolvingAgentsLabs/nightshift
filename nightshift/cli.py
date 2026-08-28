@@ -107,6 +107,18 @@ def cmd_status(args) -> int:
         print("dream fase 1 (`consolidate`) existe: las `candidate` salieron de ahí.")
         print("La fase 2 (`verify`) es M5 y no existe, así que **nada llega a")
         print("`procedure`**: ninguna memoria inyectada está verificada.")
+
+        # El marcador de las conjeturas. Antes vivía escrito a mano en el README, en dos
+        # idiomas, y se desincronizó: es el número que este repo ya publicó mal una vez.
+        store.sync_projections(conn)
+        print()
+        print("conjeturas (lo que dream anticipó y nadie observó):")
+        _print_marcador_de_conjeturas(store.projection_stats(conn))
+        print("  resolverlas: `nightshift resolve`")
+
+        # Qué memoria cayó en qué sesión y cómo terminó esa sesión (plan §7, O1). El
+        # hook lo viene escribiendo desde M2 y no lo leía nadie.
+        _print_eco_de_inyecciones(conn)
         rows = conn.execute(
             "SELECT * FROM trajectories ORDER BY created_at DESC, rowid DESC LIMIT ?",
             (args.limit,)).fetchall()
@@ -129,6 +141,37 @@ def cmd_status(args) -> int:
         return 0
     finally:
         conn.close()
+
+
+def _print_eco_de_inyecciones(conn):
+    """O1 — el oráculo que ya estaba escrito y no leía nadie (plan §7).
+
+    `hook` guarda `into_trajectory`: qué memoria entró a qué trayectoria. Esa trayectoria
+    después se cierra con un desenlace. La arista existe desde M2 y `grep into_trajectory`
+    daba **un solo uso**, el INSERT.
+
+    **Se reporta y no se rankea**, y los tres motivos están en el plan: es correlación y no
+    causa —el contrafáctico es M4, pausado—, el n es diminuto, y sobre todo un ranking que
+    se alimenta de su propia salida deja de medir el repo y pasa a medirse a sí mismo. Una
+    memoria que sube de puntaje por haber caído en una sesión verde se inyecta más, cae en
+    más sesiones verdes, y domina para siempre.
+    """
+    filas = conn.execute(
+        "SELECT i.source_trajectory AS src, COUNT(*) AS veces,"
+        " SUM(CASE WHEN t.outcome_result = 'tests_passed' THEN 1 ELSE 0 END) AS verdes,"
+        " SUM(CASE WHEN t.outcome_result = 'user_corrected' THEN 1 ELSE 0 END) AS rojas,"
+        " SUM(CASE WHEN t.id IS NULL OR t.status = 'open' THEN 1 ELSE 0 END) AS abiertas"
+        " FROM injections i LEFT JOIN trajectories t ON t.id = i.into_trajectory"
+        " GROUP BY 1 ORDER BY veces DESC, src LIMIT 10").fetchall()
+    if not filas:
+        return
+    print()
+    print("eco de las inyecciones — en qué terminó la sesión que recibió cada memoria:")
+    for fila in filas:
+        print("  %s  %d vez/veces · %d tests_passed · %d user_corrected · %d sin cerrar"
+              % (fila["src"][:8], fila["veces"], fila["verdes"] or 0, fila["rojas"] or 0,
+                 fila["abiertas"] or 0))
+    print("  es correlación, no causa, y NO entra en el ranking: el contrafáctico era M4.")
 
 
 # ---------------------------------------------------------------------------- why
@@ -177,20 +220,27 @@ def cmd_why(args) -> int:
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
             if abstraction.get("decisive_signal"):
                 print("  señal decisiva: %s" % abstraction["decisive_signal"])
-            proyectadas = []
-            if ("projected_signals_json" in row.keys()
-                    and row["projected_signals_json"]):
-                try:
-                    proyectadas = json.loads(row["projected_signals_json"]) or []
-                except ValueError:
-                    proyectadas = []
             for señal in abstraction.get("signals", []):
                 print("  señal         : %s" % señal)
             # Lo proyectado va después de lo observado y dice que lo es. `why` existe
             # para reconstruir de dónde salió una inyección: una conjetura listada como
             # señal sería una reconstrucción falsa.
-            for señal in proyectadas:
-                print("  anticipada    : %s (conjetura: nadie la observó)" % señal)
+            #
+            # Y acá **sí** se muestran las refutadas, al revés que en la inyección. Son dos
+            # preguntas distintas: la inyección responde "qué le sirve al agente ahora" y
+            # una conjetura descartada no le sirve; `why` responde "de dónde salió esto y
+            # qué se hizo con ello", y ahí una refutación es lo más informativo que hay.
+            store.sync_projections(conn, row["id"])
+            for fila in store.projections_of(conn, row["id"]):
+                etiqueta = {"open": "anticipada   ", "confirmed": "anticipada ✓ ",
+                            "refuted": "anticipada ✗ "}[fila["status"]]
+                sufijo = {"open": " (conjetura: nadie la observó)",
+                          "confirmed": " (CONFIRMADA por %s: %s)"
+                                       % (fila["resolved_by"], fila["evidence"]),
+                          "refuted": " (REFUTADA por %s: %s)"
+                                     % (fila["resolved_by"], fila["evidence"]),
+                          }[fila["status"]]
+                print("  %s : #%d %s%s" % (etiqueta, fila["id"], fila["text"], sufijo))
             for item in json.loads(row["valid_when_json"] or "[]"):
                 print("  aplica cuando : %s (%s)" % (item.get("condition", ""),
                                                      item.get("source", "inferred")))
@@ -441,6 +491,128 @@ def _print_dream_report(report):
     print()
     print("nada de esto está verificado: `verify` es M5 y no existe. Son `candidate`,")
     print("se inyectan con menos peso y marcadas como no verificadas (spec §6.3).")
+
+
+def cmd_resolve(args) -> int:
+    """Resolver una conjetura: el humano como oráculo (plan §7, F1).
+
+    Dream proyecta síntomas que nadie observó. Hasta acá no había forma de decirle al
+    store que uno de ellos pasó, o que no puede pasar: la conjetura quedaba abierta para
+    siempre y seguía enganchando igual. Una conjetura que nadie resuelve no es memoria,
+    es una nota.
+
+    Este comando es el caso más simple del oráculo de §7 —la persona que fue a mirar— y
+    deja el mismo rastro que va a dejar cualquier otro: veredicto, evidencia y **autor**.
+    """
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+
+    conn = store.connect()
+    try:
+        # El JSON es el dato original y la tabla es el estado. Sincronizar acá cubre los
+        # stores anteriores a F1, donde las proyecciones existen y su estado no.
+        store.sync_projections(conn)
+        if not args.projection:
+            return _listar_conjeturas(conn, args)
+
+        veredicto = "confirmed" if args.confirmed else "refuted" if args.refuted else None
+        if not veredicto:
+            print("hace falta `--confirmed` o `--refuted`: el valor de esto es que "
+                  "obliga a decidir.", file=sys.stderr)
+            return 1
+        # La evidencia la escribe una persona en una terminal, así que es texto no
+        # controlado igual que el de un modelo: pasa por el redactor antes de persistirse.
+        red = Redactor(deny_paths=config.load()["deny_paths"], home_dir=str(Path.home()))
+        try:
+            tocada = store.resolve_projection(
+                conn, args.projection, status=veredicto,
+                evidence=red.text(args.evidence or ""),
+                resolved_by=args.by or "human")
+        except ValueError as exc:
+            print("no se resolvió: %s" % exc, file=sys.stderr)
+            return 1
+        if not tocada:
+            print("no existe la conjetura %s. `nightshift resolve` las lista."
+                  % args.projection, file=sys.stderr)
+            return 1
+        fila = conn.execute("SELECT * FROM projections WHERE id = ?",
+                            (args.projection,)).fetchone()
+    finally:
+        conn.close()
+
+    if args.json:
+        json.dump({"id": fila["id"], "status": fila["status"],
+                   "trajectory": fila["trajectory_id"], "text": fila["text"],
+                   "evidence": fila["evidence"], "resolved_by": fila["resolved_by"]},
+                  sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
+    print("conjetura %d de `%s` → **%s**" % (fila["id"], fila["trajectory_id"][:8],
+                                             fila["status"].upper()))
+    print("  %s" % fila["text"])
+    print("  porque: %s" % fila["evidence"])
+    print("  según : %s" % fila["resolved_by"])
+    print()
+    if fila["status"] == "refuted":
+        print("no vuelve a engancharse con ningún prompt. La conjetura no se borra:")
+        print("`/nightshift:why %s` la sigue mostrando con su motivo." % fila["trajectory_id"][:8])
+    else:
+        print("sigue pesando la mitad que una señal observada, y se anuncia como")
+        print("confirmada. Confirmarla no la vuelve una observación de esta sesión.")
+    return 0
+
+
+def _listar_conjeturas(conn, args):
+    """Sin id: qué hay para resolver. Es la mitad del comando que más se usa."""
+    estado = None if args.all else "open"
+    filas = store.all_projections(conn, status=estado)
+    stats = store.projection_stats(conn)
+    if args.json:
+        json.dump({"stats": stats,
+                   "projections": [dict(f) for f in filas]}, sys.stdout, indent=2,
+                  ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
+
+    print("nightshift resolve · conjeturas proyectadas por dream")
+    print()
+    _print_marcador_de_conjeturas(stats)
+    print()
+    if not filas:
+        print("nada que resolver." if estado else "no hay ninguna conjetura registrada.")
+        return 0
+    for fila in filas:
+        marca = {"open": " ", "confirmed": "✓", "refuted": "✗"}.get(fila["status"], "?")
+        print("  %s %-4d `%s`  %s" % (marca, fila["id"], fila["trajectory_id"][:8],
+                                      fila["text"][:96]))
+        if fila["status"] != "open":
+            print("        %s · %s" % (fila["resolved_by"], (fila["evidence"] or "")[:88]))
+    print()
+    print("resolver:  nightshift resolve <id> --confirmed --evidence \"lo vi pasar en …\"")
+    print("           nightshift resolve <id> --refuted   --evidence \"no puede pasar porque …\"")
+    print()
+    print("la evidencia es obligatoria en los dos sentidos: refutar sin motivo es")
+    print("olvidar con otro nombre.")
+    return 0
+
+
+def _print_marcador_de_conjeturas(stats):
+    """El marcador. Es el número que el README no tenía y escribía a mano."""
+    if not stats["total"]:
+        print("  sin conjeturas: dream no proyectó nada todavía.")
+        return
+    print("  %-12s %d" % ("proyectadas", stats["total"]))
+    print("  %-12s %d abiertas · %d confirmadas · %d refutadas"
+          % ("estado", stats["open"], stats["confirmed"], stats["refuted"]))
+    if stats["hit_rate"] is None:
+        # Distinto de 0.0, y la diferencia es la que este repo ya pagó una vez: "nadie
+        # resolvió ninguna" no es "ninguna acertó".
+        print("  %-12s sin resolver ninguna todavía (no es 0%%: es que nadie miró)"
+              % "acierto")
+    else:
+        print("  %-12s %.0f%% (%d de %d resueltas)"
+              % ("acierto", 100 * stats["hit_rate"], stats["confirmed"], stats["resolved"]))
 
 
 def cmd_sleep(args) -> int:
@@ -2053,6 +2225,18 @@ def main(argv=None) -> int:
                    help="gate de M3-a: correr sobre un set fixture en un store desechable")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_dream)
+
+    p = sub.add_parser("resolve", help="resolver una conjetura proyectada por dream:"
+                                       " confirmada o refutada, siempre con evidencia")
+    p.add_argument("projection", nargs="?", type=int,
+                   help="id de la conjetura; sin id, las lista")
+    p.add_argument("--confirmed", action="store_true", help="alguien la vio pasar")
+    p.add_argument("--refuted", action="store_true", help="alguien sabe por qué no puede")
+    p.add_argument("--evidence", help="por qué. Obligatoria en los dos sentidos")
+    p.add_argument("--by", help="quién resuelve (default: human). Es el autor del veredicto")
+    p.add_argument("--all", action="store_true", help="listar también las ya resueltas")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_resolve)
 
     p = sub.add_parser("sleep", help="ciclo de sueño a demanda: sella el capítulo en"
                                      " curso y consolida, sin cerrar la sesión")
