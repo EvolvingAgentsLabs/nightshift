@@ -8,6 +8,33 @@ acá.
 
 ---
 
+## MEDIDO — el techo a escala, con casos diseñados (2026-08-28, noche)
+
+El pedido de Matías: *diseñar ejemplos de ideación que funcionen primero, y usarlos como
+casos sintéticos.* Hecho: seis mecanismos con su ideación completa escrita a mano
+(`experimentos/casos_de_ideacion.py`), cada uno pasando los gates reales del brazo
+`fisica` (fijado en `make check`), montados juntos en un store desechable
+(`experimentos/15-el-techo-a-escala.py`, H24).
+
+Lo que dio, y a qué decisión alimenta cada número:
+
+- **6 de 6 propias enganchan y quedan elegidas · 0 de 4 ajenos.** El techo a escala
+  existe: el retrieval puede separar seis mecanismos con material ideal. Lo que falta está
+  arriba, en que la consolidación produzca señales así — la conclusión del `08`, ahora a
+  escala de store.
+- **LLEGAN 0 de 6.** Todas las paráfrasis clasifican `general`. Es el número más fuerte
+  hasta ahora para la decisión de la compuerta (spec §5.7, más abajo en este archivo):
+  ya no se puede atribuir a señales mal escritas, porque estas señales son el techo.
+- **4 de 6 paráfrasis cruzan** con casos ajenos (la correcta llega igual). La degradación
+  del `13`, reproducida sobre material diseñado para ser separable: alimenta la decisión
+  del piso, también abajo.
+
+**Qué es y qué no:** un techo. Casos, señales y paráfrasis los escribió la misma mano.
+No es transferencia ni evidencia de que la memoria sirva, y los casos **no** van al prompt
+de consolidación como few-shot: sería entrenar el brazo contra el instrumento.
+
+---
+
 ## La escena antes del diagrama: construida, y sin medir (2026-08-28, noche)
 
 ADR-007. Matías trajo una objeción al medio de la ideación, no a idear: **un diagrama de
