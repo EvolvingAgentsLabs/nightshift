@@ -33,6 +33,11 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 `retrieve.candidates`, que ahora pone lo que engancha con el prompt delante de lo que sólo
 comparte repo o tipo de tarea.
 
+**Ninguna de las tres está entera, y qué le falta a cada una está medido en
+[`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md)** — que es la cola de trabajo del pivot. En una
+línea: el store tiene **19 proyecciones y 0 resoluciones**, la hipótesis de una candidata
+salió inventada, y ningún diagrama se valida como diagrama.
+
 ### Lo que queda pausado, y qué no cambia por pausarlo
 
 | Qué | Estado | Qué **no** cambia |
