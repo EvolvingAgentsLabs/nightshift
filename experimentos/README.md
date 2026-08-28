@@ -41,9 +41,12 @@ python3 experimentos/14-la-escena-antes-del-diagrama.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
-De todos, el **05** es el único que cambió el plugin: encontró que el enganche por
-síntoma se caía a cero en cuanto el usuario parafraseaba, y de ahí salió la enmienda 0.3.6
-de la spec. Los demás miden y no tocan nada.
+Dos de ellos cambiaron el plugin, y los dos por el mismo motivo: midieron algo que nadie
+había medido. El **05** encontró que el enganche por síntoma se caía a cero en cuanto el
+usuario parafraseaba, y de ahí salió la enmienda 0.3.6. El **07** corrió el control de
+ADR-004 y **salió en contra**, y de ahí salió [ADR-007](../doc/adr/ADR-007-la-escena-antes-del-diagrama.md):
+un segundo medio de ideación, la escena física, que el **14** ejercita. Los demás miden y
+no tocan nada.
 
 ---
 
@@ -409,6 +412,13 @@ contra `pattern`. Lo encontró el `08`. Corregido, el control pierde un enganche
 máquina nunca produjo. **El veredicto no cambió**: sigue sin sostener ADR-004, ahora por el
 control negativo y no por un empate.
 
+**Qué salió de este resultado.** No se apagó la ideación —sería reaccionar a n=1 con la
+misma ligereza con la que se prendió— sino que se atacó el **medio**:
+[ADR-007](../doc/adr/ADR-007-la-escena-antes-del-diagrama.md) agrega la escena física como
+segundo brazo, con el default **sin cambiar** hasta que haya medición. El ejercicio de ese
+brazo es el [14](14-la-escena-antes-del-diagrama.py); su veredicto es H23, y está
+`BLOCKED` porque el conjunto retenido de acá **ya se gastó**.
+
 ---
 
 ## 08 — El techo del oráculo: ¿falla el código o falla el prompt?
@@ -660,6 +670,57 @@ discriminación no es una propiedad del texto de una conjetura: es una propiedad
 entero, y cambia a medida que crece.
 
 ---
+
+## 14 — Los dos medios de idear, sobre el mismo corpus
+
+**La capacidad que ilustra:** ninguna. Es el ejercicio del brazo que abrió
+[ADR-007](../doc/adr/ADR-007-la-escena-antes-del-diagrama.md), y existe porque el `07` dejó
+la apuesta de ADR-004 **sin sostener**.
+
+**La objeción que lo motiva.** Un diagrama Mermaid es **topología** —cajas y flechas— y
+para el modelo sigue siendo texto del mismo campo semántico que el código. Cuando una
+persona idea no dibuja cajas: se imagina una escena, con peso y con mecánica. Y cuando un
+idioma quiere comprimir un concepto entero en un signo, escribe un pictograma y no una
+oración. De ahí los dos campos del brazo `fisica`: `physical_scene` y `logogram`.
+
+**El montaje.** El mismo corpus, consolidado dos veces por el camino real
+(`dream.build_prompt` + `dream.validate`, con el bucle de reintentos del plugin): una vez
+con `--ideacion mermaid` y otra con `--ideacion fisica`. Dos llamadas al modelo.
+
+**Qué mide, y es un número que el proyecto no tenía:** cuántos intentos necesita cada brazo
+para pasar sus gates. El brazo físico pide algo que ningún prompt de este repo había
+pedido —salir del dominio del software— y hay un gate determinista que dice si lo hizo. Sin
+ese gate, «traducilo a una escena física» es un pedido, y un pedido no es un gate.
+
+**Qué NO mide, y es deliberado:** cuál de los dos transfiere. Eso necesita un conjunto
+retenido que ninguno de los dos brazos haya visto, y el único que existe —los tres síntomas
+de `cbbd7ff0`— **está gastado**: se usó para diagnosticar, para comparar brazos y para
+escribir dos reglas del prompt. Encima, el prompt del brazo físico lo escribió alguien que
+lo había leído el mismo día. Medir contra él sería entrenar contra el test. El veredicto es
+[H23](hipotesis/H23-la-escena-transfiere-mas-que-el-diagrama.py), y está `BLOCKED`.
+
+### Lo que dio (2026-08-28, `claude-code`, corpus real)
+
+Los dos brazos pasaron sus gates **al primer intento**. El brazo físico devolvió:
+
+```
+logograma: llave sin puerta
+escena:    En el galpón, cada bulto sale con una chapita de bronce grabada con el
+           portón del fondo al que hay que llevarlo. El capataz pesa la pila, cuenta
+           las chapitas, ve que hay una por bulto: la balanza cierra y el turno
+           cierra. Nadie camina hasta el fondo con una chapita en la mano a probar
+           si el portón que nombra sigue en la pared…
+```
+
+Tres cosas que conviene no leer de más:
+
+1. **Es n=1 corrida por brazo.** Que el gate no rechace nada acá no dice que discrimine:
+   dice que en esta corrida no hizo falta.
+2. **El brazo físico devolvió igual un `diagram`**, que el modo descartó. El modelo no
+   obedece la instrucción de dejarlo en null; lo que impide que los brazos acumulen
+   superficie es el código, no el prompt.
+3. **Esto no sostiene ADR-007 ni tumba ADR-004.** Dice que el brazo corre y que lo pedido
+   llega. Nada más.
 
 ## Cómo leer todo esto
 

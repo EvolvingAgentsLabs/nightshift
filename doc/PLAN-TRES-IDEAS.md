@@ -163,6 +163,25 @@ una limpieza.
 Cinco fases. Cada una termina en commit medible con su gate, y ninguna depende de una
 decisión humana pendiente.
 
+### Estado al 2026-08-28, noche
+
+Lo que se ejecutó de este plan, para que la sección siguiente no se lea como una cola
+intacta:
+
+| Fase | Estado | Qué la cerró |
+|---|---|---|
+| **F0** — el README dice lo que el proyecto es | ✅ | commit `a11c7d6` |
+| **F1** — resolver conjeturas | ✅ | tabla `projections`, `nightshift resolve`, tasa de acierto en `status` (`4ac9e3e`). H11, H12, H13 |
+| **F2** — no toda línea capturada es evidencia | ✅ | clasificación observación/lectura y anclaje de `hypothesis` (`5477720`). H02, H03 |
+| **F3** — el dibujo tiene que ser un dibujo | ✅ | `validate_diagram` y el rechazo al bucle de reintentos (`5477720`). H15 |
+| **F4** — medir la apuesta | ⚠️ **corrida, y salió en contra** | `experimentos/07` con conjunto retenido y control negativo: H17 en `FAIL`. De ahí salió [ADR-007](adr/ADR-007-la-escena-antes-del-diagrama.md), que ataca el **medio**: la escena física como segundo brazo, con el default sin cambiar. Su veredicto (H23) está `BLOCKED` |
+| **F5** — el README, otra vez | ⏳ pendiente | espera que F4 tenga un resultado que publicar, y hoy lo que hay es «sin sostener» |
+| **§7** — oráculos | ✅ O1–O4 | eco de inyecciones, notario git, `oracle_command` (ADR-006) e `import` externo (`8e62d07`). H18–H21 |
+
+**Lo que queda del plan no es código.** Es volumen —candidatas consolidadas con el brazo
+nuevo— y un conjunto retenido escrito por una persona que sólo vio las conjeturas. Las dos
+cosas las produce usar el plugin, no escribirlo.
+
 ### F0 — El README dice lo que el proyecto es (medio día)
 
 Va **primero**, no último, por el motivo que este repo ya documentó dos veces: un README

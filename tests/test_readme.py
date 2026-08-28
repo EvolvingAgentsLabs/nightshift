@@ -205,6 +205,39 @@ class MarcadorDeConjeturasTest(unittest.TestCase):
                                   "el marcador no manda a la fuente que lo calcula")
 
 
+class CuentaDeHipotesisTest(unittest.TestCase):
+    """La cuenta de hipótesis que publican los documentos coincide con los archivos.
+
+    Existe porque este repo ya se equivocó así dos veces con un número escrito a mano: el
+    marcador de proyecciones publicado en dos idiomas se desincronizó, y el 2026-08-28 el
+    conteo de hipótesis quedó viejo en tres documentos el mismo día en que se agregaron dos
+    archivos. Un número copiado envejece; uno derivado, no.
+
+    Se comprueba el **total**, que es lo que se puede derivar sin correr nada. Cuántas
+    pasan no se testea acá: eso lo dice `make experiments`, que es a donde los documentos
+    mandan.
+    """
+
+    DOCS = ("README.md", "README.es.md", "doc/HANDOFF.md")
+    # "**23 hipótesis**" / "**23 hypotheses**", en negrita para no atrapar una cifra suelta
+    # de prosa.
+    CUENTA_RE = re.compile(r"\*\*(\d+) (?:hipótesis|hypotheses)\*\*")
+
+    def test_la_cuenta_publicada_coincide_con_los_archivos(self):
+        reales = len([p for p in (RAIZ / "experimentos" / "hipotesis").glob("H*.py")
+                      if not p.name.startswith("_")])
+        self.assertTrue(reales, "no se encontró ninguna hipótesis: cambió la convención")
+        vistas = 0
+        for nombre in self.DOCS:
+            for match in self.CUENTA_RE.finditer(texto(nombre)):
+                vistas += 1
+                with self.subTest(doc=nombre):
+                    self.assertEqual(int(match.group(1)), reales,
+                                     "%s publica %s hipótesis y hay %d archivos"
+                                     % (nombre, match.group(1), reales))
+        self.assertTrue(vistas, "ningún documento publica la cuenta: se perdió el marcador")
+
+
 class AfirmacionesTest(unittest.TestCase):
     def test_ninguna_afirmacion_caducada_sigue_en_pie(self):
         for condicion, prohibida, motivo in AFIRMACIONES_QUE_CADUCAN:
