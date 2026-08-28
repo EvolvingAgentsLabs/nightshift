@@ -476,12 +476,11 @@ El punto 1 de la cola de arriba **ya se hizo**, la misma noche. `nightshift slee
   palabras de síntoma y no de diseño. Una trayectoria no es una medición, pero apunta a
   donde el `09` decía que faltaba.
 - La regla de abstención **no se ejercitó**: grupo de 1.
-- Apareció un falso positivo nuevo, y lo carga **una sola palabra**: `arranca`. Es una clase
-  que `_PREDICADOS_DE_FALLO` no cubre —verbos genéricos de proceso, no de fallo— y es la
-  tercera colisión de este tipo que encuentra el repo. **Medirlo antes de tocar la lista**:
-  el corpus son los 18 prompts ajenos del `09` y las 28 conjeturas del store.
-- Y después apareció algo más grande, que va primero: **la compuerta del clasificador**, más
-  abajo en esta sección.
+- Apareció un falso positivo que parecía cargar **una sola palabra**, `arranca`. **Medido el
+  mismo día (`13`) y era falso:** `arranca` no saca ningún falso positivo, el prompt engancha
+  igual por otra memoria. Lo que sí salió de esa medición es más grande y está abajo.
+- **La compuerta del clasificador** y **el piso que no discrimina**: las dos decisiones que
+  quedaron abiertas, y las dos son de Matías. Más abajo en esta sección.
 
 ### Lo más grande que se encontró, y es lo primero de la cola
 
@@ -510,6 +509,29 @@ tiene números**, y son éstos.
 
 Las tres opciones de spec están en `LATER.md` con sus costos. **Las decide Matías**, no un
 agente: cambian cuánto contexto se gasta por sesión.
+
+### La segunda decisión abierta: el piso no discrimina a escala del store
+
+`experimentos/13-cuanto-discrimina-el-enganche.py`, sobre el store real, 17 prompts
+verdaderos y 24 ajenos:
+
+| piso | verdaderos | ajenos |
+|---|---|---|
+| **1 (hoy)** | 15 de 17 (88%) | **17 de 24 (71%)** |
+| 2 | 5 de 17 (29%) | 2 de 24 (8%) |
+| 3 | 1 de 17 (6%) | 0 de 24 (0%) |
+
+La enmienda 0.3.6 fijó el piso en 1 midiendo contra **una sola candidata**, y para ese store
+eligió bien: 6% de falsos positivos. Con seis candidatas y veintiocho conjeturas casi
+cualquier prompt encuentra una palabra en común con alguna superficie.
+
+**La discriminación es una propiedad del store, no del texto de una conjetura**, y se degrada
+a medida que crece. Cualquier umbral fijado contra un store chico va a envejecer — y ése es
+el problema de diseño, más que el número de hoy.
+
+No se tocó nada: subir el piso es spec, y es un intercambio (10 enganches verdaderos por 15
+falsos positivos), no una mejora. Los dos verbos que salen gratis —`corre`, `queda`, 3 falsos
+positivos, 0 verdaderos— entran junto con la decisión grande o no entran.
 
 ### Lo que NO hay que hacer, y es tentador
 
