@@ -8,6 +8,34 @@ acá.
 
 ---
 
+## Las 5 proyecciones de `cbbd7ff0`, resueltas una por una (2026-08-27)
+
+Primera vez que el ciclo cierra entero sobre el propio repo: dream consolidó la sesión
+anterior, **proyectó cinco síntomas que nadie había observado**, y la sesión siguiente fue
+a mirarlos contra el código. El veredicto de cada uno, sin redondear:
+
+| # | Proyección (abreviada) | Veredicto |
+|---|---|---|
+| 1 | Un panel de salud informa cobertura perfecta cuando el denominador es cero | **CONFIRMADA y arreglada.** `_render_sealed` con cero celdas imprimía "la máquina corre entera" y salía 0 |
+| 2 | Un bloque de contexto inyectado cita cero ejemplos y pasa el gate porque el gate mira formato y largo | **REFUTADA en el camino vivo.** `retrieve.render` devuelve `""` cuando no eligió nada y el hook no inyecta. El gate que la proyección describe —"ejemplos citados: N"— no existe en el árbol |
+| 3 | Una corrida de consolidación queda registrada como exitosa habiendo procesado cero trayectorias | **ABIERTA, y no la cierra un agente.** Es literalmente `PLAN-M4.md` §10 Q6, sin responder. La spec §6.1 dice hoy que `0` significa "consolidó **o** no había nada que consolidar"; si eso está mal, lo decide Matías |
+| 4 | Un ensayo end-to-end da verde contra un store vacío | **CONFIRMADA y arreglada.** Es el mismo mecanismo que la 1, y el camino real no necesita ningún archivo roto: `bench run` reemplaza `registros` por `usable_records`, vacío cuando ninguna repetición quedó completa en las dos filas |
+| 5 | Un linter de invariantes pasa porque su lista de archivos quedó vacía por un patrón que no matchea nada | **CONFIRMADA como latente, y endurecida.** `pathlib` no expande llaves: `glob("{nightshift,tests}/**/*.py")` devolvía cero archivos y el chequeo de stdlib se apoyaba en el `or` de atrás. No pasaba en vacío hoy; un rename de directorio lo dejaba pasando en vacío sin ruido |
+
+**Dos confirmadas y arregladas, una confirmada como latente y endurecida, una refutada, una
+abierta por ser decisión de una persona.** La cuenta se escribe acá y no se redondea en
+ningún otro lado: este repo ya se equivocó una vez inflando el puntaje de las proyecciones
+(HANDOFF §4-bis), y la forma de que no vuelva a pasar es que haya un solo lugar donde se
+cuentan.
+
+Lo que **no** prueba: que idear produzca mejores proyecciones que no idear. Para eso hace
+falta el control, y el control es `experimentos/ideate.py` sobre volumen que no hay. Lo
+que sí muestra es que el mecanismo produce conjeturas que **se pueden ir a verificar**, y
+que verificarlas encontró un defecto real — que es exactamente lo que ADR-004 dijo que
+compraba, ahora con n=2.
+
+---
+
 ## Lo que el pivot a las tres ideas dejó abierto (2026-08-27)
 
 El pivot está en `doc/HANDOFF.md` §0-bis y `doc/PLAN-M4.md` quedó pausado entero. Lo que

@@ -50,6 +50,72 @@ CONGELADO = """# PREREG de prueba
 """
 
 
+class EnsayoVacioTest(unittest.TestCase):
+    """Un ensayo de cero celdas no es un ensayo en verde.
+
+    Salió de una **proyección** de dream: «un panel de salud que informa cobertura
+    perfecta cuando el denominador es cero, sin distinguir todo bien de no hay nada» y
+    «un ensayo end to end que da verde contra un store recién creado y vacío». Nadie
+    había observado ninguno de los dos síntomas — los anticipó el modelo desde el dibujo
+    del mecanismo del verde vacuo, y al ir a mirar el código estaban.
+
+    El camino real no necesita un archivo corrupto: `bench run` reemplaza `registros` por
+    `completeness(...)["usable_records"]`, que es **vacío** cuando ninguna repetición
+    quedó completa en las dos filas. Esa corrida imprimía "Ninguna repetición quedó
+    completa: no hay nada que comparar" y, tres líneas después, "la máquina corre entera",
+    con exit 0.
+    """
+
+    def _sealed(self, registros):
+        from nightshift import bench as bench_mod
+        cli.bench_mod = bench_mod
+        salida = io.StringIO()
+        with contextlib.redirect_stdout(salida):
+            codigo = cli._render_sealed(registros, "/tmp/corrida")
+        return codigo, salida.getvalue()
+
+    def _celda(self, **kwargs):
+        celda = {"row": "S1", "task": "t1", "repeat": 1, "phase": "measure",
+                 "agent_exit": 0, "seconds": 1.0, "resolved": True, "injections": 2}
+        celda.update(kwargs)
+        return celda
+
+    def test_cero_celdas_no_es_la_maquina_corre_entera(self):
+        codigo, texto = self._sealed([])
+        self.assertNotIn("la máquina corre entera", texto)
+        self.assertIn("no ocurrió", texto)
+        self.assertEqual(codigo, 1, "un ensayo que no ocurrió no puede salir 0")
+
+    def test_el_camino_real_es_una_corrida_sin_repeticiones_completas(self):
+        """`usable_records` vacío es cómo se llega acá sin ningún archivo roto."""
+        from nightshift import bench as bench_mod
+        registros = [self._celda(row="S0", repeat=1)]          # falta S1 en la rep. 1
+        integridad = bench_mod.completeness(registros, rows=("S0", "S1"), repeats=1)
+        self.assertEqual(integridad["usable_records"], [],
+                         "sin una repetición completa en las dos filas no hay nada legible")
+        codigo, _ = self._sealed(integridad["usable_records"])
+        self.assertEqual(codigo, 1)
+
+    def test_una_fila_con_cero_celdas_de_medicion_se_marca(self):
+        """La misma vacuidad un nivel más abajo: `0 de 0 recibieron memoria` pasaba."""
+        codigo, texto = self._sealed([self._celda(row="S0", injections=0),
+                                      self._celda(row="S1", phase="learn")])
+        self.assertIn("no recibió memoria en ninguna celda", texto)
+        self.assertEqual(codigo, 1)
+
+    def test_el_exit_code_dice_lo_mismo_que_el_texto(self):
+        """`with_outcome < cells` imprimía "encontró problemas" y salía 0."""
+        codigo, texto = self._sealed([self._celda(resolved=None)])
+        self.assertIn("encontró problemas", texto)
+        self.assertEqual(codigo, 1, "el texto decía problemas y el código decía OK")
+
+    def test_un_ensayo_completo_sigue_saliendo_cero(self):
+        """El guard no puede volver rojo lo que estaba legítimamente verde."""
+        codigo, texto = self._sealed([self._celda(), self._celda(row="S0", injections=0)])
+        self.assertIn("la máquina corre entera", texto)
+        self.assertEqual(codigo, 0)
+
+
 class PreregTest(unittest.TestCase):
     def test_el_prereg_real_sigue_sin_congelar_y_con_sus_todos(self):
         """Si esto falla, alguien completó decisiones que no son suyas."""
