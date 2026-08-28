@@ -3,23 +3,46 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _marco import PASS, FAIL, BLOCKED, StoreDesechable, correr_solo
 
-IDEA = 'CTE'
-HIPOTESIS = 'La cadena tiene eslabones explícitos: qué corrección arregló qué error.'
+IDEA = "CTE"
+HIPOTESIS = "La cadena tiene eslabones explicitos: que correccion arreglo que error."
+
 
 def correr():
+    from nightshift import dream
     with StoreDesechable() as d:
-        columnas = {f["name"] for f in d.conn.execute("PRAGMA table_info(steps)")}
-    enlaces = columnas & {"corrects_step", "caused_by", "parent_idx"}
-    if enlaces:
-        return PASS, "hay columnas de enlace: %s" % sorted(enlaces)
-    return FAIL, ("los pasos son una lista plana con dos banderas (`decisive`,\n"
-                  "`contradicted`). La cadena `hipotesis -> comando -> error ->\n"
-                  "correccion -> senal decisiva -> fix` esta afirmada en el README y en la\n"
-                  "spec y NO es una estructura de datos: esta implicita en el orden, que es\n"
-                  "la forma mas debil de tenerla. `why` no puede decir que correccion\n"
-                  "arreglo que error.\n"
-                  "Es G1.2 del plan, fuera de alcance hasta tener un sintoma medido que lo\n"
-                  "pida.")
+        tid = d.store.open_trajectory(d.conn, session_id="s", repo_fingerprint="f" * 64,
+                                      task_type="debug_test_failure", base_commit="abc1234",
+                                      redaction={"redactor_version": "0.1.0"})
+        d.store.append_step(d.conn, tid, kind="tool_failure", tool="run_shell",
+                            error_message="el decodificador explota", decisive=True)
+        d.store.append_step(d.conn, tid, kind="tool_use", tool="edit_file",
+                            result_summary="se subio el timeout")
+        d.store.mark_last_contradicted(d.conn, tid)      # el usuario dijo que estaba mal
+        d.store.append_step(d.conn, tid, kind="tool_use", tool="edit_file",
+                            result_summary="se fijo la codificacion")
+        d.store.append_step(d.conn, tid, kind="observation",
+                            result_summary="fin de turno")
+        d.store.close_trajectory(d.conn, tid, result="tests_passed")
+        eslabones = dream.cadena(d.store.steps_of(d.conn, tid))
+
+    por_tipo = {e["eslabon"]: e for e in eslabones}
+    if "fallo" not in por_tipo:
+        return FAIL, "no se reconocio el fallo"
+    correccion = por_tipo.get("correccion")
+    if not correccion:
+        return FAIL, "no se reconocio la correccion: %s" % [e["eslabon"] for e in eslabones]
+    if correccion["corrects"] != 1:
+        return FAIL, "la correccion apunta a %r y no al paso contradicho (1)" % correccion["corrects"]
+    if "fix" not in por_tipo or por_tipo["fix"]["idx"] != 2:
+        return FAIL, "el fix no es el ultimo paso que hizo algo: %r" % por_tipo.get("fix")
+    return PASS, ("la correccion en [%d] apunta al paso [%d] que el usuario contradijo, y\n"
+                  "el fix es el ultimo paso que HIZO algo (el sello del turno no arregla\n"
+                  "nada).\n"
+                  "Se DERIVA de lo persistido y no de banderas nuevas: `contradicted`,\n"
+                  "`decisive`, el orden y el comando ya estaban todos guardados, asi que\n"
+                  "se puede recalcular hacia atras sobre trayectorias viejas."
+                  % (correccion["idx"], correccion["corrects"]))
+
 
 if __name__ == "__main__":
     sys.exit(correr_solo(sys.modules[__name__]))

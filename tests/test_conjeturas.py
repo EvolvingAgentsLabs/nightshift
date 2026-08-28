@@ -239,3 +239,171 @@ class AuditoriaTest(IsolatedStoreTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OraculoTest(IsolatedStoreTest):
+    """El oráculo genérico (ADR-006): un comando, nunca un servicio."""
+
+    def _script(self, cuerpo):
+        import os
+        import stat
+        import sys
+        import tempfile
+
+        d = tempfile.mkdtemp()
+        ruta = os.path.join(d, "oraculo.py")
+        with open(ruta, "w", encoding="utf-8") as fh:
+            fh.write(cuerpo)
+        os.chmod(ruta, os.stat(ruta).st_mode | stat.S_IEXEC)
+        return [sys.executable, ruta]
+
+    def test_un_ejecutable_cualquiera_puede_ser_oraculo(self):
+        from nightshift import oracle
+
+        respuesta = oracle.ask(self._script(
+            'import json,sys\n'
+            'q=json.load(sys.stdin)\n'
+            'print(json.dumps({"status":"confirmed","evidence":"vi "+q["projection"][:8]}))\n'),
+            projection="los totales no cierran", pattern="un indice mal armado")
+        self.assertEqual(respuesta["status"], "confirmed")
+        self.assertIn("vi ", respuesta["evidence"])
+
+    def test_un_oraculo_roto_es_un_error_y_no_un_open(self):
+        """Confundirlos convierte una falla de plomería en un dato.
+
+        Es la forma exacta en que este repositorio ya perdió dos milestones: algo que
+        falla en silencio y se lee como una respuesta.
+        """
+        from nightshift import oracle
+
+        for cuerpo in ('print("esto no es json")\n',
+                       'import sys; sys.exit(3)\n',
+                       'import json; print(json.dumps({"status": "quiza"}))\n'):
+            with self.subTest(oraculo=cuerpo[:20]):
+                with self.assertRaises(oracle.OracleError):
+                    oracle.ask(self._script(cuerpo), projection="x")
+
+    def test_un_oraculo_no_puede_resolver_sin_evidencia(self):
+        """La misma regla que para una persona, y por el mismo motivo."""
+        from nightshift import oracle
+
+        with self.assertRaises(oracle.OracleError):
+            oracle.ask(self._script(
+                'import json,sys\nsys.stdin.read()\n'
+                'print(json.dumps({"status":"refuted","evidence":""}))\n'),
+                projection="x")
+
+    def test_el_modulo_del_oraculo_no_habla_con_la_red(self):
+        """ADR-006 extiende ADR-003 en vez de negociarlo."""
+        import inspect
+
+        from nightshift import oracle
+
+        fuente = inspect.getsource(oracle)
+        for prohibido in ("import socket", "import urllib", "import http", "requests"):
+            self.assertNotIn(prohibido, fuente)
+
+
+class CorroboracionTest(IsolatedStoreTest):
+    """El oráculo de git corrobora. **No verifica**, y la diferencia es todo."""
+
+    def test_corroborar_no_asciende_nada(self):
+        from nightshift import oracle
+
+        conn = store.connect()
+        tid = _candidata(conn)
+        store.set_corroboration(conn, tid, {"status": oracle.SURVIVED,
+                                            "evidence": "sigue siendo ancestro de HEAD",
+                                            "checked_at": store.now()})
+        row = store.get_trajectory(conn, tid)
+        conn.close()
+        self.assertEqual(row["status"], "candidate",
+                         "corroborar no puede mover el estado")
+        self.assertIsNone(row["verified_json"],
+                          "corroborar no puede tocar `verified`: eso es `verify` (M5)")
+        self.assertEqual(row["injection_weight"], 0.6, "ni el peso")
+
+    def test_un_fix_revertido_se_anuncia_en_la_inyeccion(self):
+        """Callarlo sería mentir por omisión: el desenlace no se sostuvo."""
+        from nightshift import oracle
+
+        conn = store.connect()
+        tid = _candidata(conn)
+        store.set_corroboration(conn, tid, {"status": oracle.REVERTED,
+                                            "evidence": "revertido por abc1234",
+                                            "checked_at": store.now()})
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load())
+        texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                   task_type="debug_test_failure", repo_fingerprint=FP)
+        conn.close()
+        self.assertIn("NO sobrevivió", texto)
+        self.assertIn("revertido por abc1234", texto)
+
+    def test_un_fix_que_sobrevivio_dice_que_no_esta_verificado(self):
+        from nightshift import oracle
+
+        conn = store.connect()
+        tid = _candidata(conn)
+        store.set_corroboration(conn, tid, {"status": oracle.SURVIVED,
+                                            "evidence": "12 commits después",
+                                            "checked_at": store.now()})
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load())
+        texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                   task_type="debug_test_failure", repo_fingerprint=FP)
+        conn.close()
+        self.assertIn("corroborado, **no verificado**", texto,
+                      "un fix que sobrevivió no puede leerse como verificado")
+
+
+class ImportacionTest(IsolatedStoreTest):
+    """Lo importado no se observó acá, y eso se dice en tres lugares."""
+
+    DOC = {"schema_version": "trajectory.v1", "id": "ajeno", "created_at": "2026-08-01T00:00:00Z",
+           "status": "closed", "harness": {"name": "otro"}, "repo_fingerprint": FP,
+           "task_type": "debug_test_failure", "base_commit": "abc1234",
+           "steps": [{"kind": "tool_failure", "tool": "run_shell",
+                      "error_message": "explota al leer /home/otro/.ssh/id_rsa",
+                      "decisive": True}],
+           "abstraction": {"pattern": "Una etapa valida la forma y nunca el contenido."},
+           "valid_when": [], "redaction": {"redactor_version": "de otra maquina"}}
+
+    def _importar(self, conn):
+        red = redact.Redactor(identifiers=[], deny_paths=config.DEFAULT_DENY_PATHS,
+                              home_dir=None)
+        return store.import_trajectory(conn, dict(self.DOC), redactor=red)
+
+    def test_lo_importado_pesa_menos_que_cualquier_fila_local(self):
+        conn = store.connect()
+        tid = self._importar(conn)
+        row = store.get_trajectory(conn, tid)
+        conn.close()
+        self.assertEqual(row["origin"], store.ORIGIN_EXTERNAL)
+        self.assertLess(row["injection_weight"], 0.3,
+                        "lo externo no puede llegar al peso de una trayectoria cruda local")
+
+    def test_se_vuelve_a_redactar_de_este_lado(self):
+        """Que el que exportó diga que redactó no es comprobable desde acá."""
+        conn = store.connect()
+        tid = self._importar(conn)
+        paso = store.steps_of(conn, tid)[0]
+        conn.close()
+        self.assertNotIn("id_rsa", paso["error_message"] or "")
+
+    def test_la_inyeccion_lo_anuncia_en_el_encabezado(self):
+        conn = store.connect()
+        self._importar(conn)
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load())
+        texto, _ = retrieve.render(conn, scored, max_injected=3, native_memory=False,
+                                   task_type="debug_test_failure", repo_fingerprint=FP)
+        conn.close()
+        self.assertIn("IMPORTADA", texto)
+        self.assertIn("no se observó en esta máquina", texto)
+
+    def test_un_documento_que_no_es_trajectory_v1_no_entra(self):
+        conn = store.connect()
+        with self.assertRaises(ValueError):
+            store.import_trajectory(conn, {"schema_version": "otra.cosa"})
+        conn.close()

@@ -441,6 +441,12 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
         otro_repo = bool(repo_fingerprint) and row["repo_fingerprint"] != repo_fingerprint
         if otro_repo:
             etiqueta += ", de otro repo"
+        # Lo importado se anuncia en el encabezado y no en una nota al pie: **no se
+        # observó en esta máquina**, el redactor de otro decidió qué tapaba, y ninguno de
+        # sus pasos lo vio nadie de este lado. Es la misma frontera que separa `signals`
+        # de `projected_signals`, y se defiende igual: diciéndola cada vez.
+        if "origin" in row.keys() and row["origin"] == store.ORIGIN_EXTERNAL:
+            etiqueta += ", **IMPORTADA — no se observó en esta máquina**"
         lines.append("### %d. `%s` — %s · %s (score %.2f · %s)"
                      % (rank, short, row["task_type"], etiqueta, score, reasons))
         # Una `candidate` trae el patrón abstraído; una cruda, sólo sus pasos. El agente
@@ -526,6 +532,20 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
             lines.append("- sólo el patrón: los pasos son de otro repositorio y no cruzan.")
             lines.append("")
             continue
+        # Lo que dijo el oráculo de git (plan §7, O2). Va **antes** de los pasos porque
+        # cambia cómo se lee todo lo que sigue: una memoria cuyo fix fue revertido sigue
+        # enseñando algo, y callarlo sería mentir por omisión.
+        corroboracion = store.get_corroboration(row)
+        if corroboracion and corroboracion.get("status") in ("reverted", "absent"):
+            lines.append("- ⚠ **el fix de esta trayectoria NO sobrevivió** (%s): %s"
+                         % (corroboracion["status"], corroboracion.get("evidence") or ""))
+            lines.append("  Sigue inyectada porque el camino recorrido enseña igual, pero"
+                         " el desenlace no se sostuvo.")
+        elif corroboracion and corroboracion.get("status") == "survived":
+            # "Corroborada" no es "verificada", y el texto lo dice para que el agente no
+            # lo lea como un ascenso: `verify` es M5 y no existe.
+            lines.append("- el fix sobrevivió en la historia del repo (corroborado, **no"
+                         " verificado**): %s" % (corroboracion.get("evidence") or ""))
         if row["hypothesis"]:
             lines.append("- hipótesis: %s" % row["hypothesis"])
         steps = store.steps_of(conn, row["id"])

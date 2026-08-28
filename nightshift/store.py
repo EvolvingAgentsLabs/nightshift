@@ -109,7 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_traj_task ON trajectories(task_type, status);
 CREATE INDEX IF NOT EXISTS idx_inj_session ON injections(session_id);
 """
 
-SCHEMA_REVISION = "4"
+SCHEMA_REVISION = "5"
 
 
 def now() -> str:
@@ -132,7 +132,8 @@ COLUMNAS_AGREGADAS = {
     "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL"),
                      ("ideation", "TEXT"), ("projected_signals_json", "TEXT"),
                      ("contrast_json", "TEXT"), ("diagram", "TEXT"),
-                     ("capture_cohort", "INTEGER")],
+                     ("capture_cohort", "INTEGER"), ("corroboration_json", "TEXT"),
+                     ("origin", "TEXT")],
 }
 
 # Qué generación del código de captura escribió esta trayectoria.
@@ -297,6 +298,29 @@ def close_trajectory(conn, trajectory_id, *, result, gate_id=None, evidence=None
     conn.execute(sql, fields)
     conn.commit()
     return status
+
+
+def set_corroboration(conn, trajectory_id, corroboration) -> None:
+    """Lo que dijo el oráculo de git sobre esta trayectoria (plan §7, O2).
+
+    Va en su propia columna y **no toca `verified_json`**, que es de `verify` (M5). Son
+    dos preguntas distintas: una lee historia, la otra reproduce contra un gate. Meterlas
+    en el mismo campo haría que un día alguien lea "corroborada" y escriba "verificada".
+    """
+    conn.execute("UPDATE trajectories SET corroboration_json = ? WHERE id = ?",
+                 (json.dumps(corroboration, ensure_ascii=False), trajectory_id))
+    conn.commit()
+
+
+def get_corroboration(conn_row):
+    """Lee la corroboración de una fila. `None` si nadie la miró todavía."""
+    if "corroboration_json" not in conn_row.keys() or not conn_row["corroboration_json"]:
+        return None
+    try:
+        datos = json.loads(conn_row["corroboration_json"])
+    except (TypeError, ValueError):
+        return None
+    return datos if isinstance(datos, dict) else None
 
 
 # ------------------------------------------------------------- proyecciones (F1)
@@ -653,6 +677,80 @@ def store_size_bytes(path: Path | None = None) -> int:
 
 
 # --------------------------------------------------------------------- exportar
+# ------------------------------------------------------------------ importación
+#
+# **Lo importado no se observó acá** (plan §7, O4). El redactor no corrió sobre ello en
+# esta máquina, ninguno de sus pasos lo vio nadie de este lado, y nada de lo que afirma es
+# comprobable desde acá. Si entrara al mismo pool con los mismos pesos, la jerarquía
+# observado > inferido > conjeturado —lo único que este proyecto defiende de verdad— se
+# colapsaría de una.
+#
+# Por eso hay una **clase de origen** y no un flag: es la misma clase de frontera que
+# `projected_signals` contra `signals`, y se defiende igual — se guarda aparte, pesa
+# menos, y se anuncia en cada lugar donde aparece.
+ORIGIN_LOCAL = "local"
+ORIGIN_EXTERNAL = "external"
+
+# Techo de peso para lo importado. **El número exacto lo decide Matías**, igual que
+# `W_PROJECTED_MATCH`; lo que no es negociable es la desigualdad: lo externo pesa
+# estrictamente menos que lo propio y no puede desplazar a una observación de esta
+# máquina. `candidate` local es 0.6 y una trayectoria cruda local 0.3, así que esto queda
+# por debajo de las dos.
+EXTERNAL_WEIGHT_CAP = 0.2
+
+
+def import_trajectory(conn, doc, *, redactor=None) -> str:
+    """Mete una trayectoria `trajectory.v1` producida afuera. Devuelve su id local.
+
+    Tres cosas que hace y ninguna es plomería:
+
+    - **Le pone `origin = external`.** Sin eso, en un mes nadie puede decir qué vino de
+      afuera, y una memoria sin procedencia es exactamente lo que este proyecto dice no
+      querer.
+    - **Le baja el peso a `EXTERNAL_WEIGHT_CAP`**, por debajo de cualquier fila local.
+    - **La vuelve a redactar de este lado**, si le pasan un redactor. Que el que exportó
+      diga que redactó no es comprobable desde acá, y confiar en eso sería importar el
+      criterio de otra máquina junto con los datos.
+    """
+    if not isinstance(doc, dict) or doc.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError("no es un documento `%s`" % SCHEMA_VERSION)
+    steps = doc.get("steps") or []
+    if not isinstance(steps, list):
+        raise ValueError("`steps` tiene que ser una lista")
+
+    def limpiar(valor):
+        if not isinstance(valor, str) or redactor is None:
+            return valor
+        return redactor.text(valor)
+
+    tid = str(uuid.uuid4())          # id nuevo: el de origen es de otro store
+    conn.execute(
+        "INSERT INTO trajectories (id, created_at, closed_at, status, harness_name,"
+        " session_id, repo_fingerprint, task_type, hypothesis, base_commit,"
+        " outcome_result, redaction_json, injection_weight, origin, abstraction_json,"
+        " valid_when_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (tid, doc.get("created_at") or now(), doc.get("closed_at"), "closed",
+         (doc.get("harness") or {}).get("name") or "external", None,
+         doc.get("repo_fingerprint"), doc.get("task_type") or "general",
+         limpiar(doc.get("hypothesis")), doc.get("base_commit"),
+         (doc.get("outcome") or {}).get("result") if isinstance(doc.get("outcome"), dict)
+         else None,
+         json.dumps({"redactor_version": "importado", "source": "external"}),
+         EXTERNAL_WEIGHT_CAP, ORIGIN_EXTERNAL,
+         json.dumps(doc["abstraction"], ensure_ascii=False) if doc.get("abstraction") else None,
+         json.dumps(doc.get("valid_when") or [], ensure_ascii=False)))
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        append_step(conn, tid, kind=step.get("kind") or "tool_use",
+                    tool=step.get("tool"),
+                    result_summary=limpiar(step.get("result_summary")),
+                    error_message=limpiar(step.get("error_message")),
+                    decisive=bool(step.get("decisive")))
+    conn.commit()
+    return tid
+
+
 def export_trajectory(conn, trajectory_id) -> dict | None:
     """Emite el objeto que valida contra schema/trajectory.v1.json."""
     row = get_trajectory(conn, trajectory_id)

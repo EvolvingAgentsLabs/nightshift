@@ -8,6 +8,39 @@ acá.
 
 ---
 
+## Se corrió el control de ADR-004, y salió en contra (2026-08-28)
+
+`experimentos/07-idear-contra-no-idear.py`. Contra un conjunto **retenido** —tres síntomas
+de `cbbd7ff0` que una persona confirmó después, con paráfrasis escritas a mano— que
+ninguno de los dos brazos vio:
+
+| | transferencia (3 retenidos) | control negativo (3 ajenos) |
+|---|---|---|
+| `observed` | 2 de 3 | 0 |
+| `ideate` | 2 de 3 | 1 |
+
+**Empate en transferencia, y una colisión de más para el brazo ideado.** La colisión: «el
+linter se queja de un import sin usar» enganchó con la proyección sobre un linter cuya
+lista de archivos quedó vacía, por compartir la palabra `linter`. Mismo sustantivo,
+problema distinto — más débil que un falso positivo limpio, y el control no la hizo.
+
+**Qué significa y qué no.** No refuta la hipótesis de ADR-004: la deja **sin sostener**,
+que es distinto. n=1 corpus y tres retenidos no deciden nada. Pero hasta acá el proyecto
+afirmaba el costo (el triple de tokens de salida, medido) contra un beneficio que nadie
+había intentado medir, y ahora el primer intento no lo encuentra.
+
+**Qué NO se hizo, y es deliberado:** apagar la ideación. Sería reaccionar a n=1 con la
+misma ligereza con la que se prendió, y `idear` tiene además la evidencia de arriba —una
+proyección que cerró un agujero real. Lo que corresponde es volumen, y es lo mismo que le
+falta a todo lo demás de este repo.
+
+La comparación se diseñó para no ser circular. Contar proyecciones por brazo sería trampa:
+`observed` no puede producir ninguna, así que el brazo ideado gana por definición.
+Preguntarle al brazo ideado por sus propias proyecciones sería peor: las escribió él. Por
+eso el conjunto retenido y las paráfrasis humanas.
+
+---
+
 ## Las 5 proyecciones de `cbbd7ff0`, resueltas una por una (2026-08-27)
 
 Primera vez que el ciclo cierra entero sobre el propio repo: dream consolidó la sesión

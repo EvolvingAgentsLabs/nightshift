@@ -67,6 +67,13 @@ DEFAULTS = {
     # Motivo: `observed` no puede producir `projected_signals`, así que dejarlo elegible
     # dejaba detrás de un default la única capacidad que engancha con un problema **antes**
     # de que su síntoma se haya visto una vez.
+    # El oráculo externo (ADR-006). Un **comando**, no un servicio: lee una pregunta por
+    # stdin y escribe un veredicto por stdout, igual que `model_command`. Así sirve un
+    # humano, un script, otro modelo o una API que envuelva el usuario —con su credencial
+    # y su riesgo— sin que nightshift hable con la red nunca (ADR-003).
+    # `None` es el default y significa que el único oráculo es una persona.
+    "oracle_command": None,
+    "oracle_timeout_seconds": 30,
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
     # Tope de grupos por corrida. Cada grupo es una llamada al modelo y, con el backend
