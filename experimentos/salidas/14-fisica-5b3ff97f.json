@@ -1,0 +1,29 @@
+{
+  "pattern": "Una etapa temprana marca un elemento como cerrado verificando sólo su forma, nunca que lleve contenido, y ninguna etapa intermedia lo consulta. El faltante recién se manifiesta en la última etapa, la primera que necesita derivar una magnitud de ese contenido, y ahí aparece como corte abrupto muy lejos del punto donde el contenido se perdió. El arreglo va donde se llena o donde se sella, no donde se muestra.",
+  "hypothesis": null,
+  "hypothesis_step": null,
+  "signals": [
+    "el resumen final corta de golpe justo cuando va a mostrar el estado de un elemento",
+    "todo el recorrido anterior pasó sin quejarse de nada",
+    "el elemento figura como cerrado y aun así no se puede calcular lo que hay que mostrar de él",
+    "el corte cae en la parte que arma la vista, no en la que produjo el dato"
+  ],
+  "decisive_signal": "El corte ocurre en la etapa de presentación, en el momento exacto de derivar un valor de salud desde un elemento ya marcado como cerrado: es el primer punto del recorrido que mira adentro en vez de mirar la marca.",
+  "valid_when": [
+    "hay una marca de completitud que certifica forma y no contenido",
+    "las etapas intermedias transportan el elemento sin abrirlo",
+    "el contenido recién se consulta al final, para mostrarlo o resumirlo",
+    "el llenado y el sellado son pasos distintos y nadie compara uno con otro"
+  ],
+  "projected_signals": [
+    "el resumen sale entero y en verde pero con todos los valores en cero, y nadie lo nota",
+    "el corte aparece en varias vistas a la vez, la primera vez que alguna mira adentro",
+    "volver a correrlo da exactamente el mismo corte sobre el mismo elemento, siempre",
+    "los elementos viejos se muestran bien y sólo rompen los más recientes",
+    "si se tapa el corte en la vista final el síntoma desaparece y el faltante queda para siempre"
+  ],
+  "physical_scene": "Por una cinta viajan cajones de madera y en cada puesto reciben un sello de lacre: el lacre certifica que la tapa quedó cerrada, nunca que adentro haya algo. Antes del final, a un cajón se le fue la carga por una junta floja del fondo, el líquido quedó en el piso y la cinta siguió andando, porque cada puesto mira el lacre y todos los lacres están intactos. Al final hay una balanza que tiene que imprimir la etiqueta con el peso neto, y es el primer aparato del recorrido que apoya la carga en vez de mirar la tapa. Con el cajón vacío la aguja no encuentra dónde asentarse, la balanza se traba y la fila entera se detiene. El capataz, desde el pasillo, ve una hilera de cajones lacrados y perfectos, así que busca la falla en la balanza y no en la junta del fondo, que quedó veinte metros y varios minutos atrás.",
+  "logogram": "cerrado pero vacío",
+  "mechanism": "A lo largo del recorrido se conserva la marca de completitud y la identidad del elemento: todas las etapas la ven, la aceptan y la pasan intacta. Lo que se pierde sin que nadie se queje es el contenido y la magnitud que se deriva de él, y se pierde en el cuadro donde el elemento se marca como cerrado sin que nadie verifique que lleva carga. El corte no ocurre ahí sino en el único cuadro que necesita la carga, la etapa que presenta o resume, y esa distancia entre el punto de pérdida y el punto de ruptura es lo que manda a mirar el lugar equivocado.",
+  "diagram": null
+}

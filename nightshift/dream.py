@@ -822,8 +822,13 @@ Devolvé `physical_scene`, `logogram` y `mechanism` como campos del JSON, junto 
 
 # Los dos medios de idear. **Ninguno apaga la ideación**: `fisica` es otro dibujo, no una
 # salida (H14). Un modo que no esté acá no existe.
+#
+# El default es `fisica` desde la enmienda 0.3.10, **por decisión de Matías del
+# 2026-08-28 y no por medición**: H23 —¿la escena transfiere donde el diagrama no?— sigue
+# sin un veredicto válido, y el ADR-007 lo registra así. `mermaid` sigue disponible con
+# `--ideacion mermaid`, y es lo que permite volver a comparar.
 MODOS_DE_IDEACION = ("mermaid", "fisica")
-MODO_DE_IDEACION = "mermaid"
+MODO_DE_IDEACION = "fisica"
 
 PREFIJOS_DE_IDEACION = {"mermaid": IDEATE_PREFIX, "fisica": IDEATE_PREFIX_FISICO}
 
@@ -867,12 +872,15 @@ Reglas duras. Una respuesta que las rompa se descarta:
   que no esté en los pasos: la diferencia entre observar y anticipar es la única que
   hace que esto sea memoria y no adivinación. Si no te pidieron idear, dejá
   `projected_signals` vacío.
-- **`signals`, `valid_when` y `projected_signals` son la única superficie contra la que
-  se busca.** Cuando alguien abra la próxima sesión y describa lo que le está pasando, el
-  retrieval compara sus palabras contra esos tres campos y **nunca contra `pattern`**. Así
-  que ahí no va tu mejor oración de diseño: va el **síntoma, como lo diría quien lo sufre**
-  antes de saber la causa —"la corrida termina en verde y no procesó ni un caso", no "una
-  aserción cuantifica sobre una colección vacía". `pattern` explica; `signals` se encuentra.
+- **`signals`, `valid_when`, `projected_signals` y `logogram` son la única superficie
+  contra la que se busca.** Cuando alguien abra la próxima sesión y describa lo que le
+  está pasando, el retrieval compara sus palabras contra esos campos y
+  **nunca contra `pattern`**. Así que ahí no va tu mejor oración de diseño: va el
+  **síntoma, como lo diría quien lo sufre** antes de saber la causa —"la corrida termina
+  en verde y no procesó ni un caso", no "una aserción cuantifica sobre una colección
+  vacía". `pattern` explica; `signals` se encuentra. El logograma se busca con el piso
+  más alto: sólo engancha cuando el prompt trae casi el signo entero, así que sus dos a
+  cuatro palabras tienen que ser las que alguien usaría de verdad.
 - **Nombrá el mecanismo, no la herramienta.** Un síntoma escrito alrededor de un nombre
   propio de herramienta engancha con cualquier otro problema de esa herramienta: decir
   "el linter" trae también al que se queja de un import sin usar. Decí qué hace la cosa
@@ -942,20 +950,37 @@ Trayectoria que la REEMPLAZÓ:
 """
 
 
+# El contraste consume `changed`/`bought`/`cost`/`old_valid_when` y nada más. La aspereza
+# se midió el 2026-08-28: con el prefijo de ideación a secas, el modelo devolvía también
+# la escena, el logograma y el diagrama, que `validate_contrast` descarta en silencio y se
+# pagan como tokens de salida. Esta línea es el recorte (enmienda 0.3.10, decidido por
+# Matías): idear sí —el contraste se piensa igual—, devolver el dibujo no.
+CONTRAST_TRIM = """
+
+Esto es un CONTRASTE, no una consolidación: usá la escena para pensar y NO la devuelvas.
+El JSON lleva SOLO `changed`, `bought`, `cost` y `old_valid_when` — nada de
+`physical_scene`, `logogram`, `diagram`, `mechanism` ni `projected_signals`.
+
+---
+
+"""
+
+
 def build_contrast_prompt(conn, old_row, new_row, *, ideate=True,
                           modo=MODO_DE_IDEACION) -> str:
     """El contraste también se idea. `ideate=False` existe sólo para el brazo de control
     de `experimentos/ideate.py`: en el plugin no hay ninguna ruta que lo apague.
 
-    Aspereza medida (2026-08-28): el prefijo de ideación pide campos que
-    `validate_contrast` no consume —`diagram` en `mermaid`; `physical_scene` y `logogram`
-    en `fisica`— y el modelo los devuelve igual: se descartan en silencio y se pagan como
-    tokens de salida. Un prefijo propio del contraste los ahorraría; no existe porque el
-    contraste corre sólo ante una contradicción registrada, que es raro, y un tercer
-    prompt que mantener cuesta más. Si el contraste se vuelve frecuente, revisar
-    (LATER.md)."""
+    En modo `fisica` el prefijo lleva el recorte de `CONTRAST_TRIM`: la escena se usa
+    para pensar y no se devuelve — los campos visuales de la alternativa descartada eran
+    tokens pagados que `validate_contrast` tiraba (medido el 2026-08-28, LATER.md)."""
     cuerpo = CONTRAST_PROMPT % (describe(conn, old_row), describe(conn, new_row))
-    return (PREFIJOS_DE_IDEACION[modo] + cuerpo) if ideate else cuerpo
+    if not ideate:
+        return cuerpo
+    prefijo = PREFIJOS_DE_IDEACION[modo]
+    if modo == "fisica":
+        prefijo = prefijo.rstrip() + CONTRAST_TRIM
+    return prefijo + cuerpo
 
 
 def validate_contrast(data, *, redactor, home_dir):
@@ -1425,7 +1450,10 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
                "only_trajectory": only_trajectory,
                "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
-               "strategy": "ideate" if modo == MODO_DE_IDEACION else "ideate:%s" % modo,
+               # Siempre explícito desde la 0.3.10: "ideate:<modo>". Un registro que dice
+               # sólo "ideate" deja de decir CON QUÉ se ideó el día que el default cambia
+               # — y acaba de cambiar.
+               "strategy": "ideate:%s" % modo,
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 

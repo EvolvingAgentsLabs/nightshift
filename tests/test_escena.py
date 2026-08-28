@@ -187,17 +187,15 @@ class BrazoFisicoTest(IsolatedStoreTest):
         self.assertEqual(fila["logogram"], LOGOGRAMA)
 
 
-class SeMuestraNoSeBuscaTest(IsolatedStoreTest):
-    """La decisión que este modo NO toma: cambiar el ranking.
+class LogogramaComoSuperficieTest(IsolatedStoreTest):
+    """Enmienda 0.3.10, decidida por Matías: el logograma se muestra Y se busca.
 
-    El logograma es una compresión, y contra una compresión el enganche por palabras
-    funciona peor que contra un síntoma, no mejor: `signals` está escrito con las palabras
-    de quien sufre el problema, y el logograma con las de quien lo entendió. Evocar un
-    logograma desde el prompt necesitaría embeddings, que chocan con ADR-003.
-
-    Así que entra donde sí sirve —el bloque que lee el agente— y **no** en la superficie de
-    búsqueda. Cambiar eso es spec, y con el store creciendo el enganche ya discrimina menos
-    (`experimentos/13`), no más.
+    La versión anterior de esta clase fijaba lo contrario («se muestra y no se busca»),
+    con el argumento de que contra una compresión el enganche por palabras funciona peor.
+    La decisión de Matías del 2026-08-28 lo mete en la superficie con dos protecciones que
+    estos tests defienden: el piso es duro —dos coincidencias sobre un signo de dos a
+    cuatro palabras es casi el signo entero— y el match del logograma **ordena primero**,
+    porque es la coincidencia más específica que la consolidación produce.
     """
 
     def _candidata(self, conn):
@@ -221,11 +219,11 @@ class SeMuestraNoSeBuscaTest(IsolatedStoreTest):
         self.assertIn(LOGOGRAMA, texto)
         self.assertIn("cinta transportadora", texto)
 
-    def test_el_logograma_no_es_superficie_de_busqueda(self):
-        """Un prompt que sólo comparte palabras con el logograma no engancha.
+    def test_el_logograma_engancha_con_su_propio_motivo(self):
+        """Dos palabras del signo en el prompt enganchan, y el motivo lo dice.
 
-        Si esto cambia, el tratamiento del experimento cambió y hay que decirlo en la spec
-        antes que en el código.
+        `logogram_match` y no `signal_match`: un motivo propio es lo que deja auditar
+        con `why` por dónde entró la fila — la condición de éxito 3 de la spec.
         """
         conn = store.connect()
         tid = self._candidata(conn)
@@ -235,8 +233,42 @@ class SeMuestraNoSeBuscaTest(IsolatedStoreTest):
                                      prompt="tengo una caja sellada vacia en la balanza")
         conn.close()
         motivos = scored[0][1] if scored else ""
-        self.assertNotIn("signal_match", motivos,
-                         "enganchó contra el logograma: eso es cambiar el tratamiento")
+        self.assertIn("logogram_match", motivos)
+
+    def test_una_sola_palabra_del_logograma_no_lo_dispara(self):
+        """El piso del logograma es duro: una palabra suelta no es el signo."""
+        conn = store.connect()
+        tid = self._candidata(conn)
+        row = store.get_trajectory(conn, tid)
+        scored = retrieve.candidates(conn, task_type=row["task_type"],
+                                     repo_fingerprint=FP, cfg=config.load(),
+                                     prompt="hay una caja en el deposito que no encuentro")
+        conn.close()
+        motivos = scored[0][1] if scored else ""
+        self.assertNotIn("logogram_match", motivos)
+
+    def test_el_match_del_logograma_ordena_primero(self):
+        """Entre dos filas que enganchan, la del logograma va adelante.
+
+        Es una regla de orden y no un peso, igual que la 0.3.7: ningún número se toca.
+        """
+        conn = store.connect()
+        # Una fila que engancha por señal, con puntaje alto.
+        t1 = _sembrar(conn)
+        store.promote_to_candidate(
+            conn, t1,
+            abstraction={"pattern": "Una etapa valida la forma y nunca el contenido.",
+                         "signals": ["la caja del deposito llega sellada y vacia"]},
+            valid_when=[], hypothesis=None, weight=0.6)
+        # Y una que además engancha por logograma.
+        t2 = self._candidata(conn)
+        scored = retrieve.candidates(conn, task_type="debug_test_failure",
+                                     repo_fingerprint=FP, cfg=config.load(),
+                                     prompt="tengo una caja sellada vacia en la balanza")
+        conn.close()
+        self.assertGreaterEqual(len(scored), 2)
+        self.assertEqual(scored[0][2]["id"], t2,
+                         "la fila con logogram_match tiene que ordenar primera")
 
 
 if __name__ == "__main__":

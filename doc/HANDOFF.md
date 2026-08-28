@@ -34,8 +34,10 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 comparte repo o tipo de tarea.
 
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
-**24 hipótesis**, una por archivo. Al 2026-08-28, noche: **22 comprobadas, 1 en contra y 1
-esperando material.**
+**24 hipótesis**, una por archivo. Al 2026-08-28, tras la enmienda 0.3.10: **22
+comprobadas y 2 en contra — H23 y H24, el costo medido del piso en 2.** H17 pasó a favor
+bajo el tratamiento nuevo (2 de 3 contra 0, ajenos 0), con su asterisco: el retenido de
+`cbbd7ff0` está gastado.
 
 La que falla es H17, y no por código faltante — se corrió el control de ADR-004 y **el
 resultado no sostiene idear** (`LATER.md`): el brazo ideado engancha un síntoma retenido más
@@ -51,6 +53,16 @@ topología se parece a todo. La idea 3 tiene ahora **dos medios** —`mermaid`, 
 **H17 no se tocó y sigue en `FAIL`**; el veredicto del brazo nuevo es H23, que está
 `BLOCKED` porque el único conjunto retenido que existe se gastó. Cambiar el default sin esa
 medición sería repetir con n=0 el error que ADR-004 cometió con n=1.
+
+**Y el 2026-08-28 a la noche Matías decidió las tres decisiones que estaban esperando**
+(enmienda 0.3.10 de la spec, implementada): la compuerta del clasificador ya no bloquea la
+inyección, el piso de discriminación es 2 en todas las superficies, el logograma es
+superficie de búsqueda con prioridad, y el default de ideación es `fisica` (ADR-007,
+enmienda — el argumento de arriba contra cambiarlo por decreto quedó superado por una
+decisión del dueño, que es distinto de refutado). Son decisiones, no mediciones de
+beneficio, y así están registradas. El retenido de `5b3ff97f` lo escribió el agente por
+autorización expresa de Matías: el número del `12` es un **techo de autor**, no
+sensibilidad real, y el archivo lo dice.
 
 El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 

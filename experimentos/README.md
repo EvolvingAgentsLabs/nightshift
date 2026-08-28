@@ -754,13 +754,18 @@ store, y el `13` midió que la discriminación se degrada al crecer.
 
 ### Lo que dio (2026-08-28, sin modelo)
 
-| | |
-|---|---|
-| la propia engancha | **6 de 6** |
-| la propia queda entre las elegidas | **6 de 6** |
-| prompts ajenos que enganchan | **0 de 4** |
-| paráfrasis que enganchan además casos ajenos | 4 de 6 |
-| **LLEGA al agente en una sesión real** | **0 de 6** — todas clasifican `general` |
+| | piso 1 + compuerta (original) | **piso 2, sin compuerta (0.3.10)** |
+|---|---|---|
+| la propia engancha | 6 de 6 | **3 de 6** |
+| la propia queda entre las elegidas | 6 de 6 | **3 de 6** |
+| prompts ajenos que enganchan | 0 de 4 | **0 de 4** |
+| paráfrasis que cruzan con casos ajenos | 4 de 6 | **1 de 6** |
+| **LLEGA al agente en una sesión real** | **0 de 6** | **3 de 6** |
+
+La columna nueva es de después de la enmienda 0.3.10 (las decisiones de Matías): la
+compuerta ya no bloquea, así que lo que engancha llega — y el piso en 2 dejó afuera a la
+mitad de lo que enganchaba. El trade-off entero está en `LATER.md`; H24 quedó en `FAIL` a
+propósito, porque ese costo tiene que doler en el tablero y no en una nota al pie.
 
 Tres lecturas, en orden de importancia:
 

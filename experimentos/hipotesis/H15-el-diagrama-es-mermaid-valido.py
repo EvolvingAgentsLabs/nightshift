@@ -26,9 +26,12 @@ def correr():
     if sin_detectar:
         return FAIL, "pasaron diagramas rotos: %s" % sin_detectar
     red = redact.Redactor(identifiers=[], deny_paths=config.DEFAULT_DENY_PATHS, home_dir=None)
+    # `modo="mermaid"` explícito: desde la 0.3.10 el default es `fisica`, que descarta
+    # el diagrama antes de mirarlo, y esta hipótesis es del gate del diagrama.
     _, _, _, problemas = dream.validate(
         {"pattern": "Una etapa valida la forma y nunca el contenido.",
-         "diagram": malos["corchete abierto"]}, redactor=red, home_dir=None)
+         "diagram": malos["corchete abierto"]}, redactor=red, home_dir=None,
+        modo="mermaid")
     if not [p for p in problemas if p.startswith("diagram:")]:
         return FAIL, "un diagrama roto no voltea la consolidacion"
     return PASS, ("1 bueno pasa, %d rotos se rechazan, y el rechazo voltea la\n"

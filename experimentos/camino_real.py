@@ -133,17 +133,20 @@ def montar(d, abstraccion, proyecciones=None, *, physical_scene=None, logogram=N
 def compuerta(prompt):
     """¿`on_user_prompt_submit` llegaría siquiera a rankear con este prompt?
 
-    Devuelve `(pasa, tipo)`. La rama de inyección del hook se toma sólo cuando el prompt
-    **fija** el tipo de tarea, es decir cuando `classify_task` devuelve algo distinto de
-    `general`. Con `general` el hook sale temprano y no rankea nada: da lo mismo lo que
-    hubiera puesto arriba.
+    Devuelve `(pasa, tipo)`. **Desde la enmienda 0.3.10, `pasa` es siempre `True`**: la
+    compuerta del clasificador dejó de existir para la inyección — todos los prompts se
+    evalúan, y lo que discrimina es el enganche con su piso en 2. Lo medido que motivó la
+    decisión: los tres retenidos de H17 y los seis casos diseñados del `15` clasificaban
+    `general`, así que el techo entero llegaba al agente 0 de N veces.
 
-    Se llama a la función del plugin y no se reimplementa la regla: es exactamente el error
-    que este módulo existe para no volver a cometer.
+    La función se conserva —y sigue llamando a `classify_task`, no reimplementándolo—
+    porque `tipo` sigue importando: es el que el hook le pasa a `candidates`, y de ahí
+    sale `same_task_type`. Los números "llega" publicados ANTES de la 0.3.10 se midieron
+    con la compuerta vieja y no son comparables con los de después.
     """
     from nightshift import context
     tipo = context.classify_task(prompt)
-    return tipo != context.DEFAULT_TASK_TYPE, tipo
+    return True, tipo
 
 
 def llega(d, cfg, prompt, tipo=None):

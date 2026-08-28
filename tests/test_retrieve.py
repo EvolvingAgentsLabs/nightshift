@@ -405,19 +405,23 @@ class RetrieveTest(IsolatedStoreTest):
     # `experimentos/05-enganche-por-parafrasis.py` sobre las frases reales de la candidata
     # `fff6af83`, el enganche se caía a 3 de 14 paráfrasis con el piso único en 2.
 
-    def test_una_palabra_destilada_alcanza_para_enganchar(self):
-        """Una frase de `abstraction` es una oración curada, no un volcado de error.
+    def test_una_palabra_destilada_ya_no_alcanza_para_enganchar(self):
+        """Enmienda 0.3.10, decidida por Matías: el piso de lo destilado subió a 2.
 
-        El modelo la escribió destilando: no tiene relleno, así que una sola palabra de
-        contenido compartida ya es señal. Este es el caso que hace que la memoria aparezca
-        cuando el usuario dice "no me quedó ninguna **descripción**" y el patrón guardado
-        habla de "el resumen llega vacío": una palabra en común, y es la que importa.
+        La 0.3.6 lo había puesto en 1 midiendo contra un store de UNA candidata, y para
+        ese store eligió bien. Con el store crecido, `experimentos/13` midió que el piso 1
+        era peor en las dos mitades (4 de 17 verdaderos al top-3, 17 de 24 ajenos
+        enganchando algo) y el `15` reprodujo los cruces sobre material diseñado. Una
+        palabra en común dejó de ser un enganche; dos lo son.
         """
         tid = self.sembrar_candidata(
             patron="la cadena conserva la estructura y pierde el contenido",
             senales=["los pasos llegan sin descripcion"],
             condiciones=[])
         razones = self.razones("ninguna de las acciones que ejecute quedo con descripcion")
+        self.assertNotIn("signal_match", razones.get(tid, (0, ""))[1])
+        # Con dos palabras de contenido en común, engancha.
+        razones = self.razones("los pasos que ejecute quedaron sin descripcion")
         self.assertIn("signal_match", razones[tid][1])
 
     def test_una_palabra_cruda_no_alcanza(self):
@@ -432,13 +436,17 @@ class RetrieveTest(IsolatedStoreTest):
         razones = self.razones("tengo un ImportError en otra cosa totalmente distinta")
         self.assertNotIn("failure_match", razones.get(tid, (0, ""))[1])
 
-    def test_el_piso_de_lo_destilado_es_mas_bajo_que_el_de_lo_crudo(self):
-        """La spec ya afirmaba la jerarquía en prosa; el código la contradecía.
+    def test_el_piso_es_dos_en_todas_las_superficies(self):
+        """Enmienda 0.3.10: el piso duro de discriminación estructural es 2.
 
-        "Con abstracción manda la abstracción: es lo destilado. El enganche por fallo es
-        el piso" (§5.10). Un piso único les cobraba el mismo peaje a las dos.
+        La 0.3.6 separó los pisos (destilado 1, crudo 2) midiendo contra una candidata;
+        la 0.3.10 los reunió en 2 midiendo contra el store crecido (`experimentos/13`) y
+        contra material diseñado (`15`). Si alguien vuelve a bajar uno, este test es el
+        que tiene que fallar primero.
         """
-        self.assertLess(retrieve.MIN_TOKENS_DESTILADO, retrieve.MIN_TOKENS_CRUDO)
+        self.assertEqual(retrieve.MIN_TOKENS_DESTILADO, 2)
+        self.assertEqual(retrieve.MIN_TOKENS_CRUDO, 2)
+        self.assertEqual(retrieve.MIN_TOKENS_LOGOGRAMA, 2)
 
     def test_un_predicado_de_fallo_no_engancha_solo(self):
         """"Algo falla" es cierto en cualquier prompt de debugging.

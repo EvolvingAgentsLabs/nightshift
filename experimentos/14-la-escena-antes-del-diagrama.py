@@ -128,9 +128,12 @@ def main():
 
         # Sólo se guarda lo que pasó los gates. Una respuesta rechazada es texto de
         # modelo que nadie revisó por fugas —el rechazo pudo ser justamente por eso— y
-        # este archivo se commitea al repo.
+        # este archivo se commitea al repo. Con --trajectory el nombre lleva el id: una
+        # corrida sobre otra trayectoria no debe pisar la salida de la anterior, porque
+        # H23 mide contra la del retenido y no contra la última que se corrió.
         if r["ok"]:
-            destino = RAIZ / "experimentos" / "salidas" / ("14-%s.json" % modo)
+            sufijo = "-%s" % grupo[0]["id"][:8] if args.trajectory else ""
+            destino = RAIZ / "experimentos" / "salidas" / ("14-%s%s.json" % (modo, sufijo))
             destino.parent.mkdir(exist_ok=True)
             destino.write_text(json.dumps(r["raw"], indent=2, ensure_ascii=False)
                                + "\n", encoding="utf-8")

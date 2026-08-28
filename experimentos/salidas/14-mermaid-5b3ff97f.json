@@ -1,0 +1,27 @@
+{
+  "pattern": "Una función interna asume que su entrada ya pasó por una etapa previa que completa y normaliza campos, y esa suposición no está escrita en ningún lado. Cuando se la invoca por fuera de su llamador habitual —desde un script al vuelo o un dato armado a mano— recibe un objeto con las mismas claves pero sin poblar, y revienta adentro de sí misma. El arreglo no está en la función que explota sino en reconstruir el camino completo antes de llamarla, o en hacer que la función exija explícitamente lo que da por sentado.",
+  "hypothesis": "Se creyó que el problema estaba en el código que arma el resumen y que se podía comprobar llamándolo directamente con un objeto de prueba.",
+  "hypothesis_step": 74,
+  "signals": [
+    "llamar la función a mano desde un script corto explota, pero la corrida normal anda bien",
+    "el traceback empieza en una linea de entrada suelta y termina adentro del modulo afectado",
+    "revienta justo en la linea donde se lee un campo del objeto que se le pasó",
+    "el objeto de prueba tiene las mismas claves que el real y aun así falla"
+  ],
+  "decisive_signal": "El traceback nace en un script escrito al vuelo y muere en la linea donde el renderizador lee el campo de salud: el objeto llegó con la clave presente pero sin valor, porque el paso que la puebla nunca corrió en ese camino.",
+  "valid_when": [
+    "existe una función interna invocada fuera de su llamador habitual",
+    "el objeto de entrada se construye a mano en un script o un fixture",
+    "hay una etapa previa que completa o normaliza campos y no se ejecuta en ese atajo",
+    "el error aparece dentro del código sospechado y no en el que lo llamó"
+  ],
+  "projected_signals": [
+    "un test que arma su fixture a mano pasa en verde mientras el camino real esta roto, porque el fixture nunca tuvo el campo que falta",
+    "agregar un campo nuevo a la etapa de normalización no rompe nada hasta que alguien renderiza, y ahí falla en un lugar que no se tocó",
+    "registros viejos guardados antes de que existiera la etapa de normalización hacen explotar la vista al abrirlos, mientras los nuevos andan",
+    "un segundo consumidor del mismo objeto falla con el mismo campo vacío en otro comando distinto",
+    "un chequeo de salud que lee directo del almacenamiento reporta todo bien sobre un registro incompleto que después no se puede mostrar"
+  ],
+  "diagram": "flowchart TD\n  A[origen: registro guardado] -->|claves crudas, campos sin poblar| B[etapa que completa y normaliza]\n  B -->|registro con la garantia: todo campo tiene valor| C[funcion que arma el resumen]\n  C -->|texto listo| D[salida normal, sin quejas]\n  P[script al vuelo: registro armado a mano] -.->|mismas claves, garantia ausente| C\n  P -.-> N((nadie valida acá))\n  C -->|lectura de un campo vacio| E[traceback dentro del resumen]\n  N -.-> E",
+  "mechanism": "Lo que se conserva de punta a punta es la forma aparente del objeto: el mismo juego de claves viaja por las dos rutas y ninguna etapa se queja de lo que recibe. Lo que se pierde sin protesta es la garantía de que cada clave llegue poblada, que sólo la existe como efecto de la etapa de normalización y nunca como condición declarada; se pierde exactamente en el cuadro donde el objeto se construye a mano, un paso que no valida nada, y el costo se cobra dos cuadros después. Es medir una señal antes del filtro con el instrumento calibrado para la salida: la señal tiene el mismo eje y las mismas unidades, pero le falta el término que el filtro ya había cancelado, y el instrumento no puede saberlo."
+}

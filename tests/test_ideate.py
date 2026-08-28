@@ -88,7 +88,9 @@ class IdeacionTest(IsolatedStoreTest):
         reporte = dream.consolidate(conn, ModeloQueMiraElPrompt(), cfg=cfg,
                                     lookback_days=3650)
         conn.close()
-        self.assertEqual(reporte["strategy"], "ideate")
+        # "ideate:<modo>" siempre explícito (0.3.10): lo que importa acá es que la config
+        # vieja no lo apagó, cualquiera sea el medio.
+        self.assertTrue(reporte["strategy"].startswith("ideate"))
         self.assertTrue(vistos, "el modelo no llegó a ver ningún prompt")
         self.assertIn("IDEÁ", vistos[0])
 
@@ -388,10 +390,12 @@ class InyeccionTest(IsolatedStoreTest):
 
     def test_un_diagrama_con_una_ruta_voltea_la_consolidacion(self):
         """Las etiquetas de un flowchart son justo donde alguien escribe una ruta."""
+        # `modo="mermaid"` explícito desde la 0.3.10: el default es `fisica`, que
+        # descarta el diagrama antes de mirarlo, y este test es del gate del diagrama.
         _, _, _, problemas = dream.validate(
             {"pattern": "Una funcion de normalizacion compartida no cubre un caso.",
              "diagram": "flowchart LR\n  A[/Users/alguien/proyecto/src] --> B[salida]"},
-            redactor=_redactor(), home_dir=None)
+            redactor=_redactor(), home_dir=None, modo="mermaid")
         self.assertTrue(problemas, "una ruta en el diagrama tiene que rechazarse")
 
     def test_una_fila_vieja_sin_la_columna_no_rompe_nada(self):
@@ -452,7 +456,7 @@ class DiagramaValidoTest(IsolatedStoreTest):
         _, _, _, problemas = dream.validate(
             {"pattern": "Una funcion de normalizacion compartida no cubre un caso.",
              "diagram": "flowchart LR\n  A[clave --> B[otra]"},
-            redactor=_redactor(), home_dir=None)
+            redactor=_redactor(), home_dir=None, modo="mermaid")
         self.assertTrue([p for p in problemas if p.startswith("diagram:")])
 
 

@@ -41,7 +41,9 @@ def correr():
         return FAIL, "el prompt por defecto no pide idear"
     if MARCA in control:
         return FAIL, "el brazo de control tambien idea: no hay control"
-    if rep["strategy"] != "ideate" or MARCA not in vistos[0]:
+    # Desde la 0.3.10 el reporte dice siempre `ideate:<modo>`: lo que esta hipotesis
+    # defiende es que se ideo, cualquiera sea el medio.
+    if not rep["strategy"].startswith("ideate") or MARCA not in vistos[0]:
         return FAIL, "una config vieja apago la ideacion"
     return PASS, ("idear es el default y una config con `observed` no lo apaga.\n"
                   "El brazo sin idear existe solo para experimentos/ideate.py: sin control\n"
