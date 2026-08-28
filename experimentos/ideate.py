@@ -15,6 +15,12 @@ cosa que el plugin ya no tiene — el **brazo de control**, `build_prompt(..., i
 — porque sin control no se puede volver a medir la diferencia. Que el control sea
 alcanzable desde acá no lo vuelve una opción del producto: en el plugin no hay ninguna
 ruta que apague la ideación.
+
+**Desde ADR-007 los medios son dos**, `mermaid` y `fisica`, y este script compara el
+control contra el default. Comparar los dos **medios** entre sí es
+`14-la-escena-antes-del-diagrama.py`, que corre los dos por el camino real con el bucle de
+reintentos. Ninguno de los dos medios apaga la ideación: `ideate=False` sigue siendo la
+única forma de no idear, y sigue viviendo acá.
 """
 
 import argparse

@@ -243,7 +243,7 @@ cumplió dos veces tampoco.
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el alcance, y el benchmark (pausado)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: 20 de 21 comprobadas. La que falla es la apuesta del propio proyecto
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **23 hipótesis**. Al 2026-08-28: **21 comprobadas**, 1 en contra y 1 esperando material — `make experiments` las recorre. La que falla es la apuesta del propio proyecto
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado

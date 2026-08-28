@@ -34,13 +34,25 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 comparte repo o tipo de tarea.
 
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
-21 hipótesis, una por archivo. Al 2026-08-28: **20 de 21 comprobadas.** La única que falla
-es H17, y no por código faltante — se corrió el control de ADR-004 y **el resultado no
-sostiene idear** (`LATER.md`): el brazo ideado engancha un síntoma retenido más que el
-control (2 de 3 contra 1) y lo paga con un prompt ajeno, así que la transferencia extra no
-se puede separar de la indiscriminación. El instrumento de esa medición se corrigió el
-mismo día —medía contra `pattern`, que la cadena real nunca matchea— y el veredicto no
-cambió. El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
+**23 hipótesis**, una por archivo. Al 2026-08-28, tarde: **21 comprobadas, 1 en contra y 1
+esperando material.**
+
+La que falla es H17, y no por código faltante — se corrió el control de ADR-004 y **el
+resultado no sostiene idear** (`LATER.md`): el brazo ideado engancha un síntoma retenido más
+que el control (2 de 3 contra 1) y lo paga con un prompt ajeno, así que la transferencia
+extra no se puede separar de la indiscriminación. El instrumento de esa medición se corrigió
+el mismo día —medía contra `pattern`, que la cadena real nunca matchea— y el veredicto no
+cambió.
+
+De ese `FAIL` salió [ADR-007](adr/ADR-007-la-escena-antes-del-diagrama.md), y la objeción es
+sobre el **medio** y no sobre idear: un diagrama de cajas y flechas es topología, y la
+topología se parece a todo. La idea 3 tiene ahora **dos medios** —`mermaid`, el default, y
+`fisica`, la escena antes del diagrama, con logograma— los dos con gate determinista.
+**H17 no se tocó y sigue en `FAIL`**; el veredicto del brazo nuevo es H23, que está
+`BLOCKED` porque el único conjunto retenido que existe se gastó. Cambiar el default sin esa
+medición sería repetir con n=0 el error que ADR-004 cometió con n=1.
+
+El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 
 ### Lo que queda pausado, y qué no cambia por pausarlo
 
@@ -467,6 +479,12 @@ Eso importa: son las primeras conjeturas escritas con esas reglas, y nadie las m
 5. **H17 sigue en `FAIL`** y ahora por el control negativo: el brazo ideado engancha un
    síntoma retenido más que el control y lo paga con un prompt ajeno. Para cerrarlo hace
    falta volumen, que es lo mismo que le falta a todo lo demás.
+6. **El brazo nuevo de ADR-007 necesita las dos cosas de arriba, y ninguna es código.**
+   `--ideacion fisica` corre y pasa sus gates (H22, y `experimentos/14` contra el modelo
+   real), pero H23 —¿la escena transfiere donde el diagrama no?— está `BLOCKED` hasta que
+   haya (a) volumen de candidatas consolidadas con ese medio y (b) un conjunto retenido
+   **nuevo**. El de `cbbd7ff0` está gastado dos veces: se usó para diagnosticar y el prompt
+   del brazo nuevo se escribió mirándolo.
 
 ### Lo que dejó el sueño de esa noche, ya mirado
 
