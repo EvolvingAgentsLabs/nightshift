@@ -8,6 +8,64 @@ acá.
 
 ---
 
+## La escena antes del diagrama: construida, y sin medir (2026-08-28, noche)
+
+ADR-007. Matías trajo una objeción al medio de la ideación, no a idear: **un diagrama de
+cajas y flechas es topología**, y para el modelo sigue siendo texto del mismo campo
+semántico que el código. Cuando una persona idea se imagina una escena con mecánica; y
+cuando un idioma comprime un concepto entero en un signo, escribe un pictograma, no una
+oración. De ahí las dos piezas del brazo nuevo: `physical_scene` y `logogram`.
+
+**Qué se construyó:** el modo `fisica` (`--ideacion fisica` en `dream` y en `sleep`), sus
+dos gates deterministas —una escena que nombra el dominio del software se rechaza, un
+logograma va de dos a cuatro palabras— enchufados al mismo bucle de reintentos que una
+fuga, la escena y el signo en la inyección y en `why`, y `experimentos/14`, que corre los
+dos brazos sobre el mismo corpus.
+
+**Qué NO se hizo, y las tres son deliberadas:**
+
+1. **No se cambió el default.** Sacar un medio que pasa sus gates para poner otro que nadie
+   midió es repetir con n=0 el error que ADR-004 cometió con n=1. `mermaid` sigue siendo el
+   default hasta que haya medición.
+2. **No se midió transferencia, y no se puede hoy.** El único conjunto retenido que existe
+   —los tres síntomas de `cbbd7ff0`— está gastado, y encima el prompt del brazo nuevo lo
+   escribió alguien que lo había leído el mismo día. Correr `07` con el brazo físico daría
+   un número que no vale nada. H23 queda `BLOCKED`, con el material que le falta escrito.
+3. **H17 no se tocó y sigue en `FAIL`.** Su veredicto es sobre el brazo Mermaid, que sí se
+   midió. Convertir un `FAIL` en `BLOCKED` cambiando el instrumento es lavar un resultado.
+
+**Lo primero que se corrió, el mismo día (`experimentos/14`, corpus real, `claude-code`):**
+los dos brazos pasaron sus gates **al primer intento**. El brazo físico devolvió una escena
+de galpón —chapitas de bronce grabadas con el portón al que hay que llevar cada bulto, un
+capataz que pesa la pila y cuenta las chapitas y nadie que camine hasta el fondo a ver si el
+portón sigue en la pared— y el logograma **«llave sin puerta»**. Ninguna palabra del dominio
+del software, así que el gate no tuvo que rechazar nada.
+
+Dos cosas que conviene tener anotadas antes de leer eso como una victoria: **es n=1 corrida
+por brazo**, y el brazo físico devolvió igual un `diagram` que el modo descartó — el modelo
+no obedece la instrucción de dejarlo en null, y lo que impide que se acumule es el código,
+no el prompt. Que el gate no rechace nada en una corrida tampoco dice que discrimine: dice
+que en esta corrida no hizo falta.
+
+**Lo que queda abierto, y es de Matías:**
+
+- **Correr `experimentos/14` y mirar qué escribe el brazo nuevo.** Mirar, no medir: si las
+  escenas salen en objetos y no en conceptos, y si el logograma nombra el mecanismo o el
+  caso. Es la misma pasada que se hizo con las candidatas del primer sueño con el prompt
+  nuevo.
+- **Generar volumen con `--ideacion fisica`.** Es lo único que puede destrabar H23 junto con
+  un retenido nuevo, y es lo mismo que le falta a todo lo demás de este repo.
+- **Si el logograma debería agrupar memorias.** Hoy se muestra y nada más. Agrupar
+  candidatas por logograma en `status`, o usarlo como nombre estable de una memoria, es
+  barato — y es una decisión de producto, no una limpieza.
+
+**Y lo que necesitaría embeddings, otra vez.** La idea original era que el retrieval
+evaluara si el prompt del usuario **evoca** el mismo logograma. Eso no se puede hacer con
+coincidencia de palabras: contra una compresión de dos a cuatro palabras el enganche
+funciona peor que contra un síntoma, no mejor. Evocar necesita embeddings, que chocan con
+ADR-003 — el mismo choque que ya tiene anotado el problema de los sinónimos, más abajo en
+este archivo. Por eso el logograma **se muestra y no se busca**.
+
 ## RESUELTO — dream no sabía decir que no, y la palanca era el prompt (2026-08-28)
 
 `experimentos/10-abstencion.py`. Tres trayectorias sin absolutamente nada en común —un

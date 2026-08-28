@@ -32,3 +32,9 @@ media oración con la conjetura, está mal escrita.
 |---|---|---|---|
 | `cbbd7ff0` | `implement_feature`, 2026-08-27 | Matías, en la sesión del 2026-08-28 | **gastado** — se usó para diagnosticar |
 | `5b3ff97f` | `debug_test_failure`, 2026-08-27 | Matías | **pendiente** — `PENDIENTE-5b3ff97f.md` |
+
+**Y desde el 2026-08-28 hace falta uno más, por el mismo motivo.** ADR-007 agrega un
+segundo medio de ideación —la escena física— y su prompt lo escribió alguien que había
+leído los tres síntomas de `cbbd7ff0` ese mismo día. Medir el brazo nuevo contra ellos
+sería entrenar contra el test dos veces: el conjunto ya estaba gastado **y** el prompt se
+escribió mirándolo. Por eso H23 está `BLOCKED` y no `FAIL`.

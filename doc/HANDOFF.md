@@ -124,6 +124,7 @@ Arrancá con `nightshift dev`.
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 | El notario: una resolución nombra un commit o un PR, y git lo verifica | `make notario`, `store.resolution_ref`, `notary_since` |
 | Abstención: ¿dream dice que no cuando no hay patrón? | `make abstencion`, `bench/fixtures/familia-e/`, PREREG §3-E |
+| Segundo medio de idear: la escena física y el logograma, con sus gates | `dream.validate_scene`, `--ideacion fisica`, [ADR-007](adr/ADR-007-la-escena-antes-del-diagrama.md) |
 
 ### No construido
 

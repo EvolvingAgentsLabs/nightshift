@@ -6,8 +6,8 @@
 | Estado | Draft — M0 |
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
-| ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005 |
-| Revisión | 0.3.8 — el capítulo: sellar y soñar a demanda, sin cerrar la sesión |
+| ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007 |
+| Revisión | 0.3.9 — el segundo medio de idear: la escena antes del diagrama (ADR-007) |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -615,6 +615,14 @@ El brazo de control no se pierde: `build_prompt(..., ideate=False)` sigue existi
 `experimentos/ideate.py`, que es donde se mide la diferencia entre las dos ramas. Lo que
 se perdió es la posibilidad de que una corrida del plugin no idee sin que nadie lo note.
 
+**Enmienda 0.3.9 — con qué se idea son dos cosas, y ninguna es "no idear".** El medio de
+ADR-004 es un diagrama Mermaid, y contra un conjunto retenido no quedó sostenido (H17).
+ADR-007 agrega un segundo medio, `fisica`: primero una escena del mundo físico, después el
+razonamiento sobre esa escena, y de ahí las proyecciones y un logograma de dos a cuatro
+palabras que nombra el mecanismo. Los dos campos tienen gate determinista y el rechazo
+entra al mismo bucle de reintentos que una fuga. **El default no cambia** —`mermaid`— y
+cuál gana lo decide una medición que todavía no se puede hacer.
+
 **Enmienda 0.3.8 — el capítulo, y quién pone el borde.** La sesión era la unidad de
 captura y la trayectoria la unidad de consolidación, así que eran la misma cosa: dream
 sólo mira `closed`, y la trayectoria en curso se cierra en `SessionEnd`. Para consolidar
@@ -980,3 +988,25 @@ tres veces en una sesión sin dejar constancia.
 | 5.5, 6.1 | `nightshift sleep`: sella la trayectoria en curso y consolida su grupo, sin cerrar la sesión | Dream sólo ve `closed`, y la trayectoria en curso se cierra en `SessionEnd`: para soñar sobre lo que acabás de hacer había que dejar de hacerlo. Segmentar sola una sesión larga sigue sin resolverse; el borde lo pone la persona que trabaja, que ya sabe cuándo terminó un capítulo |
 | 6.1 | `consolidate(only_trajectory=…)` acota la corrida a los grupos que contienen esa trayectoria | Filtra por pertenencia y no por posición, que es lo que `--max-groups` no puede hacer. Consolidar la semana entera cuesta la semana entera y no es lo que pidió quien selló un capítulo |
 | 5.6 | Sin cambio, y queda dicho: `Stop` **sigue** sin cerrar la trayectoria | Cerrar por turno partiría la sesión sin que nadie lo pidiera. Sellar a demanda hace la misma partición porque alguien la pidió en el borde que eligió |
+
+### Enmiendas 0.3.9 (el segundo medio de idear — ADR-007)
+
+El 2026-08-28 se midió el brazo de la ideación contra un conjunto retenido y **no quedó
+sostenido**: engancha un síntoma más que el control y lo paga con un prompt ajeno (H17).
+La objeción que abre estas enmiendas es sobre el **medio** y no sobre idear: un diagrama
+de cajas y flechas es topología, y la topología se parece a todo. Ver
+[ADR-007](adr/ADR-007-la-escena-antes-del-diagrama.md).
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 6.1 | Hay **dos medios de ideación**, `mermaid` (default) y `fisica`. Ninguno la apaga: `--ideacion off` no existe y no va a existir | `fisica` pide primero una escena del mundo físico, después el razonamiento **sobre esa escena**, y de ahí las proyecciones. Un flowchart admite cualquier cosa mientras las flechas cierren; una escena tiene mecánica, y la mecánica es lo que se transporta a un síntoma que no se vio |
+| 6.1 | `physical_scene` y `logogram` tienen **gate determinista**: una escena que nombra el dominio del software o trae identificadores de código se rechaza, y un logograma va de dos a cuatro palabras sin nombre de herramienta. El rechazo entra al mismo bucle de reintentos que una fuga | Sin gate, «traducilo a una escena física» es un pedido, y un pedido no es un gate: el modelo contesta con la explicación de siempre encabezada por «imaginá una máquina» y nada lo nota |
+| 5.10 | La escena y el logograma **se muestran y no se buscan**: no entran en la superficie de búsqueda | Contra una compresión de dos a cuatro palabras el enganche por palabras funciona peor que contra un síntoma, no mejor. Evocar un logograma desde el prompt necesitaría embeddings, que chocan con ADR-003. Y agregar superficie es lo que H17 castigó |
+| 6.1 | En el brazo `fisica` el `diagram` se descarta aunque el modelo lo devuelva | Si un brazo guardara los dos medios, la comparación sería entre acumular texto y no acumularlo, que no es la pregunta |
+| 6.1 | La plantilla JSON compartida deja de decir «diagrama Mermaid» y dice «el dibujo del mecanismo, en el medio que te hayan pedido arriba» | Es un cambio en el prompt del brazo **default**, chico pero real, y queda escrito: un cambio silencioso en el brazo que se compara es el error que este repo ya documentó |
+
+**Qué NO decide esta enmienda: cuál de los dos medios gana.** El default sigue siendo
+`mermaid`. Cambiarlo por decreto sería repetir con n=0 el error que ADR-004 cometió con
+n=1. Lo decide H23, que está `BLOCKED` — no por código faltante, sino porque el único
+conjunto retenido que existe se gastó y hace falta uno nuevo escrito por una persona que
+sólo haya visto las conjeturas.

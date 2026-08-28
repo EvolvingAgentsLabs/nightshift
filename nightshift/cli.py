@@ -14,10 +14,20 @@ import subprocess
 import time
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 from . import __version__, config, context, store
 from .redact import SECRET_RULES, Redactor
+
+
+def dream_modos():
+    """Los medios de ideación que existen, leídos del módulo y no copiados acá.
+
+    Copiar la lista dejaría al CLI ofreciendo una opción que dream no tiene, o al revés.
+    """
+    from . import dream as _dream
+    return list(_dream.MODOS_DE_IDEACION)
 
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parent.parent)
 
@@ -215,6 +225,12 @@ def cmd_why(args) -> int:
                     print("    %s" % linea)
                 print("    ```")
                 print()
+            if "logogram" in row.keys() and row["logogram"]:
+                print("  el mecanismo, en un signo: %s" % row["logogram"])
+            if "physical_scene" in row.keys() and row["physical_scene"]:
+                print("  el mecanismo, como escena física:")
+                for linea in textwrap.wrap(row["physical_scene"], 72):
+                    print("    %s" % linea)
             if "ideation" in row.keys() and row["ideation"]:
                 print("  se conserva/pierde: %s" % row["ideation"])
             print("  patrón        : %s" % abstraction.get("pattern", "—"))
@@ -1029,6 +1045,7 @@ def cmd_dream(args) -> int:
             identifiers=dream_mod.redactor_identifiers(os.getcwd()),
             lookback_days=args.lookback_days, max_groups=args.max_groups, dry_run=args.dry_run,
             only_trajectory=getattr(args, "only_trajectory", None),
+            modo=getattr(args, "ideacion", None) or dream_mod.MODO_DE_IDEACION,
             log=(lambda message: print("  %s" % message, file=sys.stderr))
             if args.verbose else None)
     except dream_mod.ModelUnavailable as exc:
@@ -2498,6 +2515,9 @@ def main(argv=None) -> int:
                         " al modelo y, con el backend claude-code, cobra (ADR-003)")
     p.add_argument("--model", help="comando del modelo local (por defecto, autodetección)")
     p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
+    p.add_argument("--ideacion", choices=dream_modos(), default=None,
+                   help="con qué medio idear: mermaid (default, ADR-004) o fisica"
+                        " (la escena antes del diagrama, ADR-007). Ninguno la apaga")
     p.add_argument("--dry-run", action="store_true", help="no escribir: mostrar qué haría")
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--backend", default=None,
@@ -2550,6 +2570,9 @@ def main(argv=None) -> int:
     p.add_argument("--max-groups", type=int, default=None)
     p.add_argument("--model", help="comando del modelo local (por defecto, autodetección)")
     p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
+    p.add_argument("--ideacion", choices=dream_modos(), default=None,
+                   help="con qué medio idear: mermaid (default, ADR-004) o fisica"
+                        " (la escena antes del diagrama, ADR-007). Ninguno la apaga")
     p.add_argument("--dry-run", action="store_true",
                    help="no sellar ni escribir: mostrar qué capítulo sellaría")
     p.add_argument("--suggest", action="store_true",

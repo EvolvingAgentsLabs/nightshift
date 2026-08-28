@@ -752,6 +752,82 @@ Devolvé `diagram` y `mechanism` como campos del JSON, junto con el resto.
 
 """
 
+# ---------------------------------------------- el segundo modo: la escena física
+#
+# ADR-007. El brazo de arriba pide un diagrama Mermaid, y `experimentos/07` lo midió
+# contra un conjunto retenido: engancha un síntoma más que el control y lo paga con un
+# prompt ajeno (H17, `FAIL`). La objeción es sobre el **medio**, no sobre idear: un
+# flowchart es topología —cajas y flechas— y para el modelo sigue siendo el mismo campo
+# semántico del código. Cajas genéricas se parecen a demasiadas cosas.
+#
+# Este modo cambia el medio: una **escena física** con mecánica —peso, presión, algo que
+# se derrama— y un **logograma**, dos a cuatro palabras que nombran el mecanismo entero
+# como lo hace un pictograma. La apuesta es que la mecánica transporta a un síntoma que
+# no se vio de un modo que la topología no.
+#
+# **No es el default y no se cambia por decreto.** Reemplazar un medio que pasa los gates
+# por otro sin medir sería el mismo error que prender el primero con n=1. Se elige con
+# `--ideacion fisica`, y lo que decida es la medición.
+IDEATE_PREFIX_FISICO = """Antes de responder, IDEÁ. Y antes de idear, MIRÁ: todavía no
+pienses en código.
+
+Traducí lo que pasó a una escena del mundo físico. Una máquina con partes que se mueven,
+un fluido que va por caños, cajas que viajan por una cinta, un tamiz, una cerradura, una
+balanza, un molde. Con peso, con presión, con algo que se conserva y algo que se derrama.
+La escena tiene que poder contársela a alguien que no programó nunca, y que igual entienda
+dónde se rompe.
+
+Por qué así y no como diagrama: un diagrama de cajas y flechas es **topología**, y la
+topología se parece a todo. Una escena física tiene **mecánica** —qué empuja a qué, qué
+pesa, qué no entra por dónde, qué se cae cuando nadie mira— y es esa mecánica la que se
+transporta a un síntoma que no viste.
+
+**1. `physical_scene` — la escena, en tres a seis oraciones.** Qué viaja, qué lo
+transforma, en qué punto exacto algo se pierde **sin que ninguna etapa se queje**, y por
+qué el que mira desde afuera no lo nota hasta mucho después. Nombrá objetos, no conceptos:
+una válvula, un sello, una cinta, un contrapeso.
+
+**No puede aparecer ni una sola palabra del mundo del software.** Ni archivo, ni función,
+ni test, ni error, ni el nombre de ninguna herramienta. Si necesitás una, la traducción no
+se hizo: escribiste la misma explicación de siempre con un título nuevo. Eso se rechaza,
+igual que se rechaza una fuga.
+
+**2. Ahora sí, RAZONÁ — y razoná sobre la escena, no sobre el código.** Escribí ese
+razonamiento antes del JSON si te sirve: se descarta. De la **mecánica** salen las
+proyecciones, y la pregunta no es "qué otro problema puede haber" sino **qué más tiene que
+pasar en una máquina construida así**. Eso es correr la cadena para adelante.
+
+**3. `logogram` — de dos a cuatro palabras.** Comprimí el mecanismo entero en un signo,
+como un pictograma: no describe la escena, la **nombra**. "sello sin contenido", "válvula
+sin retorno", "espejo opaco", "contrapeso ausente". No es un título lindo: es el nombre con
+el que esta memoria se va a reconocer de un vistazo. Nunca nombres una herramienta.
+
+**4. `mechanism` — dos a cuatro oraciones** que mapean la escena de vuelta al sistema: qué
+magnitud se conserva a lo largo del recorrido, cuál se pierde sin que nadie se queje, y en
+qué cuadro exacto se pierde.
+
+`diagram` va en null: en este modo el dibujo es la escena.
+
+Y de la escena, PROYECTÁ: en qué otras formas se va a manifestar este mismo mecanismo, que
+en estas trayectorias no se vieron. Con la escena correcta esto no es adivinar — es leer de
+la mecánica qué otra cosa tiene que romperse. Un síntoma proyectado es igual una conjetura,
+no una observación, y se va a guardar y mostrar como tal. Si la escena no implica nada más,
+no proyectes.
+
+Devolvé `physical_scene`, `logogram` y `mechanism` como campos del JSON, junto con el resto.
+
+---
+
+"""
+
+# Los dos medios de idear. **Ninguno apaga la ideación**: `fisica` es otro dibujo, no una
+# salida (H14). Un modo que no esté acá no existe.
+MODOS_DE_IDEACION = ("mermaid", "fisica")
+MODO_DE_IDEACION = "mermaid"
+
+PREFIJOS_DE_IDEACION = {"mermaid": IDEATE_PREFIX, "fisica": IDEATE_PREFIX_FISICO}
+
+
 PROMPT = """Sos el consolidador de nightshift. Te doy trayectorias de trabajo ya
 capturadas y redactadas: pasos de herramientas, fallos y señales. Tu única tarea es
 abstraer el patrón que comparten.
@@ -766,7 +842,7 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
   "valid_when": ["precondición bajo la que este procedimiento aplica"],
   "projected_signals": ["síntoma que este mecanismo produciría y que NADIE observó"],
-  "diagram": "diagrama Mermaid del mecanismo, sólo si te pidieron idear",
+  "diagram": "el dibujo del mecanismo, en el medio que te hayan pedido arriba, o null",
   "mechanism": "qué se conserva y qué se pierde, sólo si te pidieron idear"
 }
 
@@ -866,11 +942,12 @@ Trayectoria que la REEMPLAZÓ:
 """
 
 
-def build_contrast_prompt(conn, old_row, new_row, *, ideate=True) -> str:
+def build_contrast_prompt(conn, old_row, new_row, *, ideate=True,
+                          modo=MODO_DE_IDEACION) -> str:
     """El contraste también se idea. `ideate=False` existe sólo para el brazo de control
     de `experimentos/ideate.py`: en el plugin no hay ninguna ruta que lo apague."""
     cuerpo = CONTRAST_PROMPT % (describe(conn, old_row), describe(conn, new_row))
-    return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
+    return (PREFIJOS_DE_IDEACION[modo] + cuerpo) if ideate else cuerpo
 
 
 def validate_contrast(data, *, redactor, home_dir):
@@ -905,16 +982,23 @@ def validate_contrast(data, *, redactor, home_dir):
     return salida, []
 
 
-def build_prompt(conn, group, *, ideate=True) -> str:
+def build_prompt(conn, group, *, ideate=True, modo=MODO_DE_IDEACION) -> str:
     """El prompt de consolidación. **Idear es el default y no hay config que lo apague.**
 
     `ideate=False` sobrevive por una sola razón: `experimentos/ideate.py` necesita el
     brazo de control para poder volver a medir la diferencia. Que el control sea
     alcanzable desde un experimento no lo vuelve una opción del producto.
+
+    `modo` elige **con qué se idea**, nunca si se idea: `mermaid` (ADR-004, el default) o
+    `fisica` (ADR-007, la escena antes del diagrama). Los dos empiezan pidiendo idear; lo
+    que cambia es el medio, que es justo la variable que H17 dejó sin sostener.
     """
+    if modo not in PREFIJOS_DE_IDEACION:
+        raise DreamError("modo de ideación desconocido: %r (hay %s)"
+                         % (modo, ", ".join(MODOS_DE_IDEACION)))
     partes = [describe(conn, row) for row in group[:MAX_TRAYECTORIAS_POR_GRUPO]]
     cuerpo = PROMPT % "\n".join(partes)
-    return (IDEATE_PREFIX + cuerpo) if ideate else cuerpo
+    return (PREFIJOS_DE_IDEACION[modo] + cuerpo) if ideate else cuerpo
 
 
 # --------------------------------------------------------- el dibujo, como dibujo
@@ -1002,10 +1086,130 @@ def _leaks(text, field, redactor, home_dir):
     return problemas
 
 
-def validate(data, *, redactor, home_dir, ideation=None, observation_indices=None):
+# ------------------------------------------------ la escena, como escena (ADR-007)
+#
+# El gate que hace real la palabra «física». Sin esto, «traducí a una escena física» es un
+# pedido, y un pedido no es un gate (CLAUDE.md regla 2): el modelo puede contestar con la
+# explicación de siempre encabezada por «imaginá una máquina» y nada lo notaría.
+#
+# Lo que se revisa es **que la traducción haya ocurrido**, no que la escena sea verdadera.
+# La distinción es la misma que ya vale para el diagrama: `validate_diagram` contesta «¿va
+# a renderizar?» y nunca «¿es cierto?». Una escena preciosa de un mecanismo que no existe
+# pasa este gate igual, y eso lo ataca el anclaje a observaciones, no esto.
+
+# Vocabulario que delata que la escena no se fue del dominio del software. Es corto a
+# propósito: cada palabra de más es un rechazo falso que le cuesta un reintento al modelo,
+# así que están sólo las que no tienen ninguna lectura física razonable. `rama`, `bandera`,
+# `línea` y `cliente` NO están, y no por olvido: en una escena son un árbol, un mástil, una
+# línea de montaje y quien compra.
+VOCABULARIO_DEL_CODIGO = (
+    "archivo", "archivos", "carpeta", "carpetas", "directorio", "directorios",
+    "funcion", "funciones", "variable", "variables", "clase", "clases",
+    "metodo", "metodos", "parametro", "parametros", "codigo", "software",
+    "programa", "compilador", "compilar", "script", "scripts", "test", "tests",
+    "linter", "lint", "prompt", "hook", "hooks", "commit", "commits", "repo",
+    "repositorio", "json", "sqlite", "sql", "cache", "string", "array", "hash",
+    "api", "endpoint", "http", "url", "servidor", "log", "logs", "stdout",
+    "stderr", "bug", "bugs", "excepcion", "timeout", "byte", "bytes", "buffer",
+    "thread", "token", "tokens", "deploy", "build", "import", "config", "flag",
+    "debug", "stack", "backend", "frontend", "runtime",
+)
+
+# Formas que sólo tiene un identificador: `algo_asi`, `algoAsi`, `algo()`, `algo.py`.
+IDENTIFICADOR = re.compile(r"[a-z0-9]+_[a-z0-9_]+|[a-z]+[A-Z][a-zA-Z]*|\w+\(\)"
+                           r"|\w+\.(py|json|md|sh|sql|js|ts|txt|yml|yaml)\b")
+
+MIN_PALABRAS_ESCENA = 25
+MAX_PALABRAS_ESCENA = 220
+MIN_PALABRAS_LOGOGRAMA = 2
+MAX_PALABRAS_LOGOGRAMA = 4
+MAX_CARACTERES_LOGOGRAMA = 48
+
+
+def _sin_acentos(texto: str) -> str:
+    """Comparar con acentos deja pasar `función` cuando la lista dice `funcion`."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", texto)
+                   if unicodedata.category(c) != "Mn")
+
+
+def _palabras_del_codigo(texto: str):
+    """Qué términos del dominio del software aparecen, como palabra entera."""
+    plano = _sin_acentos((texto or "").lower())
+    tokens = set(re.findall(r"[a-z0-9]+", plano))
+    return sorted(t for t in VOCABULARIO_DEL_CODIGO if t in tokens)
+
+
+def validate_scene(scene: str):
+    """Motivos por los que este texto no es una escena física. Vacío = está bien."""
+    problemas = []
+    texto = (scene or "").strip()
+    if not texto:
+        return ["la escena está vacía"]
+    palabras = texto.split()
+    if len(palabras) < MIN_PALABRAS_ESCENA:
+        # Una imagen que no se puede recorrer no muestra dónde se pierde algo: es un
+        # rótulo, y el rótulo ya es el logograma.
+        problemas.append("%d palabras: una escena que no se puede recorrer no muestra "
+                         "dónde se pierde algo (mínimo %d)"
+                         % (len(palabras), MIN_PALABRAS_ESCENA))
+    if len(palabras) > MAX_PALABRAS_ESCENA:
+        problemas.append("%d palabras: eso ya no es una imagen, es un informe (máximo %d)"
+                         % (len(palabras), MAX_PALABRAS_ESCENA))
+    delatores = _palabras_del_codigo(texto)
+    if delatores:
+        problemas.append("nombra el dominio del software (%s): la traducción a una escena "
+                         "física no se hizo" % ", ".join(delatores[:5]))
+    identificadores = sorted(set(m.group(0) for m in IDENTIFICADOR.finditer(texto)))
+    if identificadores:
+        problemas.append("tiene identificadores de código (%s): en una máquina no hay "
+                         "nada que se llame así" % ", ".join(identificadores[:3]))
+    if "`" in texto:
+        problemas.append("tiene un backtick: la escena se inyecta como prosa")
+    return problemas
+
+
+def validate_logogram(logogram: str):
+    """Motivos por los que esto no es un logograma. Vacío = está bien.
+
+    Dos a cuatro palabras que **nombran** el mecanismo. Estirado a una oración deja de
+    comprimir; encogido a una palabra no dice qué le pasa a qué.
+    """
+    problemas = []
+    texto = " ".join((logogram or "").split())
+    if not texto:
+        return ["el logograma está vacío"]
+    if len(texto) > MAX_CARACTERES_LOGOGRAMA:
+        problemas.append("%d caracteres: un signo que no entra de un vistazo no es un "
+                         "signo (máximo %d)" % (len(texto), MAX_CARACTERES_LOGOGRAMA))
+    palabras = texto.split()
+    if not MIN_PALABRAS_LOGOGRAMA <= len(palabras) <= MAX_PALABRAS_LOGOGRAMA:
+        problemas.append("%d palabra(s): el logograma va de %d a %d — una sola no dice qué "
+                         "le pasa a qué, y más de cuatro ya es una oración"
+                         % (len(palabras), MIN_PALABRAS_LOGOGRAMA,
+                            MAX_PALABRAS_LOGOGRAMA))
+    delatores = _palabras_del_codigo(texto)
+    if delatores:
+        # Medido el 2026-08-28 para las señales: un nombre propio de herramienta engancha
+        # con cualquier otro problema de esa herramienta.
+        problemas.append("nombra el dominio del software (%s): un signo alrededor de una "
+                         "herramienta vale para cualquier problema de esa herramienta"
+                         % ", ".join(delatores[:3]))
+    if re.search(r"[.;:`]", texto):
+        problemas.append("tiene puntuación de oración: un logograma no se puntúa")
+    return problemas
+
+
+def validate(data, *, redactor, home_dir, ideation=None, observation_indices=None,
+             modo=MODO_DE_IDEACION):
     """Devuelve `(abstraction, valid_when, hypothesis, problemas)`.
 
     Con problemas, no se persiste nada.
+
+    `modo` es con qué se ideó (ADR-007). En `fisica` el dibujo es la escena y el diagrama
+    se descarta aunque el modelo lo devuelva: si un brazo guardara los dos medios, la
+    comparación pasaría a ser entre acumular texto y no acumularlo — que es exactamente lo
+    que H17 midió y castigó.
 
     `ideation` es el boceto del que salió la abstracción, si se ideó. Pasa por los mismos
     gates de fuga que todo lo demás: es texto de modelo y se persiste igual. Y vuelve
@@ -1085,7 +1289,7 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
     # dos son texto de modelo y se persisten, así que pasan los mismos gates — y el
     # diagrama **más** que el resto: las etiquetas de un flowchart son justo donde alguien
     # escribiría una ruta de archivo sin pensarlo.
-    diagram = data.get("diagram")
+    diagram = data.get("diagram") if modo == "mermaid" else None
     if isinstance(diagram, str) and diagram.strip():
         # Al diagrama no se le colapsan los saltos de línea: en Mermaid son sintaxis.
         diagram = diagram.strip()
@@ -1102,6 +1306,26 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
         problemas.extend(_leaks(mecanismo, "mechanism", redactor, home_dir))
     else:
         mecanismo = None
+
+    # La escena y el logograma: el otro medio de idear. Pasan los mismos gates que todo
+    # lo demás —son texto de modelo y se persisten— y además los suyos: una escena que
+    # nombra el dominio del software no tradujo nada, y un logograma que es una oración no
+    # comprime nada. Los dos rechazos entran al mismo bucle de reintentos que una fuga.
+    escena = data.get("physical_scene") if modo == "fisica" else None
+    if isinstance(escena, str) and escena.strip():
+        escena = " ".join(escena.split())
+        problemas.extend(_leaks(escena, "physical_scene", redactor, home_dir))
+        problemas.extend("physical_scene: %s" % p for p in validate_scene(escena))
+    else:
+        escena = None
+
+    logograma = data.get("logogram") if modo == "fisica" else None
+    if isinstance(logograma, str) and logograma.strip():
+        logograma = " ".join(logograma.split())
+        problemas.extend(_leaks(logograma, "logogram", redactor, home_dir))
+        problemas.extend("logogram: %s" % p for p in validate_logogram(logograma))
+    else:
+        logograma = None
 
     # `ideation` es la prosa del mecanismo. El campo `mechanism` del JSON gana sobre las
     # marcas `<ideacion>`, que quedan por las respuestas del formato anterior.
@@ -1123,6 +1347,10 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
         abstraction["_ideation"] = ideation
     if diagram:
         abstraction["_diagram"] = diagram
+    if escena:
+        abstraction["_physical_scene"] = escena
+    if logograma:
+        abstraction["_logogram"] = logograma
     if signals:
         abstraction["signals"] = signals
     if decisive:
@@ -1132,8 +1360,14 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
 
 # ------------------------------------------------------------------ consolidar
 def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
-                max_groups=None, dry_run=False, log=None, only_trajectory=None) -> dict:
+                max_groups=None, dry_run=False, log=None, only_trajectory=None,
+                modo=MODO_DE_IDEACION) -> dict:
     """Ejecuta la fase 1 completa. Devuelve un reporte; no imprime nada.
+
+    `modo` elige el medio de la ideación (ADR-007): `mermaid`, el default, o `fisica`, la
+    escena antes del diagrama. **No hay valor que apague la ideación**, y el reporte dice
+    cuál corrió — una corrida con un medio no es comparable con otra, exactamente por el
+    mismo motivo por el que `consolidation_strategy` dejó de ser una clave de config.
 
     `max_groups` limita cuántos grupos consolida esta corrida. Cada grupo llama al
     modelo, y desde ADR-003 eso cuesta (el backend `claude-code` cobra por token). El
@@ -1169,6 +1403,9 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     # para `experimentos/ideate.py`, que es donde se mide la diferencia. Lo que se perdió
     # es la posibilidad de que una corrida del plugin no idee sin que nadie lo note.
     idear = True
+    if modo not in MODOS_DE_IDEACION:
+        raise DreamError("modo de ideación desconocido: %r (hay %s)"
+                         % (modo, ", ".join(MODOS_DE_IDEACION)))
 
     todos = groups(conn, lookback_days=lookback)
     if only_trajectory:
@@ -1180,7 +1417,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
                "only_trajectory": only_trajectory,
                "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
-               "strategy": "ideate",
+               "strategy": "ideate" if modo == MODO_DE_IDEACION else "ideate:%s" % modo,
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],
                "skipped": [], "dry_run": bool(dry_run)}
 
@@ -1211,7 +1448,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             % (len(group), " (%d sin contenido, no se muestran)" % vacias if vacias else "",
                winner["id"][:8], winner["task_type"]))
 
-        prompt = build_prompt(conn, utiles, ideate=idear)
+        prompt = build_prompt(conn, utiles, ideate=idear, modo=modo)
         abstraction = valid_when = hypothesis = None
         problemas = []
         costo_antes = getattr(model, "total_cost", 0.0) or 0.0
@@ -1233,7 +1470,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             abstraction, valid_when, hypothesis, problemas = validate(
                 data, redactor=redactor, home_dir=home_dir,
                 ideation=getattr(model, "last_ideation", None),
-                observation_indices=indices_de_observacion(conn, utiles))
+                observation_indices=indices_de_observacion(conn, utiles), modo=modo)
             if not problemas:
                 break
             if problemas == [SIN_PATRON]:
@@ -1259,6 +1496,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
         # Se leen antes de que `promote_to_candidate` las saque del dict.
         ideacion_del_grupo = abstraction.get("_ideation")
         diagrama_del_grupo = abstraction.get("_diagram")
+        escena_del_grupo = abstraction.get("_physical_scene")
+        logograma_del_grupo = abstraction.get("_logogram")
         proyectados_del_grupo = list(abstraction.get("_projected_signals") or [])
 
         if not dry_run:
@@ -1269,6 +1508,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             ideacion = abstraction.pop("_ideation", None)
             proyectados = abstraction.pop("_projected_signals", None)
             diagrama = abstraction.pop("_diagram", None)
+            escena = abstraction.pop("_physical_scene", None)
+            logograma = abstraction.pop("_logogram", None)
             estado = store.promote_to_candidate(conn, winner["id"], abstraction=abstraction,
                                                 valid_when=valid_when,
                                                 hypothesis=hypothesis,
@@ -1277,7 +1518,9 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                                                 consolidation_cost_usd=costo_grupo or None,
                                                 ideation=ideacion,
                                                 projected_signals=proyectados,
-                                                diagram=diagrama)
+                                                diagram=diagrama,
+                                                physical_scene=escena,
+                                                logogram=logograma)
             if estado != "candidate":
                 # La promoción exige `closed`. Si la trayectoria cambió de estado entre
                 # que se agrupó y que se promovió, el UPDATE no toca nada — y un reporte
@@ -1295,6 +1538,8 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
                                       "valid_when": len(valid_when),
                                       "ideation": ideacion_del_grupo,
                                       "diagram": diagrama_del_grupo,
+                                      "physical_scene": escena_del_grupo,
+                                      "logogram": logograma_del_grupo,
                                       "projected_signals": len(proyectados_del_grupo)})
 
         for old in contradicted_by(conn, group, winner):
@@ -1305,7 +1550,7 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
             contraste = None
             try:
                 datos = model.ask_json(build_contrast_prompt(conn, old, winner,
-                                                             ideate=idear))
+                                                             ideate=idear, modo=modo))
                 contraste, malos = validate_contrast(datos, redactor=redactor,
                                                      home_dir=home_dir)
                 if malos:
