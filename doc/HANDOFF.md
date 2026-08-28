@@ -33,10 +33,10 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 `retrieve.candidates`, que ahora pone lo que engancha con el prompt delante de lo que sólo
 comparte repo o tipo de tarea.
 
-**Ninguna de las tres está entera, y qué le falta a cada una está medido en
-[`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md)** — que es la cola de trabajo del pivot. En una
-línea: el store tiene **19 proyecciones y 0 resoluciones**, la hipótesis de una candidata
-salió inventada, y ningún diagrama se valida como diagrama.
+**Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
+21 hipótesis, una por archivo. Al 2026-08-28: **20 de 21 comprobadas.** La única que falla
+es H17, y no por código faltante — se corrió el control de ADR-004 y **el resultado no
+favorece a idear** (`LATER.md`). El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 
 ### Lo que queda pausado, y qué no cambia por pausarlo
 
@@ -112,7 +112,10 @@ Arrancá con `nightshift dev`.
 | Cohorte de captura: `status` no promedia entre generaciones | `store.COHORTE_DE_CAPTURA` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 317 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 361 tests, selftest |
+| Conjeturas resueltas: tabla, `resolve`, y el ranking las distingue | `store.projections`, `cli.cmd_resolve` |
+| Oráculos: git (`corroborate`), `oracle_command`, `import` externo | `nightshift/oracle.py`, [ADR-006](adr/ADR-006-el-oraculo-es-un-comando.md) |
+| La cadena con eslabones, y dónde corta un capítulo | `dream.cadena`, `dream.suggest_chapters` |
 | Gate del pivot | `make dogfood` — `check` y después `doctor`, `audit` y `status` sobre el store **real** |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 

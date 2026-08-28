@@ -1,0 +1,22 @@
+{
+  "pattern": "Un comando de verificacion termina en error sin explicar por si mismo la causa, y recien la suite completa lo ubica: el gate de formato pasa, pero el test que exige que el guard rechace un caso invalido no se cumple, porque el guard aceptaba lo que debia rechazar. El arreglo corrige la condicion de rechazo del modulo afectado y se valida corriendo la suite entera, no solo la parte tocada.",
+  "hypothesis": "Que la falla estaba en el modulo de linea de comandos y se podia ubicar buscando el simbolo directamente en el codigo.",
+  "hypothesis_step": 3,
+  "signals": [
+    "Un comando de verificacion sale con codigo 1 sin diagnostico propio.",
+    "Un gate de formato reporta OK mientras un test de la misma corrida falla.",
+    "El test que exige que el guard falle cuando debe fallar rompe con una comparacion de listas.",
+    "La lista observada trae un caso residual donde se esperaba vacia.",
+    "Tras el arreglo pasan tanto los gates como la suite completa."
+  ],
+  "decisive_signal": "El test negativo del guard fallando por diferencia de listas: quedaba un caso sin rechazar donde se esperaba ninguno, mientras el gate de formato daba OK.",
+  "valid_when": [
+    "Existe un guard o validador con un test que verifica que rechaza.",
+    "Los gates automaticos estan separados de los tests unitarios.",
+    "La suite se corre entera y no solo el modulo tocado.",
+    "El caso negativo se expresa como comparacion de colecciones."
+  ],
+  "projected_signals": [],
+  "diagram": null,
+  "mechanism": null
+}

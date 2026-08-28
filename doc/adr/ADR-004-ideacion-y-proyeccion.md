@@ -79,8 +79,31 @@ normal de una corrida sin ninguna repetición completa—, una tercera estaba en
 latente, una se refutó y la quinta es una decisión abierta que no cierra un agente. El
 detalle, con el veredicto de cada una y sin redondear la cuenta, está en `LATER.md`.
 
-Sigue sin ser evidencia de que **idear** produzca mejores proyecciones que no idear: eso
-necesita el control de `experimentos/ideate.py` sobre volumen que todavía no hay.
+Sigue sin ser evidencia de que **idear** produzca mejores proyecciones que no idear.
+
+**Y el 2026-08-28 se corrió el control, con el resultado en contra.**
+`experimentos/07-idear-contra-no-idear.py`, sobre `cbbd7ff0` y contra un conjunto
+**retenido** —tres síntomas que una persona confirmó después, con paráfrasis escritas a
+mano— que ninguno de los dos brazos vio:
+
+| | transferencia (3 retenidos) | control negativo (3 ajenos) |
+|---|---|---|
+| `observed` | **2 de 3** | 0 |
+| `ideate` | **2 de 3** | **1** |
+
+Empate en transferencia, y una colisión de más para el brazo ideado: *«el linter se queja
+de un import sin usar»* enganchó con la proyección sobre un linter cuya lista quedó vacía,
+por compartir la palabra `linter`. Mismo sustantivo, problema distinto — es más débil que
+un falso positivo limpio, y el control no la hizo.
+
+**Sobre n=1 corpus, idear no compró transferencia y su superficie extra costó una
+colisión.** Eso no refuta la hipótesis: la deja **sin sostener**, que es distinto. Lo que
+sí queda medido es que la evidencia a favor sigue siendo la de arriba —un agujero real
+tapado— y no una ganancia en el mecanismo que el ADR postula.
+
+La comparación se diseñó para no ser circular: contar proyecciones por brazo sería trampa
+(`observed` no puede producir ninguna) y preguntarle al brazo ideado por sus propias
+proyecciones sería peor. Por eso el conjunto retenido y las paráfrasis humanas.
 
 ## Decisión
 

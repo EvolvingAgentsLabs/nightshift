@@ -504,6 +504,99 @@ def _prioridad(step) -> int:
     return 3
 
 
+# ------------------------------------------------------- la cadena, con eslabones
+#
+# El README y la spec afirman una cadena —`hipótesis → comando → error → corrección →
+# señal decisiva → fix`— que hasta acá **no era una estructura de datos**: los pasos eran
+# una lista plana con dos banderas, y la cadena estaba implícita en el orden, que es la
+# forma más débil de tenerla. `why` no podía decir qué corrección arregló qué error.
+#
+# Se **deriva** de lo persistido en vez de guardarse como banderas nuevas, y a propósito:
+# una propiedad calculada en la captura no sobrevive a un cambio de criterio ni se puede
+# recalcular hacia atrás sobre lo que ya está en el store. Los ingredientes —`kind`,
+# `contradicted`, `decisive`, el orden y el comando— ya están todos guardados.
+ESLABONES = ("fallo", "correccion", "decisiva", "fix")
+
+
+def cadena(steps):
+    """Los eslabones causales de una trayectoria. Determinista y auditable.
+
+    Devuelve una lista de `{"eslabon", "idx", "corrects", "texto"}`. `corrects` es lo que
+    faltaba: **qué paso arregla este paso**, y sólo lo tiene la corrección, porque es el
+    único enlace que la captura registra de verdad (el usuario contradijo el paso
+    anterior). Inventar los otros enlaces sería exactamente la clase de afirmación sin
+    origen que este proyecto no acepta.
+    """
+    enlaces = []
+    pendiente = None            # el idx contradicho que todavía no tiene quien lo corrija
+    for step in steps:
+        idx = int(step["idx"])
+        texto = texto_del_paso(step)
+        if step["contradicted"]:
+            pendiente = idx
+            continue
+        if step["kind"] == "tool_failure":
+            enlaces.append({"eslabon": "fallo", "idx": idx, "corrects": None, "texto": texto})
+        elif pendiente is not None and step["kind"] in ("tool_use", "tool_failure"):
+            # El primer paso de herramienta después de una contradicción es la corrección.
+            enlaces.append({"eslabon": "correccion", "idx": idx, "corrects": pendiente,
+                            "texto": texto})
+            pendiente = None
+        elif step["decisive"]:
+            enlaces.append({"eslabon": "decisiva", "idx": idx, "corrects": None,
+                            "texto": texto})
+    # El fix es el último paso que **hizo** algo, no el que lo miró: el sello del turno y
+    # las lecturas del repo no arreglan nada.
+    for step in reversed(steps):
+        if step["kind"] == "observation" or es_lectura(step):
+            continue
+        if texto_del_paso(step):
+            enlaces.append({"eslabon": "fix", "idx": int(step["idx"]), "corrects": None,
+                            "texto": texto_del_paso(step)})
+            break
+    return sorted(enlaces, key=lambda e: (e["idx"], ESLABONES.index(e["eslabon"])))
+
+
+# ----------------------------------------------------------- dónde corta un capítulo
+#
+# Detectar el borde, que `sleep` resolvió pidiéndoselo a una persona (`LATER.md`).
+#
+# **Sugiere, no corta.** La diferencia no es timidez: nadie midió todavía si los bordes
+# que propone esta heurística producen candidatas mejores que un día entero, y sellar solo
+# convertiría una conjetura sobre la segmentación en un hecho irreversible sobre el store.
+# Con `sleep` andando ese número **se puede medir**, y medirlo es lo que habilita el
+# siguiente paso.
+def suggest_chapters(conn, trajectory_id, *, min_pasos=5):
+    """Dónde parece terminar un capítulo. Devuelve `[{"idx", "motivo"}]`.
+
+    El corte va donde el trabajo **cerró algo**: un comando de test que pasó, o un commit.
+    Es la misma señal que el proyecto ya usa para el desenlace (`_es_comando_de_test`), y
+    no una intuición nueva.
+    """
+    from .hook import _es_comando_de_test
+
+    steps = store.steps_of(conn, trajectory_id)
+    bordes, ultimo = [], -1
+    for step in steps:
+        idx = int(step["idx"])
+        if step["kind"] == "tool_failure":
+            continue                          # un gate en rojo no cierra nada
+        motivo = None
+        if _es_comando_de_test(step):
+            motivo = "un comando de test que no falló"
+        else:
+            try:
+                comando = str((json.loads(step["args_json"] or "{}") or {}).get("command", ""))
+            except (TypeError, ValueError):
+                comando = ""
+            if re.search(r"(?:^|[;&|]|\n)\s*git\s+commit\b", comando):
+                motivo = "un commit"
+        if motivo and idx - ultimo >= min_pasos:
+            bordes.append({"idx": idx, "motivo": motivo})
+            ultimo = idx
+    return bordes
+
+
 def es_lectura(step) -> bool:
     """¿Este paso **leyó** el repositorio, en vez de ejercitarlo? (plan §7, F2)
 

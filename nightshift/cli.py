@@ -244,6 +244,25 @@ def cmd_why(args) -> int:
             for item in json.loads(row["valid_when_json"] or "[]"):
                 print("  aplica cuando : %s (%s)" % (item.get("condition", ""),
                                                      item.get("source", "inferred")))
+        from . import dream as dream_mod
+
+        eslabones = dream_mod.cadena(store.steps_of(conn, row["id"]))
+        if eslabones:
+            print()
+            print("  la cadena, con sus eslabones:")
+            for e in eslabones:
+                flecha = (" ← arregla el paso [%d]" % e["corrects"]) if e["corrects"] is not None else ""
+                print("    [%3d] %-11s %s%s" % (e["idx"], e["eslabon"],
+                                                (e["texto"] or "")[:80], flecha))
+            print("  (derivada de lo persistido, no de banderas nuevas: `contradicted`,")
+            print("   `decisive`, el orden y el comando ya estaban todos guardados)")
+        corroboracion = store.get_corroboration(row)
+        if corroboracion:
+            print("  git dice      : %s — %s (al %s)"
+                  % (corroboracion.get("status"), corroboracion.get("evidence") or "",
+                     corroboracion.get("checked_at") or "?"))
+            print("                  corroborada NO es verificada: esto lee historia, no")
+            print("                  reproduce nada contra un gate (`verify` es M5).")
         # El contraste: qué cambió, qué compró, y cuándo esta opción seguía siendo la
         # correcta. Es lo que convierte una alternativa descartada en conocimiento.
         if "contrast_json" in row.keys() and row["contrast_json"]:
@@ -316,6 +335,64 @@ def cmd_export(args) -> int:
         return 0
     finally:
         conn.close()
+
+
+def cmd_import(args) -> int:
+    """Importar una cadena de ejecución producida afuera (plan §7, O4).
+
+    Lo que entra **no se observó acá**, y el comando lo dice tres veces: en el `origin`,
+    en el peso, y en la salida. Si alguna de las tres se afloja, la jerarquía de evidencia
+    del proyecto se colapsa — y esa jerarquía es lo único que defiende de verdad.
+
+    Y una advertencia que no es cosmética: **un CoT externo no es un CTE.** No ejecutó.
+    Importar un razonamiento como si fuera una cadena de ejecución es el fallo de la
+    candidata `1f94f424` institucionalizado, a escala.
+    """
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+    try:
+        crudo = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(
+            encoding="utf-8")
+        doc = json.loads(crudo)
+    except (OSError, ValueError) as exc:
+        print("no se pudo leer el documento: %s" % exc, file=sys.stderr)
+        return 1
+
+    cfg = config.load()
+    # Se vuelve a redactar de este lado. Que el que exportó diga que redactó no es
+    # comprobable desde acá, y confiar en eso sería importar el criterio de otra máquina
+    # junto con los datos.
+    red = Redactor(deny_paths=cfg["deny_paths"], home_dir=str(Path.home()))
+    conn = store.connect()
+    try:
+        try:
+            tid = store.import_trajectory(conn, doc, redactor=red)
+        except ValueError as exc:
+            print("no se importó: %s" % exc, file=sys.stderr)
+            return 1
+        pasos = len(store.steps_of(conn, tid))
+    finally:
+        conn.close()
+
+    if args.json:
+        json.dump({"trajectory": tid, "origin": store.ORIGIN_EXTERNAL,
+                   "injection_weight": store.EXTERNAL_WEIGHT_CAP, "steps": pasos},
+                  sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
+    print("importada como `%s` · %d paso(s)" % (tid[:8], pasos))
+    print()
+    print("origin = %s · peso de inyección %.1f" % (store.ORIGIN_EXTERNAL,
+                                                    store.EXTERNAL_WEIGHT_CAP))
+    print("Por debajo de cualquier fila local (una `candidate` local pesa 0.6, una cruda")
+    print("0.3): lo externo no se observó en esta máquina y no puede desplazar a algo que")
+    print("sí. El número exacto lo decide una persona; la desigualdad no se negocia.")
+    print()
+    print("Se volvió a redactar de este lado. Y si lo que importaste es un razonamiento y")
+    print("no una cadena que se ejecutó, no es un CTE: no lo trates como memoria de cómo")
+    print("se averiguó algo.")
+    return 0
 
 
 # -------------------------------------------------------------------------- audit
@@ -493,6 +570,71 @@ def _print_dream_report(report):
     print("se inyectan con menos peso y marcadas como no verificadas (spec §6.3).")
 
 
+def cmd_corroborate(args) -> int:
+    """El oráculo de git: ¿el fix de esta trayectoria sobrevivió? (plan §7, O2)
+
+    Sin modelo, sin red y sin credencial. Es la única fuente del proyecto que no sale ni
+    de lo capturado ni de lo abstraído.
+
+    **No es `verify`.** `verify` (ADR-002, M5) reproduce una trayectoria contra un gate
+    declarado; esto lee historia. Una candidata que sobrevivió queda **corroborada**, que
+    es una tercera categoría y no un ascenso: sigue siendo `candidate`, sigue pesando lo
+    mismo y sigue sin estar verificada.
+    """
+    from . import oracle
+
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+    cwd = os.getcwd()
+    fingerprint = context.repo_fingerprint(cwd)
+    conn = store.connect()
+    try:
+        sql = ("SELECT * FROM trajectories WHERE status IN ('closed','candidate','procedure')"
+               " AND repo_fingerprint = ? ORDER BY created_at DESC LIMIT ?")
+        filas = conn.execute(sql, (fingerprint, args.limit)).fetchall()
+        resultados = []
+        for fila in filas:
+            veredicto = oracle.corroborate(cwd, fila["base_commit"], fingerprint=fingerprint)
+            veredicto["checked_at"] = store.now()
+            if not args.dry_run:
+                store.set_corroboration(conn, fila["id"], veredicto)
+            resultados.append((fila, veredicto))
+    finally:
+        conn.close()
+
+    if args.json:
+        json.dump([{"trajectory": f["id"], **v} for f, v in resultados], sys.stdout,
+                  indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+        return 0
+
+    print("nightshift corroborate · el oráculo de git")
+    print()
+    if not resultados:
+        print("no hay trayectorias de este repo en el store.")
+        return 0
+    marca = {oracle.SURVIVED: "✓", oracle.REVERTED: "✗", oracle.ABSENT: "?",
+             oracle.UNKNOWN: "·"}
+    for fila, veredicto in resultados:
+        print("  %s %s  %-10s %s" % (marca.get(veredicto["status"], "?"), fila["id"][:8],
+                                     veredicto["status"], veredicto["evidence"] or ""))
+    print()
+    revertidas = [f for f, v in resultados if v["status"] == oracle.REVERTED]
+    if revertidas:
+        print("%d trayectoria(s) con el fix REVERTIDO. Se siguen inyectando y ahora la"
+              % len(revertidas))
+        print("inyección lo dice: una memoria cuyo fix no sobrevivió sigue enseñando algo,")
+        print("pero callarlo sería mentir por omisión.")
+        print()
+    print("corroborada NO es verificada. `verify` es M5 y no existe: esto lee historia,")
+    print("no reproduce nada contra un gate. Nada llegó a `procedure`.")
+    if args.dry_run:
+        print()
+        print("(--dry-run: no se escribió nada)")
+    return 0
+
+
 def cmd_experiments(args) -> int:
     """Recorrer las hipótesis del proyecto, una por archivo.
 
@@ -608,6 +750,41 @@ def cmd_resolve(args) -> int:
             return _listar_conjeturas(conn, args)
 
         veredicto = "confirmed" if args.confirmed else "refuted" if args.refuted else None
+        evidencia, autor = args.evidence, args.by or "human"
+        if args.oracle:
+            # El oráculo genérico (ADR-006). Un comando del usuario, nunca un servicio:
+            # nightshift no habla con la red ni acá ni en ningún lado.
+            from . import oracle as oracle_mod
+
+            comando = oracle_mod.command_from_config(config.load())
+            if not comando:
+                print("no hay `oracle_command` en la config: el oráculo es un comando que"
+                      " ponés vos.\nVer ADR-006.", file=sys.stderr)
+                return 2
+            fila = conn.execute("SELECT p.*, t.abstraction_json FROM projections p"
+                                " LEFT JOIN trajectories t ON t.id = p.trajectory_id"
+                                " WHERE p.id = ?", (args.projection,)).fetchone()
+            if fila is None:
+                print("no existe la conjetura %s." % args.projection, file=sys.stderr)
+                return 1
+            patron = None
+            if fila["abstraction_json"]:
+                patron = (json.loads(fila["abstraction_json"]) or {}).get("pattern")
+            try:
+                respuesta = oracle_mod.ask(
+                    comando, projection=fila["text"], pattern=patron,
+                    timeout=config.load().get("oracle_timeout_seconds", 30))
+            except oracle_mod.OracleError as exc:
+                # Un oráculo roto no es un `open`: eso confundiría una falla de plomería
+                # con un dato.
+                print("el oráculo no contestó: %s" % exc, file=sys.stderr)
+                return 1
+            if respuesta["status"] == "open":
+                print("el oráculo no supo: la conjetura queda abierta.")
+                return 0
+            veredicto = respuesta["status"]
+            evidencia = respuesta["evidence"]
+            autor = args.by or "oracle:%s" % os.path.basename(comando[0])
         if not veredicto:
             print("hace falta `--confirmed` o `--refuted`: el valor de esto es que "
                   "obliga a decidir.", file=sys.stderr)
@@ -618,8 +795,7 @@ def cmd_resolve(args) -> int:
         try:
             tocada = store.resolve_projection(
                 conn, args.projection, status=veredicto,
-                evidence=red.text(args.evidence or ""),
-                resolved_by=args.by or "human")
+                evidence=red.text(evidencia or ""), resolved_by=autor)
         except ValueError as exc:
             print("no se resolvió: %s" % exc, file=sys.stderr)
             return 1
@@ -800,6 +976,18 @@ def _sellar_capitulo(conn, abiertos, args, dream_mod):
         return None, 1, ("el capítulo abierto %s tiene pasos pero **ninguno con"
                          " contenido**: no se sella.\ncorré `nightshift doctor` — esto es"
                          " un problema de captura, no de dream." % etiqueta)
+    if args.suggest:
+        bordes = dream_mod.suggest_chapters(conn, row["id"])
+        lineas = ["dónde parece cortar el capítulo %s:" % etiqueta]
+        for borde in bordes:
+            lineas.append("  paso [%d] · %s" % (borde["idx"], borde["motivo"]))
+        if not bordes:
+            lineas.append("  (ningún corte: no hubo ni un gate en verde ni un commit)")
+        lineas.append("")
+        lineas.append("**Sugiere, no corta.** Nadie midió todavía si estos bordes producen")
+        lineas.append("candidatas mejores que un día entero, y sellar solo convertiría una")
+        lineas.append("conjetura sobre la segmentación en un hecho sobre el store.")
+        return None, 0, "\n".join(lineas)
     if args.dry_run:
         return None, 0, ("--dry-run: sellaría el capítulo %s y consolidaría su grupo."
                          "\nNo se selló ni se le preguntó nada al modelo." % etiqueta)
@@ -2317,6 +2505,19 @@ def main(argv=None) -> int:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_dream)
 
+    p = sub.add_parser("import", help="importar una trayectoria trajectory.v1 producida"
+                                      " afuera, con clase de origen `external`")
+    p.add_argument("file", help="archivo JSON, o `-` para stdin")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_import)
+
+    p = sub.add_parser("corroborate", help="el oráculo de git: ¿el fix de cada trayectoria"
+                                          " sobrevivió? (no es `verify`)")
+    p.add_argument("--limit", type=int, default=20)
+    p.add_argument("--dry-run", action="store_true", help="no escribir: mostrar qué diría")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_corroborate)
+
     p = sub.add_parser("experiments", help="recorrer las hipótesis del proyecto: cuáles"
                                           " se comprobaron y cuáles faltan")
     p.add_argument("--only", help="una sola hipótesis, por prefijo (p. ej. H03)")
@@ -2332,6 +2533,8 @@ def main(argv=None) -> int:
     p.add_argument("--refuted", action="store_true", help="alguien sabe por qué no puede")
     p.add_argument("--evidence", help="por qué. Obligatoria en los dos sentidos")
     p.add_argument("--by", help="quién resuelve (default: human). Es el autor del veredicto")
+    p.add_argument("--oracle", action="store_true",
+                   help="preguntarle al `oracle_command` de la config en vez de decidir vos")
     p.add_argument("--all", action="store_true", help="listar también las ya resueltas")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_resolve)
@@ -2345,6 +2548,8 @@ def main(argv=None) -> int:
     p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
     p.add_argument("--dry-run", action="store_true",
                    help="no sellar ni escribir: mostrar qué capítulo sellaría")
+    p.add_argument("--suggest", action="store_true",
+                   help="dónde parece cortar el capítulo, sin sellar nada")
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--backend", default="sleep",
                    help="quién disparó esta corrida: queda en el registro de `schedule status`")
