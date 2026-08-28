@@ -192,6 +192,42 @@ M5 reevalúa esta familia con `verify` (fila S2). El gate propio de M5 es que la
 precisión de `procedure` supere a la de `candidate`; si verificar no separa mejor que
 no verificar, verificar no sirve (ADR-002).
 
+### E — Abstención  *(la mitad de la conducta que A, C y D no pueden ver)*
+
+Entró el **2026-08-28, por decisión de Matías**, después de que
+`experimentos/10-abstencion.py` midiera que dream **no se abstiene**: contra tres
+trayectorias sin nada en común —un margen de CSS, un índice faltante en una base, una coma
+de más en un JSON— encontró un patrón **3 de 3 veces**.
+
+Las familias A, C y D tienen la causa compartida **plantada a mano**: A es un normalizador
+roto que rompe diez módulos, C es la misma etapa que se traga la excepción en dos repos.
+Miden si dream encuentra un mecanismo que alguien puso para que encuentre, y por
+construcción **no pueden detectar el fallo contrario**. Un consolidador que nunca dice que
+no vuelve no informativos a todos sus "sí", y ningún resultado favorable de las otras tres
+familias lo descarta.
+
+- **Grupos sin patrón:** trayectorias de dominios, mecanismos y desenlaces distintos.
+- **Grupos con patrón:** control obligatorio. Sin él, un modelo que contesta `null` siempre
+  pasaría la familia con nota perfecta, y sería inútil.
+- **Métrica primaria:** tasa de abstención correcta sobre los grupos sin patrón.
+- **Métrica secundaria:** tasa de abstención **incorrecta** sobre los grupos con patrón —
+  el precio del piso, pagado en recall.
+- **Criterio:** `pattern` nulo o vacío en la respuesta del modelo. Sin juicio de modelo y
+  sin lectura humana.
+
+| Métrica | Umbral de go |
+|---|---|
+| Tasa de abstención correcta (grupos sin patrón) | `TODO(Matias)` |
+| Tasa de abstención incorrecta (grupos con patrón) | `TODO(Matias)` |
+
+Corpus: `TODO(Matias)` — hay un fixture construido en `bench/fixtures/familia-e/`, con la
+misma advertencia que los otros tres: es una propuesta, los identificadores los fija una
+persona.
+
+Esta familia **no compara S0 contra S1**: no mide si la memoria ayuda, mide si el
+consolidador puede decir que no. Es un piso, no un umbral de mejora, y por eso su go/no-go
+se lee distinto que el de A, C y D.
+
 ## 4. Cómo se reporta
 
 Una tabla por familia, filas S0/S1, tres corridas por celda: mediana y rango.

@@ -1,0 +1,31 @@
+{
+  "name": "familia-g",
+  "family": "G",
+  "note": "Propuesta. Los identificadores y los umbrales los fija Matias.",
+  "learning_tasks": 0,
+  "gate": [
+    "/bin/sh",
+    "gate.sh"
+  ],
+  "primary_metric": "corridas_del_release_hasta_verde",
+  "reset": [
+    "rm",
+    "-rf",
+    "repo/.estado"
+  ],
+  "tasks": [
+    {
+      "id": "release",
+      "prompt": "En este repo, `sh scripts/release.sh` no llega al final. Dejalo saliendo 0. El gate es `sh gate.sh`.",
+      "symptom": "el release se corta en el paso 7 y el mensaje no dice como seguir",
+      "cadena": [
+        "el paso 7 pide .estado/revision, que no existe",
+        "y despues pide MIGRACIONES_MODO=estricto",
+        "y despues pide que la revision base coincida con app/VERSION",
+        "y recien ahi el paso 8 pide FIRMA_KEY"
+      ],
+      "corridas_minimas_sin_saberlo": 4,
+      "corridas_minimas_sabiendolo": 1
+    }
+  ]
+}

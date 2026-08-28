@@ -793,9 +793,10 @@ def cmd_resolve(args) -> int:
         # controlado igual que el de un modelo: pasa por el redactor antes de persistirse.
         red = Redactor(deny_paths=config.load()["deny_paths"], home_dir=str(Path.home()))
         try:
+            ref = store.resolution_ref(commit=args.commit, pr=args.pr)
             tocada = store.resolve_projection(
                 conn, args.projection, status=veredicto,
-                evidence=red.text(evidencia or ""), resolved_by=autor)
+                evidence=red.text(evidencia or ""), resolved_by=autor, ref=ref)
         except ValueError as exc:
             print("no se resolvió: %s" % exc, file=sys.stderr)
             return 1
@@ -811,7 +812,8 @@ def cmd_resolve(args) -> int:
     if args.json:
         json.dump({"id": fila["id"], "status": fila["status"],
                    "trajectory": fila["trajectory_id"], "text": fila["text"],
-                   "evidence": fila["evidence"], "resolved_by": fila["resolved_by"]},
+                   "evidence": fila["evidence"], "resolved_by": fila["resolved_by"],
+                   "resolution_ref": fila["resolution_ref"]},
                   sys.stdout, indent=2, ensure_ascii=False)
         sys.stdout.write("\n")
         return 0
@@ -2533,6 +2535,8 @@ def main(argv=None) -> int:
     p.add_argument("--refuted", action="store_true", help="alguien sabe por qué no puede")
     p.add_argument("--evidence", help="por qué. Obligatoria en los dos sentidos")
     p.add_argument("--by", help="quién resuelve (default: human). Es el autor del veredicto")
+    p.add_argument("--commit", help="el commit que arregló o descartó esto. git lo verifica")
+    p.add_argument("--pr", help="el PR, si el arreglo entró por ahí. Alternativa a --commit")
     p.add_argument("--oracle", action="store_true",
                    help="preguntarle al `oracle_command` de la config en vez de decidir vos")
     p.add_argument("--all", action="store_true", help="listar también las ya resueltas")

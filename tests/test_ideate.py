@@ -523,3 +523,39 @@ class LecturaDelRepoTest(IsolatedStoreTest):
         lecturas = {int(s["idx"]) for s in pasos if dream.es_lectura(s)}
         self.assertTrue(lecturas, "el fixture no produjo ninguna lectura")
         self.assertFalse(indices & lecturas)
+
+
+class SuperficieDeBusquedaTest(IsolatedStoreTest):
+    """El prompt tiene que describir la superficie contra la que se busca de verdad.
+
+    `retrieve.candidates` engancha contra `signals`, `decisive_signal`, `valid_when` y las
+    proyecciones abiertas o confirmadas — **nunca** contra `pattern`. Un consolidador que
+    no lo sabe pone su mejor oración donde nadie la busca, que es exactamente lo que midió
+    `experimentos/08-el-techo-del-oraculo.py`.
+    """
+
+    def test_el_prompt_dice_que_pattern_no_se_busca(self):
+        self.assertIn("nunca contra `pattern`", dream.PROMPT,
+                      "el prompt tiene que decir que `pattern` no es superficie de búsqueda")
+        for campo in ("`signals`", "`valid_when`", "`projected_signals`"):
+            self.assertIn(campo, dream.PROMPT)
+
+    def test_el_ranking_no_engancha_contra_pattern(self):
+        """Si esto cambia, el prompt de arriba pasa a mentir y hay que tocar los dos."""
+        conn = store.connect()
+        tid = _sembrar(conn)
+        store.close_trajectory(conn, tid, result="tests_passed")
+        store.promote_to_candidate(
+            conn, tid,
+            abstraction={"pattern": "una jirafa cuantificada sobre un tobogán de bakelita",
+                         "signals": ["otra cosa completamente distinta"]},
+            valid_when=[], hypothesis=None, weight=0.6)
+        row = store.get_trajectory(conn, tid)
+        scored = retrieve.candidates(conn, task_type=row["task_type"],
+                                     repo_fingerprint=row["repo_fingerprint"],
+                                     cfg=config.load(),
+                                     prompt="la jirafa del tobogán de bakelita")
+        conn.close()
+        motivos = scored[0][1] if scored else ""
+        self.assertNotIn("signal_match", motivos,
+                         "enganchó contra `pattern`: el prompt de consolidación quedó viejo")

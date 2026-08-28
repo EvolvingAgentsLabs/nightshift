@@ -59,7 +59,7 @@ hipótesis.
 | M1 | ✅ captura, redactor, `audit` | ⚠️ **1 de 5** sesiones con contenido capturado | usar el plugin |
 | M2 | ✅ retrieval en dos pasadas, `why` | ✅ `why` reconstruye el origen | — |
 | M3 | ✅ dream fase 1, scheduler | ⚠️ 0 de 3 noches | el timer ya corre solo |
-| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 22 `TODO(Matias)`** | congelarlo y correr |
+| M4 | ✅ runner, 3 fixtures, adaptador | ❌ **PREREG en borrador, 25 `TODO(Matias)`** | congelarlo y correr |
 | M5 | — | 🚫 bloqueado hasta el veredicto de M4 | — |
 
 Los 280 tests, `make check`, `make bench-fixtures`, `bench selftest` y `simulate` pasan.

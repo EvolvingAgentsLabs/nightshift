@@ -791,8 +791,25 @@ Reglas duras. Una respuesta que las rompa se descarta:
   que no esté en los pasos: la diferencia entre observar y anticipar es la única que
   hace que esto sea memoria y no adivinación. Si no te pidieron idear, dejá
   `projected_signals` vacío.
-- Si las trayectorias no comparten ningún patrón útil, devolvé
-  {"pattern": null} en lugar de inventar uno.
+- **`signals`, `valid_when` y `projected_signals` son la única superficie contra la que
+  se busca.** Cuando alguien abra la próxima sesión y describa lo que le está pasando, el
+  retrieval compara sus palabras contra esos tres campos y **nunca contra `pattern`**. Así
+  que ahí no va tu mejor oración de diseño: va el **síntoma, como lo diría quien lo sufre**
+  antes de saber la causa —"la corrida termina en verde y no procesó ni un caso", no "una
+  aserción cuantifica sobre una colección vacía". `pattern` explica; `signals` se encuentra.
+- **Nombrá el mecanismo, no la herramienta.** Un síntoma escrito alrededor de un nombre
+  propio de herramienta engancha con cualquier otro problema de esa herramienta: decir
+  "el linter" trae también al que se queja de un import sin usar. Decí qué hace la cosa
+  —"el chequeo", "el resumen", "la corrida"— y el enganche se apoya en el mecanismo.
+- **Abstenerse es una respuesta, y es la que más cuesta dar.** Si estas trayectorias no
+  comparten un mecanismo, devolvé {"pattern": null} y nada más. Medido el 2026-08-28:
+  contra tres trabajos sin absolutamente nada en común —un margen de CSS, un índice
+  faltante en una base, una coma de más en un JSON— este prompt encontró un patrón las
+  **tres de tres** veces que se le preguntó. Lo que encontró era cierto y vacío: cosas que
+  le pasan a cualquier software. Antes de escribir un patrón, exigite poder señalar el
+  **paso concreto de cada trayectoria** donde el mismo mecanismo actúa; si para una sola de
+  ellas tenés que argumentar, no hay patrón. Compartir género —"son todos bugs", "en todos
+  el error aparece lejos de la causa"— no es compartir mecanismo.
 
 Trayectorias:
 
