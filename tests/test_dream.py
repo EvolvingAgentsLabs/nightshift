@@ -33,6 +33,10 @@ BUENA = {"pattern": "El lector abre el archivo sin declarar codificación y la s
          "signals": ["la suite falla siempre en el mismo punto"],
          "decisive_signal": "el fallo desaparece al fijar la codificación",
          "hypothesis": "se creyó que el archivo de entrada estaba corrupto",
+         # El primer eslabón se ancla a un paso que **observa** algo, no a una lectura del
+         # repo (plan §7, F2). Sin `hypothesis_step` la hipótesis se descarta, y hay un
+         # test abajo que lo fija.
+         "hypothesis_step": 0,
          "valid_when": ["el archivo de entrada no es ASCII puro"]}
 
 
@@ -277,6 +281,58 @@ class DreamTest(IsolatedStoreTest):
         self.run_dream(FakeModel(BUENA))
         row = self.row(tid)
         self.assertEqual(row["hypothesis"], "se creyó que el archivo de entrada estaba corrupto")
+
+    def test_una_hipotesis_sin_anclar_a_un_paso_se_descarta(self):
+        """El caso medido: la hipótesis falsa del 2026-08-28 no citaba ningún paso.
+
+        Se descarta la hipótesis y **no** el grupo entero: `hypothesis` es opcional y
+        `null` es una respuesta válida. Voltear la consolidación por esto perdería el
+        patrón, que es lo que sí vale.
+        """
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        sin_ancla = dict(BUENA)
+        sin_ancla.pop("hypothesis_step")
+        report = self.run_dream(FakeModel(sin_ancla))
+        self.assertTrue(report["candidates"], "el grupo tiene que consolidar igual")
+        self.assertIsNone(self.row(tid)["hypothesis"])
+
+    def test_una_hipotesis_anclada_a_un_paso_inexistente_se_descarta(self):
+        conn = store.connect()
+        try:
+            tid = self.seed(conn)
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(dict(BUENA, hypothesis_step=99)))
+        self.assertIsNone(self.row(tid)["hypothesis"])
+
+    def test_una_hipotesis_anclada_a_una_lectura_del_repo_se_descarta(self):
+        """El corazón de F2: un `grep` es el repo hablando de sí mismo, no evidencia.
+
+        La candidata falsa del 2026-08-28 sacó su hipótesis de dos `grep` cuyo texto
+        describía un diseño viejo y ya cambiado. Cada elemento rastreaba a un paso real,
+        así que anclar por índice no alcanzaba: hay que anclar a un paso que **observe**.
+        """
+        conn = store.connect()
+        try:
+            tid = store.open_trajectory(conn, session_id="s", repo_fingerprint="f" * 64,
+                                        task_type="debug_test_failure",
+                                        base_commit="abc1234",
+                                        redaction={"redactor_version": "0.1.0"})
+            store.append_step(conn, tid, kind="tool_use", tool="run_shell",
+                              args={"command": "grep -n bandera nightshift/hook.py"},
+                              result_summary="308: # sin bandera de por medio")
+            store.close_trajectory(conn, tid, result="tests_passed")
+            leido = store.steps_of(conn, tid)[0]
+            self.assertTrue(dream.es_lectura(leido), "el fixture no es una lectura")
+        finally:
+            conn.close()
+        self.run_dream(FakeModel(dict(BUENA, hypothesis_step=0)))
+        self.assertIsNone(self.row(tid)["hypothesis"],
+                          "una hipótesis anclada a un grep no es un eslabón de la cadena")
 
     def test_una_hipotesis_con_una_ruta_no_se_persiste(self):
         conn = store.connect()
