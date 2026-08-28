@@ -496,9 +496,17 @@ Y las dos reglas que chocan son las dos correctas: `classify_task` necesita `fal
 dicen de qué se habla (enmienda 0.3.6). Un prompt escrito como la spec quiere que se lo
 pueda enganchar es un prompt que el clasificador deja pasar.
 
-**Y alcanza al instrumento:** `experimentos/camino_real.py` no modela esa compuerta, así que
-el 27% de sensibilidad del `09` mide el ranking y no lo que llega al agente. Arreglar el
-instrumento va **antes** que discutir la spec — sin eso, la discusión no tiene números.
+**El instrumento ya la modela** (2026-08-28, noche): `camino_real.medir` devuelve `rankea` y
+`llega`, y `compuerta()` llama a `classify_task` en vez de reimplementarla. Los números:
+
+| | rankea | llega |
+|---|---|---|
+| `07` control / ideado | 1 de 3 / 2 de 3 | **0 de 3 / 0 de 3** |
+| `08` oráculo (el techo) | 3 de 3 | **0 de 3** |
+| `09` sensibilidad | 4 de 15 (27%) | **0 de 15** |
+
+El techo del ranking es 3 de 3; el de la cadena entera, 0 de 3. **La discusión de spec ya
+tiene números**, y son éstos.
 
 Las tres opciones de spec están en `LATER.md` con sus costos. **Las decide Matías**, no un
 agente: cambian cuánto contexto se gasta por sesión.

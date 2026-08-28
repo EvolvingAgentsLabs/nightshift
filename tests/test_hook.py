@@ -574,3 +574,67 @@ class EmitShapeTest(IsolatedStoreTest):
             with self.subTest(event=event):
                 out = self.run_main(event, payload(**extra))
                 self.assertNotIn("systemMessage", out)
+
+
+class CompuertaDelClasificadorTest(IsolatedStoreTest):
+    """La inyección por prompt está detrás de `classify_task`, y hay que verlo.
+
+    `on_user_prompt_submit` sólo rankea en el prompt que **fija** el tipo de tarea: si
+    `classify_task` devuelve `general`, el hook sale antes de mirar el store, por alto que
+    hubiera rankeado la memoria. Los tres síntomas retenidos con los que este repo mide
+    —`07`, `09`, H17— clasifican `general`, así que ninguno habría inyectado nada en una
+    sesión real (`LATER.md`, 2026-08-28).
+
+    Estos tests no defienden la regla: la **documentan ejecutándola**, para que
+    `experimentos/camino_real.compuerta` no se quede vieja en silencio. Si la spec §5.7
+    cambia cuándo se inyecta, esto falla y el instrumento se entera.
+    """
+
+    SINTOMAS_SIN_PREDICADO = [
+        "el resumen dice que esta todo bien pero no conto ninguna celda",
+        "la corrida termina en verde y no proceso ni un solo caso",
+        "el chequeo pasa porque su patron no encontro ningun archivo",
+    ]
+
+    def test_un_sintoma_sin_predicado_de_fallo_no_clasifica(self):
+        """Y por eso no llega a rankear, por bien escrito que esté el síntoma."""
+        for prompt in self.SINTOMAS_SIN_PREDICADO:
+            with self.subTest(prompt=prompt[:40]):
+                self.assertEqual(context.classify_task(prompt), context.DEFAULT_TASK_TYPE)
+
+    def test_con_tipo_general_el_hook_no_inyecta(self):
+        base = {"session_id": "compuerta", "cwd": ".", "transcript_path": "/tmp/t.jsonl"}
+        hook.dispatch("SessionStart", dict(base, source="startup"))
+        contexto, mensaje = hook.dispatch("UserPromptSubmit",
+                                          dict(base, prompt=self.SINTOMAS_SIN_PREDICADO[1]))
+        self.assertEqual(contexto, "", "con `general` el hook sale antes de rankear")
+        self.assertEqual(mensaje, "", "y no anuncia una inyección que no ocurrió")
+
+    def test_con_tipo_clasificado_el_hook_si_inyecta(self):
+        """La otra mitad: sin esto, un hook que nunca inyecta pasaría el test de arriba."""
+        conn = store.connect()
+        # El fingerprint tiene que ser el del cwd de verdad: con otro, `candidates` la
+        # descarta por no ser del mismo repo y el test mediría eso y no la compuerta.
+        tid = store.open_trajectory(conn, session_id="vieja",
+                                    repo_fingerprint=context.repo_fingerprint("."),
+                                    task_type="debug_test_failure", base_commit="abc1234",
+                                    redaction={"redactor_version": "0.1.0"})
+        store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                          error_message="UnicodeDecodeError en el borde", decisive=True)
+        store.close_trajectory(conn, tid, result="tests_passed")
+        conn.close()
+        # Sin `SessionStart` a propósito: ese hook ya inyecta por repo y recencia, y lo
+        # inyectado no se repite en la misma sesión. Con una sola candidata en el store, el
+        # arranque se la lleva y `UserPromptSubmit` no tendría nada que rankear — que es
+        # cierto y es otra cosa que la compuerta.
+        base = {"session_id": "clasifica", "cwd": ".", "transcript_path": "/tmp/t.jsonl"}
+        contexto, _ = hook.dispatch(
+            "UserPromptSubmit", dict(base, prompt="los tests fallan con UnicodeDecodeError"))
+        self.assertTrue(contexto, "con tipo clasificado el hook tiene que rankear")
+
+    # No hay un tercer test que compare esto contra `experimentos/camino_real.compuerta`:
+    # `tests/` no importa de `experimentos/` —lo defiende `lint-code`, y con razón, porque
+    # la suite del plugin no puede depender del directorio de experimentos— y además sería
+    # redundante. `camino_real.compuerta` **llama** a `context.classify_task`, no
+    # reimplementa la regla, así que no hay dos definiciones que se puedan separar. Que
+    # llame en vez de copiar es justamente lo que se arregló el 2026-08-28.
