@@ -209,20 +209,48 @@ confirmada sube de peso, o si `resolve --refuted` acepta evidencia vacía. Más
 `make dogfood`. Más las **19 proyecciones del store real resueltas o marcadas abiertas a
 mano**, que es dogfooding y no test.
 
-### F2 — El primer eslabón no se inventa (idea 1)
+### F2 — No toda línea capturada es evidencia (idea 1)
 
-1. **La hipótesis se ancla o es `null`.** El prompt pide, junto con `hypothesis`, el
-   **índice del paso** del que la infirió. `validate` comprueba que ese índice exista en la
-   trayectoria; si no, la hipótesis se descarta y queda `null`. No convierte una hipótesis
-   falsa en verdadera —el modelo puede citar mal— pero le pone un costo a inventar y la
-   vuelve auditable con `why`.
-2. **Medirlo sobre lo que ya hay.** Las cuatro candidatas tienen hipótesis. Cuántas se
-   pueden anclar a un paso real es un número, y hoy no existe.
-3. **`why` muestra el eslabón.** Si la hipótesis dice de dónde salió, `why` la imprime
-   junto al paso, que es la condición de éxito 3 de la spec aplicada al primer eslabón.
+**Corregida el 2026-08-28, antes de escribir una línea de código.** La primera versión de
+esta fase decía: anclar cada afirmación a un índice de paso, y si el índice no existe,
+descartarla. **Se midió sobre el único caso conocido de fabricación y no habría atrapado
+nada.** Los pasos de `1f94f424`:
 
-**Gate:** `make check` con un test que rechace una hipótesis cuyo índice no existe, y otro
-que la acepte cuando existe. Más el recuento sobre el store real, reportado.
+```
+paso 4  run_shell  "308: # ahora del comando guardado (_es_comando_de_test), sin
+                    bandera de por medio. La spec §4.3…"
+paso 5  run_shell  "El comando está redactado, y eso no lo afecta: el redactor toca
+                    rutas, secretos e identificadores…"
+```
+
+El modelo no inventó de la nada: levantó **el razonamiento ya escrito en los comentarios
+del código** y lo presentó como diagnóstico del bug. «Sin bandera de por medio» —un
+comentario sobre un diseño viejo y ya cambiado— se convirtió en «una propiedad viaja como
+bandera efímera». «El comando está redactado y eso no lo afecta» se convirtió en la
+hipótesis «se creyó que la redacción alteraba el texto». Cada elemento del dibujo ficticio
+**rastrea a un paso real**, así que el anclaje pasaba.
+
+La distinción que sí discrimina es otra, y es más barata:
+
+> ¿este paso es una **observación** de lo que pasó, o es el repositorio **hablando de sí
+> mismo**?
+
+Un `tool_failure`, un test en rojo, una corrección del usuario son evidencia de esta
+sesión. La salida de un `grep`, de un `cat`, de un `sed -n` es el repo explicando un diseño
+que puede ser viejo, ajeno o ya revertido. Hoy `pasos_para_el_prompt` los ordena —fallos
+primero— pero los entrega todos con el mismo rango.
+
+1. **Clasificar el paso por lo que es.** Observación (fallo, test, corrección, desenlace)
+   contra lectura (leer archivos, buscar en el repo, listar). Determinista, del comando
+   guardado, como `_es_comando_de_test`.
+2. **El prompt lo dice.** Las lecturas van etiquetadas como contexto del repositorio, no
+   como evidencia de la sesión, con la instrucción explícita de que un comentario del
+   código **no** es una observación sobre este trabajo.
+3. **El anclaje, ahora sí, sobre observaciones.** `hypothesis` cita el índice de un paso
+   **de observación**, o es `null`. Sobre lectura no vale.
+
+**Gate:** `make check`, con la clasificación medida contra los pasos reales del store —no
+estimada— y un test de replay que rechace una hipótesis anclada a una lectura.
 
 ### F3 — El dibujo tiene que ser un dibujo (idea 3)
 
@@ -238,6 +266,11 @@ que la acepte cuando existe. Más el recuento sobre el store real, reportado.
    gate `validate-schema` ya recorre ese directorio.
 
 **Gate:** `make check` con los fixtures. Un diagrama roto no puede llegar a `candidate`.
+
+**Y lo que esta fase NO responde**, dicho acá porque es fácil dejarlo implícito: la validez
+sintáctica contesta *«¿va a renderizar?»*, nunca *«¿es cierto?»*. El dibujo de `1f94f424` es
+Mermaid perfectamente válido y describe un mecanismo que no existe. Para eso está F2, y
+sobre todo §7.
 
 ### F4 — Medir la apuesta (idea 3)
 
@@ -262,6 +295,96 @@ experimento no la toma.
 Después de F1–F4 el README vuelve a estar desactualizado, y esta vez para bien. Una pasada
 corta: la tasa de acierto de las conjeturas, el resultado de F4 sea cual sea, y el marcador
 A–E revisado. `README.es.md` en el mismo commit, siempre.
+
+## 7. Oráculos — cerrar el bucle que las proyecciones abren
+
+**No es una cuarta idea suelta: es el cierre de la idea 2.** Proyectar abre un bucle —19
+conjeturas hoy— y nada lo cierra. Un oráculo es exactamente lo que lo cierra, y F1 es un
+caso particular: pone al humano de oráculo. Esta sección generaliza **quién** puede serlo.
+
+El objetivo, dicho como lo pidió Matías el 2026-08-28: incorporar CoT, CoT de imaginación
+y CTE **generados afuera** al mecanismo de sueño, con influencia de un oráculo externo, para
+agregar comportamiento que el modelo no produce solo.
+
+Y la restricción que ordena todo el diseño: **el oráculo es un comando, no un servicio.**
+ADR-003 prohíbe red desde `nightshift/` y una API key nueva. El mismo patrón que ya usa el
+modelo —`subprocess`, stdin, stdout— sirve para un humano, un script, un modelo distinto o
+una API que envuelva el usuario, sin comprometer al proyecto con ninguno.
+
+### O1 — El oráculo que ya está escrito y nadie lee
+
+`hook.py` registra cada inyección con `into_trajectory`: **qué memoria entró a qué
+trayectoria.** Esa trayectoria después se cierra con un desenlace. La arista existe, está
+poblada, y `grep into_trajectory nightshift/` da **un solo uso**: el `INSERT`.
+
+```
+memoria inyectada    veces   cómo terminó quien la recibió
+8347ad4f               2     tests_passed
+a49c1582               3     unknown, tests_passed
+cbbd7ff0               1     tests_passed
+fff6af83               2     tests_passed
+```
+
+Es externo al modelo, determinista, gratis, y es literalmente «reforzar la ejecución».
+
+**Se reporta, no se rankea.** Tres motivos y ninguno es prudencia genérica:
+
+- Es **correlación**. No dice que la memoria haya servido: eso es el contrafáctico que M4
+  iba a medir, y M4 está pausado.
+- **n = 10 inyecciones.** Alcanza para una columna en `status`, no para un peso.
+- El riesgo específico es un **bucle que se retroalimenta**: una memoria que sube de puntaje
+  por haber caído en una sesión verde se inyecta más, cae en más sesiones verdes y domina
+  para siempre. Un ranking que se alimenta de su propia salida deja de medir el repo y pasa
+  a medirse a sí mismo.
+
+Convertirlo en peso es una decisión de Matías, con el número puesto por él.
+
+### O2 — El oráculo de git: ¿el fix sobrevivió?
+
+Sin modelo, sin red, sin credencial. Sobre el `base_commit` que la trayectoria ya guarda:
+¿el commit se revirtió?, ¿los archivos que tocó se volvieron a tocar poco después?, ¿el
+test que se agregó sigue existiendo? Es lo más parecido a verificación que se puede tener
+sin M5, y es completamente externo al modelo.
+
+**No es `verify` y no hay que llamarlo así.** `verify` (ADR-002) reproduce una trayectoria
+contra un gate declarado; esto lee historia. Una candidata que sobrevivió no queda
+verificada: queda **corroborada**, que es una tercera categoría y no un ascenso.
+
+### O3 — `oracle_command`: el oráculo genérico
+
+Un ejecutable configurable que lee una pregunta por stdin y escribe un veredicto por
+stdout, con el mismo contrato que `model_command`. Con eso, F1 (el humano), O2 (git) y
+cualquier oráculo futuro son el mismo mecanismo con distinto ejecutable.
+
+Va con **ADR-006**, porque decide algo que ADR-003 no había decidido: hasta dónde llega
+«sin dependencias remotas» cuando el usuario enchufa su propio ejecutable. La respuesta
+propuesta: nightshift no habla con la red **nunca**; lo que haga el comando del usuario es
+del usuario, y el store deja constancia de qué oráculo respondió.
+
+### O4 — `import`: CTE y CoT generados afuera
+
+`nightshift export` emite `trajectory.v1`. **No hay `import`.** La plomería es fácil; lo
+que no es fácil es lo otro:
+
+- **Procedencia.** Una trayectoria importada no se observó acá, el redactor no corrió sobre
+  ella acá, y nada de lo que afirma es comprobable desde esta máquina. Si entra al mismo
+  pool con los mismos pesos, la jerarquía observado > inferido > conjeturado —lo único que
+  este proyecto defiende de verdad— se colapsa. Necesita una **clase de origen** propia,
+  igual que `projected_signals` es una clase aparte de `signals`.
+- **Un CoT externo no es un CTE.** No ejecutó. Importar un CoT como si fuera cadena de
+  ejecución es el modo de falla de `1f94f424` institucionalizado. Entra etiquetado como lo
+  que es —una sugerencia— o no entra.
+
+**Decisión de Matías, no de un agente: cuánto pesa lo externo.** Es la misma clase de
+decisión que `W_PROJECTED_MATCH`. El default que se implementa —y que él cambia con un
+número— es el único que no puede romper nada: **lo externo pesa estrictamente menos que lo
+propio y nunca puede desplazar a una observación de esta máquina.**
+
+### Qué queda descartado
+
+Un oráculo **remoto** llamado por nightshift. Choca de frente con ADR-003 y no lo
+desbloquea este plan: si alguna vez hace falta, entra envuelto en un `oracle_command` que
+escribe el usuario, con su credencial y su riesgo.
 
 ## 5. Qué no entra en este plan, y por qué
 
