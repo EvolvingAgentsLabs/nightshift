@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptado — **como brazo, no como default**. Lo que decide cuál gana es una medición que todavía no se puede hacer (H23) |
+| Estado | Aceptado — y desde la **enmienda 2026-08-28** (al final), `fisica` es el **default por decisión de Matías**, con H23 todavía sin veredicto |
 | Fecha | 2026-08-28 |
 | Reemplaza | nada. Agrega un segundo medio de ideación al que decidió [ADR-004](ADR-004-ideacion-y-proyeccion.md) |
 | Relacionado | ADR-003 (el modelo corre por `subprocess`), ADR-004 (idear y proyectar), ADR-006 (el oráculo es un comando) |
@@ -112,3 +112,32 @@ n=0. Lo decide H23, y H23 está `BLOCKED`.
   Queda anotado en `LATER.md`, donde ya está el mismo choque por los sinónimos.
 - **Un `--ideacion off`.** No existe y no va a existir: sería la clave de config que la
   enmienda 0.3.7 sacó, con otro nombre.
+
+## Enmienda 2026-08-28 — el default pasa a `fisica`, por decisión de Matías
+
+**Decidido por Matías, con autorización explícita, el mismo día en que este ADR se
+aceptó.** El texto de arriba decía: «cambiar el default por decreto sería repetir con n=0
+el error que ADR-004 cometió con n=1». Matías leyó ese argumento y decidió igual, y las
+dos cosas quedan escritas porque son distintas: **el default es `fisica` porque el dueño
+del proyecto lo decidió, no porque una medición lo sostenga.**
+
+Lo que había al momento de la decisión, para que nadie lo infle después:
+
+- El brazo físico pasa sus gates al primer intento sobre el corpus real (`14`), se
+  abstiene 5 de 5 (`10 --ideacion fisica`), y contrasta bien.
+- El brazo Mermaid está medido **en contra** (H17, sin tocar).
+- **H23 —¿la escena transfiere donde el diagrama no?— sigue sin veredicto válido**, y el
+  retenido con el que se intente cerrarlo está comprometido: el de `cbbd7ff0` se gastó, y
+  el de `5b3ff97f` lo escribió el mismo agente que escribió el prompt del brazo — es una
+  medición de techo, no de transferencia.
+
+Con la misma enmienda (spec 0.3.10) el **logograma entró a la superficie de búsqueda**
+—`logogram_match`, piso duro de 2, prioridad de orden— revirtiendo la alternativa que
+este ADR había descartado. La mitigación es el piso: dos coincidencias sobre un signo de
+dos a cuatro palabras es casi el signo entero. Y el contraste en modo físico lleva el
+recorte `CONTRAST_TRIM`: la escena se usa para pensar y no se devuelve.
+
+`mermaid` queda disponible con `--ideacion mermaid`. Es lo que permite volver a comparar
+el día que exista un retenido limpio — y ese día, si la comparación sale en contra de la
+escena, esta enmienda se revierte con el mismo mecanismo con el que entró: una decisión
+escrita, no un default silencioso.

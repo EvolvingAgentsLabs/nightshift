@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007 |
-| Revisión | 0.3.9 — el segundo medio de idear: la escena antes del diagrama (ADR-007) |
+| Revisión | 0.3.10 — las decisiones de Matías: la compuerta, el piso y el default físico |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -262,7 +262,7 @@ Nombres verificados contra la doc vigente de Claude Code
 | `PreCompact` | Snapshot de la trayectoria activa completa antes de que muera el contexto. Ver §5.3. |
 | `Stop` | **Sellar el turno**, no cerrar la trayectoria. Ver §5.6. |
 | `SessionEnd` | **Añadido en 0.3.1.** Cerrar la trayectoria: `outcome` (`tests_passed` / `user_corrected` / `abandoned`), y el gate asociado si existe. |
-| `UserPromptSubmit` | Detectar correcciones ("no, eso está mal") → marcar el paso anterior como `contradicted`; fijar el tipo de tarea; y, **la primera vez que ese tipo deja de ser `general`**, rehacer el retrieval e inyectar (§5.7). No captura el prompt completo. |
+| `UserPromptSubmit` | Detectar correcciones ("no, eso está mal") → marcar el paso anterior como `contradicted`; fijar el tipo de tarea; y evaluar **todos los prompts** para inyección (enmienda 0.3.10): la pasada que fija el tipo es estructural completa, las demás sólo inyectan lo que engancha (§5.7). No captura el prompt completo. |
 
 ### 5.2 Hallazgo: `PostToolUse` no ve los fallos
 
@@ -344,8 +344,20 @@ Dos invariantes que la segunda pasada tiene que respetar, y que están testeadas
 - **Nada se inyecta dos veces en la misma sesión.** La tabla `injections` tiene
   `session_id`; lo ya inyectado se filtra del ranking. Repetir una trayectoria no es más
   evidencia, es más contexto gastado.
-- **La segunda pasada ocurre una sola vez.** Se dispara en la transición de `general` a
-  un tipo, no en cada prompt.
+- ~~**La segunda pasada ocurre una sola vez.** Se dispara en la transición de `general` a
+  un tipo, no en cada prompt.~~ **Derogado por la enmienda 0.3.10** (decidida por Matías,
+  2026-08-28). Esa regla era una compuerta: el prompt escrito como un síntoma —«se pierde
+  un registro y no encuentro rastro»— clasifica `general`, así que el hook salía antes de
+  rankear, y lo medido fue que los tres retenidos de H17 y los seis casos diseñados del
+  `15` llegaban al agente **0 de N** veces. El techo entero quedaba detrás de la
+  compuerta.
+
+**Regla 0.3.10: todos los prompts se evalúan para inyección.** El prompt que fija el tipo
+conserva la pasada estructural completa; **cualquier otro prompt sólo puede inyectar
+filas que enganchan** con lo que el usuario escribió (`MOTIVOS_DE_ENGANCHE`). El dique
+contra la inundación que la compuerta vieja evitaba por el camino equivocado son dos: ese
+filtro de enganche, y el piso de discriminación subido a 2 (§5.10). La invariante de no
+re-inyectar en la misma sesión no cambia.
 
 ### 5.8 Trayectorias huérfanas
 
@@ -620,8 +632,9 @@ ADR-004 es un diagrama Mermaid, y contra un conjunto retenido no quedó sostenid
 ADR-007 agrega un segundo medio, `fisica`: primero una escena del mundo físico, después el
 razonamiento sobre esa escena, y de ahí las proyecciones y un logograma de dos a cuatro
 palabras que nombra el mecanismo. Los dos campos tienen gate determinista y el rechazo
-entra al mismo bucle de reintentos que una fuga. **El default no cambia** —`mermaid`— y
-cuál gana lo decide una medición que todavía no se puede hacer.
+entra al mismo bucle de reintentos que una fuga. El default fue `mermaid` hasta la
+enmienda 0.3.10, donde Matías lo cambió a `fisica` por decisión propia, con H23 todavía
+sin veredicto.
 
 **Enmienda 0.3.8 — el capítulo, y quién pone el borde.** La sesión era la unidad de
 captura y la trayectoria la unidad de consolidación, así que eran la misma cosa: dream
@@ -1005,8 +1018,30 @@ de cajas y flechas es topología, y la topología se parece a todo. Ver
 | 6.1 | En el brazo `fisica` el `diagram` se descarta aunque el modelo lo devuelva | Si un brazo guardara los dos medios, la comparación sería entre acumular texto y no acumularlo, que no es la pregunta |
 | 6.1 | La plantilla JSON compartida deja de decir «diagrama Mermaid» y dice «el dibujo del mecanismo, en el medio que te hayan pedido arriba» | Es un cambio en el prompt del brazo **default**, chico pero real, y queda escrito: un cambio silencioso en el brazo que se compara es el error que este repo ya documentó |
 
-**Qué NO decide esta enmienda: cuál de los dos medios gana.** El default sigue siendo
-`mermaid`. Cambiarlo por decreto sería repetir con n=0 el error que ADR-004 cometió con
-n=1. Lo decide H23, que está `BLOCKED` — no por código faltante, sino porque el único
-conjunto retenido que existe se gastó y hace falta uno nuevo escrito por una persona que
-sólo haya visto las conjeturas.
+**Qué NO decidía esta enmienda: cuál de los dos medios gana.** El default siguió siendo
+`mermaid` hasta la 0.3.10 (abajo), donde **Matías lo cambió a `fisica` por decisión
+propia** — H23 seguía y sigue sin veredicto, y la enmienda lo dice. Lo que esta sección
+argumentaba en contra de cambiarlo por decreto no se borra: quedó superado por una
+decisión del dueño del proyecto, que es distinto de haber sido refutado.
+
+### Enmiendas 0.3.10 (las decisiones de Matías del 2026-08-28)
+
+**Decididas por Matías con autorización explícita, no medidas hasta el veredicto.** Las
+tres decisiones que estaban anotadas como «de Matías, no de un agente» —la compuerta, el
+piso y el default de la ideación— se tomaron el 2026-08-28. Los números que las motivaron
+están en `LATER.md` y en `experimentos/13` y `15`; lo que **no** existe todavía es la
+medición de que el conjunto mejore el trabajo del agente — eso sigue siendo M4, pausado.
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.7 | **La compuerta del clasificador deja de existir para la inyección**: todos los prompts se evalúan. La pasada que fija el tipo sigue siendo estructural completa; cualquier otra sólo inyecta filas que **enganchan** | Medido dos veces: los 3 retenidos de H17 y los 6 casos diseñados del `15` clasifican `general` — el techo entero llegaba al agente 0 de N veces. `classify_task` no cambia: sigue fijando el tipo |
+| 5.10 | **El piso de discriminación estructural sube a 2 en todas las superficies** (`MIN_TOKENS_DESTILADO` 1 → 2) | `experimentos/13` sobre el store real: con piso 1, 4 de 17 verdaderos al top-3 y 17 de 24 ajenos enganchando; con piso 2 mejoran las dos mitades. El `15` reprodujo los cruces sobre material diseñado. Es la otra mitad del dique que la compuerta ya no pone |
+| 5.10 | **El logograma entra a la superficie de búsqueda** (`logogram_match`, piso duro 2, peso de señal) y su match **ordena primero**, antes que cualquier otro enganche | Es la compresión más densa que la consolidación produce; dos coincidencias sobre un signo de dos a cuatro palabras es casi el signo entero. La prioridad es una regla de orden, no un peso (como la 0.3.7) |
+| 6.1 | **El default de ideación pasa a `fisica`** (`MODO_DE_IDEACION`); el reporte de dream dice siempre `ideate:<modo>` | Decisión de Matías, **no** una medición: H23 sigue sin veredicto válido y ADR-007 lo registra. `mermaid` queda disponible con `--ideacion mermaid`, que es lo que permite volver a comparar |
+| 6.1 | El contraste en modo `fisica` lleva un recorte (`CONTRAST_TRIM`): la escena se usa para pensar y **no se devuelve** | Medido el 2026-08-28: el modelo devolvía escena, logograma y diagrama que `validate_contrast` descartaba en silencio — tokens de salida pagados por nada |
+
+**El brazo `S1` cambió otra vez con esto** — compuerta, piso, superficie y default son
+literalmente el tratamiento — y queda escrito acá por la misma razón que en las 0.3.6 y
+0.3.7: el pre-registro sigue en BORRADOR, así que el cambio es legítimo, y silencioso
+sería el error ya documentado. **Los números «llega» publicados antes de esta enmienda se
+midieron con la compuerta vieja y no son comparables con los de después.**

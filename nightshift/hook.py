@@ -169,12 +169,20 @@ def _close_orphans(conn, cfg, session_id):
 
 
 # ---------------------------------------------------------- retrieval e inyección
-def _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=None):
+def _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=None,
+                         solo_enganche=False):
     """Rankea, renderiza y registra. Lo comparten `SessionStart` y `UserPromptSubmit`.
 
     Nada que ya se haya inyectado en esta sesión se vuelve a inyectar: el retrieval
     corre dos veces y la misma trayectoria dicha dos veces no es más evidencia, es más
     contexto gastado.
+
+    `solo_enganche` (enmienda 0.3.10): desde que **todos** los prompts se evalúan para
+    inyección, las pasadas posteriores a la estructural sólo pueden inyectar filas que
+    enganchan con lo que el usuario escribió. Sin este filtro, cada prompt inyectaría la
+    siguiente tanda de filas por repo y recencia, y el contexto se llenaría de memoria
+    que no habla del problema — el modo de inundación que la compuerta vieja evitaba por
+    el camino equivocado (bloqueando también lo que sí enganchaba).
     """
     cwd = payload.get("cwd") or "."
     session_id = payload.get("session_id")
@@ -189,6 +197,9 @@ def _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=None):
         # persiste: lo que queda en el registro es el motivo, no las palabras.
         prompt=prompt,
     )
+    if solo_enganche:
+        scored = [item for item in scored
+                  if retrieve.MOTIVOS_DE_ENGANCHE & set((item[1] or "").split(","))]
     if session_id:
         ya = store.injected_sources(conn, session_id)
         scored = [item for item in scored if item[2]["id"] not in ya]
@@ -229,10 +240,12 @@ def on_session_start(payload, cfg, conn):
 
 # -------------------------------------------------------------- UserPromptSubmit
 def on_user_prompt_submit(payload, cfg, conn):
-    """Sólo dos cosas: detectar correcciones y fijar el tipo de tarea.
+    """Tres cosas: detectar correcciones, fijar el tipo de tarea, y evaluar la inyección.
 
-    El texto del prompt **no se persiste**. Se guarda la etiqueta de clasificación, que
-    sale de un enum fijo (`context.TASK_TYPE_RULES`), no del prompt.
+    La tercera es de la enmienda 0.3.10: **todos** los prompts se evalúan para inyección,
+    no sólo el que fija el tipo. El texto del prompt **no se persiste**. Se guarda la
+    etiqueta de clasificación, que sale de un enum fijo (`context.TASK_TYPE_RULES`), no
+    del prompt.
     """
     tid = _ensure_trajectory(conn, payload, cfg)
     if not tid:
@@ -245,24 +258,43 @@ def on_user_prompt_submit(payload, cfg, conn):
             _log("contradicted step %s of %s" % (idx, tid))
 
     row = store.get_trajectory(conn, tid)
-    if row is None or row["task_type"] != context.DEFAULT_TASK_TYPE:
+    if row is None:
         return ""
-    task_type = context.classify_task(prompt)
-    if task_type == context.DEFAULT_TASK_TYPE:
-        return ""
-    conn.execute("UPDATE trajectories SET task_type = ? WHERE id = ?", (task_type, tid))
-    conn.commit()
 
-    # Segundo retrieval, ahora sí por estructura. Es la primera vez en la sesión que hay
-    # tipo de tarea, y por lo tanto la primera vez que "retrieve por tipo de tarea"
-    # (spec §5.7) puede cumplirse. Ocurre una sola vez: en el próximo prompt el tipo ya
-    # no es `general` y esta rama no se vuelve a tomar.
-    text, chosen = _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=prompt)
+    # Enmienda 0.3.10 (decidida por Matías): la compuerta del clasificador ya no existe
+    # para la inyección. Antes, el retrieval corría UNA vez por trayectoria —en el prompt
+    # que fijaba el tipo— y salía temprano con `general`, y lo medido fue que los tres
+    # síntomas retenidos y los seis casos diseñados del `15` clasificaban `general`:
+    # el techo entero del enganche llegaba al agente 0 de N veces. `classify_task` sigue
+    # fijando el tipo de tarea (eso no cambió); lo que cambió es que **todos** los prompts
+    # se evalúan para inyección, y las pasadas que no fijan tipo sólo inyectan lo que
+    # engancha (`solo_enganche`), para que la inundación que la compuerta evitaba no
+    # vuelva por la puerta de al lado. El piso subido a 2 es la otra mitad de ese dique.
+    task_type = row["task_type"]
+    fija_tipo = False
+    if task_type == context.DEFAULT_TASK_TYPE:
+        clasificado = context.classify_task(prompt)
+        if clasificado != context.DEFAULT_TASK_TYPE:
+            task_type = clasificado
+            conn.execute("UPDATE trajectories SET task_type = ? WHERE id = ?",
+                         (task_type, tid))
+            conn.commit()
+            fija_tipo = True
+
+    # El prompt que fija el tipo conserva la pasada estructural completa (la primera vez
+    # que "retrieve por tipo de tarea" puede cumplirse); cualquier otro prompt sólo puede
+    # traer filas que hablen de lo que el usuario acaba de escribir.
+    text, chosen = _retrieve_and_inject(conn, payload, cfg, tid, task_type, prompt=prompt,
+                                        solo_enganche=not fija_tipo)
     if not chosen:
         return ""
-    _log("retrieval por tipo de tarea (%s): %d inyectada(s)" % (task_type, len(chosen)))
-    return text, ("nightshift: %d trayectoria(s) de `%s` inyectada(s) · /nightshift:status"
-                  % (len(chosen), task_type))
+    if fija_tipo:
+        _log("retrieval por tipo de tarea (%s): %d inyectada(s)" % (task_type, len(chosen)))
+        return text, ("nightshift: %d trayectoria(s) de `%s` inyectada(s) · "
+                      "/nightshift:status" % (len(chosen), task_type))
+    _log("retrieval por enganche: %d inyectada(s)" % len(chosen))
+    return text, ("nightshift: %d trayectoria(s) enganchada(s) con este prompt · "
+                  "/nightshift:status" % len(chosen))
 
 
 # ------------------------------------------------------- PostToolUse / …Failure

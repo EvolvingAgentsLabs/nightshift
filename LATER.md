@@ -8,6 +8,41 @@ acá.
 
 ---
 
+## MEDIDO — lo que costaron y compraron las decisiones de la 0.3.10 (2026-08-28)
+
+Matías decidió la compuerta, el piso, el logograma y el default físico con autorización
+explícita (spec, enmienda 0.3.10). Todo se midió el mismo día, y los números van juntos
+porque las decisiones interactúan:
+
+| | antes (piso 1 + compuerta) | después (piso 2, sin compuerta) |
+|---|---|---|
+| techo a escala (`15`): la propia engancha | 6 de 6 | **3 de 6** |
+| techo a escala: **LLEGA al agente** | **0 de 6** | **3 de 6** |
+| cruces con casos ajenos | 4 de 6 | **1 de 6** |
+| ajenos que enganchan | 0 de 4 | 0 de 4 |
+| H17 (mermaid contra retenido gastado) | FAIL: 2-1 con 1 ajeno | **PASS: 2-0 con 0 ajenos** |
+| sensibilidad `12` (retenido de autor, `5b3ff97f`) | — | **0 de 5** |
+| H23 (escena contra diagrama, retenido de autor) | BLOCKED | **FAIL: 0-0** |
+
+La lectura honesta, en tres frases: **lo que engancha ahora llega** (la compuerta era el
+tapón más grande), **la mitad de lo que enganchaba ya no engancha** (el piso en 2 mata la
+paráfrasis que comparte una sola palabra de contenido — es lo que la 0.3.6 había medido al
+bajarlo), y **el control negativo quedó limpio en todo** (0 ajenos en todas las mediciones,
+que es lo que el piso compró). H23 y H24 quedan en FAIL a propósito: son el costo, medido,
+y taparlos sería peor que pagarlos.
+
+**Advertencia de procedencia que acompaña a dos de esos números:** el retenido de
+`5b3ff97f` lo escribió el agente por autorización expresa de Matías. El 0 de 5 del `12` y
+el 0-0 de H23 son **techos de autor** — si ni el autor engancha, nadie engancha; pero un
+número mayor que cero ahí tampoco habría probado transferencia. La versión humana sigue
+pendiente (`experimentos/retenido/PENDIENTE-5b3ff97f.md`).
+
+**La palanca que queda, y es de Matías:** el piso 2 con sinónimos no negocia. Las dos
+salidas conocidas —embeddings (choca con ADR-003) o bajar el piso sólo para el logograma /
+las proyecciones— cambian el tratamiento otra vez y van con enmienda o no van.
+
+---
+
 ## MEDIDO — la abstención y el contraste, ahora también con el brazo físico (2026-08-28, noche)
 
 Los dos agujeros de cobertura de la ideación, cerrados el mismo día que se nombraron:

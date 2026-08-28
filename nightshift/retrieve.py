@@ -53,6 +53,16 @@ W_FAILURE_MATCH = 1.5
 # > conjeturado. El número exacto no lo calibró nadie: lo juzga M4.
 W_PRECONDITION_MATCH = 1.0
 
+# Enmienda 0.3.10 (decidida por Matías): el logograma (ADR-007) dejó de ser sólo display
+# y pasó a ser superficie de búsqueda, con **prioridad sobre los demás enganches** en el
+# orden. Es la compresión más densa que la consolidación produce —dos a cuatro palabras
+# que nombran el mecanismo— y su piso es duro: con textos de ese largo, exigir 2
+# coincidencias es exigir casi el signo entero, que es lo que evita que una palabra suelta
+# lo dispare. Pesa igual que una señal: la prioridad es una regla de orden, no un peso,
+# igual que en la 0.3.7.
+W_LOGOGRAM_MATCH = 1.5
+MIN_TOKENS_LOGOGRAMA = 2
+
 # Cuántas palabras de contenido tienen que coincidir para llamarlo enganche.
 #
 # **Son dos pisos y no uno, y la diferencia se midió** (enmienda 0.3.6; el experimento es
@@ -75,7 +85,13 @@ W_PRECONDITION_MATCH = 1.0
 # La spec ya afirmaba esta jerarquía en prosa —"con abstracción manda la abstracción: es
 # lo destilado; el enganche por fallo es el piso"— y el código la contradecía cobrándoles
 # el mismo peaje a las dos.
-MIN_TOKENS_DESTILADO = 1
+# **Enmienda 0.3.10 (2026-08-28, decidida por Matías):** el piso de lo destilado sube a
+# 2. La 0.3.6 lo había fijado en 1 midiendo contra un store de UNA candidata; con el store
+# crecido, `experimentos/13` midió que con piso 1 sólo 4 de 17 prompts verdaderos entran
+# al top-3 y 17 de 24 ajenos enganchan algo, y con piso 2 mejoran las dos mitades (5 de 17
+# y 2 de 24). El `15` lo reprodujo sobre material diseñado: 4 de 6 paráfrasis cruzaban con
+# casos ajenos. Subir el piso era mejor en las dos mitades, no un intercambio.
+MIN_TOKENS_DESTILADO = 2
 MIN_TOKENS_CRUDO = 2
 
 # Los cuatro motivos que dicen *esta fila habla del problema que el usuario tiene
@@ -98,7 +114,8 @@ MIN_TOKENS_CRUDO = 2
 # en el store, la proyección se cae de la inyección — y una proyección que no llega antes
 # del error no proyectó nada.
 MOTIVOS_DE_ENGANCHE = frozenset(
-    ("signal_match", "projected_match", "precondition_match", "failure_match"))
+    ("signal_match", "projected_match", "precondition_match", "failure_match",
+     "logogram_match"))
 
 # Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
 # puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
@@ -325,6 +342,12 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             if _enganche(tokens_prompt, abiertas + confirmadas, MIN_TOKENS_DESTILADO):
                 score += W_PROJECTED_MATCH
                 reasons.append("projected_match")
+        # El logograma (ADR-007, enmienda 0.3.10). Vive en su columna y no en el JSON: se
+        # chequea aparte, y su piso exige casi el signo entero.
+        if tokens_prompt and "logogram" in row.keys() and row["logogram"]:
+            if _enganche(tokens_prompt, [row["logogram"]], MIN_TOKENS_LOGOGRAMA):
+                score += W_LOGOGRAM_MATCH
+                reasons.append("logogram_match")
         score += W_DAY_DECAY * _age_days(row["created_at"])
         score *= float(row["injection_weight"] or 0.3)
 
@@ -332,11 +355,15 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             continue
         scored.append((score, ",".join(reasons) or "recent", row))
 
-    # Primero las que enganchan con el prompt, después por puntaje. Sin prompt no
-    # engancha nada y el orden es exactamente el de antes: `SessionStart` corre antes de
-    # que el usuario escriba, y ahí esta regla no cambia una sola fila.
-    scored.sort(key=lambda item: (0 if _engancha(item[1]) else 1, -item[0],
-                                  item[2]["created_at"]))
+    # Primero las que enganchan por logograma (enmienda 0.3.10: es el signo entero, la
+    # coincidencia más específica que la consolidación produce), después cualquier otro
+    # enganche, después el puntaje. Sin prompt no engancha nada y el orden es exactamente
+    # el de antes: `SessionStart` corre antes de que el usuario escriba, y ahí nada de
+    # esto cambia una sola fila.
+    scored.sort(key=lambda item: (
+        0 if "logogram_match" in (item[1] or "").split(",")
+        else (1 if _engancha(item[1]) else 2),
+        -item[0], item[2]["created_at"]))
     return scored
 
 
