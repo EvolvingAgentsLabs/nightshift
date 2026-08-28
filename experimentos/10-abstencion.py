@@ -93,7 +93,7 @@ def sembrar(d, trayectorias):
     return [d.store.get_trajectory(d.conn, t) for t in ids]
 
 
-def armar_prompt(trayectorias):
+def armar_prompt(trayectorias, modo):
     """El prompt real del plugin, armado sobre un store desechable.
 
     La llamada al modelo queda **afuera** del store desechable a propósito: `HOME` está
@@ -105,7 +105,7 @@ def armar_prompt(trayectorias):
     from nightshift import dream
     with camino_real.StoreDesechable() as d:
         filas = sembrar(d, trayectorias)
-        return dream.build_prompt(d.conn, filas)
+        return dream.build_prompt(d.conn, filas, modo=modo)
 
 
 def main():
@@ -114,9 +114,18 @@ def main():
                     help="la respuesta del modelo es estocástica: repetir da la tasa")
     ap.add_argument("--model", default=None)
     ap.add_argument("--grupo", help="qué grupos del fixture correr, separados por coma")
+    ap.add_argument("--ideacion", default=None,
+                    help="con qué medio idear: mermaid (default del plugin) o fisica."
+                         " La regla de abstención vive en el cuerpo compartido, pero el"
+                         " prefijo empuja — y el físico empuja a ENCONTRAR una escena, que"
+                         " es justo el sesgo que la abstención existe para resistir")
     args = ap.parse_args()
 
     from nightshift import config, dream
+    modo = args.ideacion or dream.MODO_DE_IDEACION
+    if modo not in dream.MODOS_DE_IDEACION:
+        raise SystemExit("--ideacion %s no existe: hay %s"
+                         % (modo, ", ".join(dream.MODOS_DE_IDEACION)))
     cfg = config.load()
     if args.model:
         cfg["model_command"] = args.model.split()
@@ -130,6 +139,8 @@ def main():
                          " no es un experimento")
     print("¿dream se abstiene cuando no hay patrón?")
     print("modelo: %s" % " ".join(comando))
+    print("medio de ideación: %s — la abstención se midió por primera vez con `mermaid`;" % modo)
+    print("un veredicto de un medio no vale para el otro.")
     print("%d repetición(es) por grupo. Cada una es una llamada." % args.repeticiones)
     print()
 
@@ -143,7 +154,7 @@ def main():
             esperado = g["expect"]
             marcador[esperado][1] += 1
             try:
-                salida = modelo.ask_json(armar_prompt(g["trajectories"]))
+                salida = modelo.ask_json(armar_prompt(g["trajectories"], modo))
             except Exception as exc:
                 print("  %-8s rep %d  ERROR: %r" % (g["id"], rep + 1, exc))
                 continue

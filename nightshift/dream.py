@@ -945,7 +945,15 @@ Trayectoria que la REEMPLAZÓ:
 def build_contrast_prompt(conn, old_row, new_row, *, ideate=True,
                           modo=MODO_DE_IDEACION) -> str:
     """El contraste también se idea. `ideate=False` existe sólo para el brazo de control
-    de `experimentos/ideate.py`: en el plugin no hay ninguna ruta que lo apague."""
+    de `experimentos/ideate.py`: en el plugin no hay ninguna ruta que lo apague.
+
+    Aspereza medida (2026-08-28): el prefijo de ideación pide campos que
+    `validate_contrast` no consume —`diagram` en `mermaid`; `physical_scene` y `logogram`
+    en `fisica`— y el modelo los devuelve igual: se descartan en silencio y se pagan como
+    tokens de salida. Un prefijo propio del contraste los ahorraría; no existe porque el
+    contraste corre sólo ante una contradicción registrada, que es raro, y un tercer
+    prompt que mantener cuesta más. Si el contraste se vuelve frecuente, revisar
+    (LATER.md)."""
     cuerpo = CONTRAST_PROMPT % (describe(conn, old_row), describe(conn, new_row))
     return (PREFIJOS_DE_IDEACION[modo] + cuerpo) if ideate else cuerpo
 

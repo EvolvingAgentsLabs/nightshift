@@ -583,6 +583,15 @@ construido a propósito, y no queda claro todavía qué debería contestar.
 De acá salió la **familia E** del pre-registro (`bench/PREREG.md` §3-E), abierta por decisión
 de Matías el 2026-08-28, con sus dos umbrales en `TODO(Matias)`.
 
+### Y con el otro medio de idear (2026-08-28, `--ideacion fisica`)
+
+La regla de abstención vive en el cuerpo compartido del prompt, pero el prefijo del brazo
+físico (ADR-007) empuja a **encontrar** una escena — justo el sesgo que la abstención
+existe para resistir. Medido con `--ideacion fisica`, los 5 grupos: **se abstuvo 3 de 3
+donde no había patrón** (incluido `sin-02`, el difícil) **y abstrajo 2 de 2 donde había**.
+n=1 por grupo: es el piso del brazo, no una tasa. Un veredicto de un medio no vale para el
+otro, y por eso el flag existe.
+
 ---
 
 ## 11 — La profecía tiene fecha, ¿y el arreglo tiene commit?
