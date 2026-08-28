@@ -20,6 +20,16 @@ medición cambia con ella y no hay una segunda definición que se quede vieja.
 Corolario que conviene tener escrito: **que un helper devuelva un número no es que el
 agente lo vea.** Lo que cuenta es que la fila llegue al `additionalContext`.
 
+**Y le falta un eslabón, anotado el 2026-08-28 a la noche.** Este módulo llama a
+`candidates` + `render` directo, y el camino de verdad tiene una compuerta más arriba:
+`hook.on_user_prompt_submit` sólo rankea en el prompt que fija el tipo de tarea, y sale
+temprano cuando el tipo sigue siendo `general`. Los tres síntomas retenidos clasifican como
+`general`, así que **ninguno habría producido una inyección en una sesión real**. Lo que
+mide este módulo es el ranking; lo que llega al agente puede ser menos. Es el mismo error de
+altitud que corrigió el `08`, una capa más arriba, y está en `LATER.md` con las tres
+opciones de spec que abre. Hasta que se cierre, todo número que salga de acá se lee como
+**cota superior**.
+
 Todo corre sobre un `HOME` temporal. Nunca toca el store real.
 """
 
