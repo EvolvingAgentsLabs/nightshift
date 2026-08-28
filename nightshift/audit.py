@@ -206,6 +206,32 @@ def audit_store(conn, *, redactor, home_dir=None) -> dict:
             item.update({"trajectory": row["source_trajectory"], "step": None})
         findings.extend(found)
 
+    # Las conjeturas resueltas guardan texto de una persona escrito en una terminal:
+    # es texto no controlado como cualquier otro y se audita igual.
+    #
+    # Y además se afirma algo que ninguna otra tabla necesita: **una resolución sin
+    # evidencia no es una resolución.** Si el veredicto sobrevive y el motivo no, lo que
+    # queda es un juicio sin origen — que es exactamente lo que este proyecto no acepta
+    # ni del modelo ni de una persona.
+    for row in conn.execute("SELECT * FROM projections ORDER BY id"):
+        found, count = _scan_row(row, prefix="projection[%d]" % row["id"],
+                                 redactor=redactor, home_dir=home_dir,
+                                 skip=("id", "trajectory_id"))
+        scanned += count
+        for item in found:
+            item.update({"trajectory": row["trajectory_id"], "step": None})
+        findings.extend(found)
+        if row["status"] in ("confirmed", "refuted"):
+            faltan = [campo for campo in ("evidence", "resolved_by", "resolved_at")
+                      if not (row[campo] or "").strip()]
+            if faltan:
+                findings.append({
+                    "rule": "veredicto_sin_origen", "field": "projection[%d].%s"
+                    % (row["id"], "+".join(faltan)), "pos": 0,
+                    "excerpt": "resuelta como `%s` y sin %s" % (row["status"],
+                                                               ", ".join(faltan)),
+                    "trajectory": row["trajectory_id"], "step": None})
+
     for row in conn.execute("SELECT * FROM runs ORDER BY id"):
         found, count = _scan_row(row, prefix="run[%d]" % row["id"], redactor=redactor,
                                  home_dir=home_dir, skip=("id",))

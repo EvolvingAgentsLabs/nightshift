@@ -319,8 +319,10 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             if _enganche(tokens_prompt, condiciones, MIN_TOKENS_DESTILADO):
                 score += W_PRECONDITION_MATCH
                 reasons.append("precondition_match")
-            proyectadas = _proyectadas(row)
-            if proyectadas and _enganche(tokens_prompt, proyectadas, MIN_TOKENS_DESTILADO):
+            # Las refutadas no están acá: enganchar por una conjetura que alguien ya
+            # descartó es traer al agente al problema equivocado con evidencia negativa.
+            abiertas, confirmadas, _ = _proyectadas(conn, row)
+            if _enganche(tokens_prompt, abiertas + confirmadas, MIN_TOKENS_DESTILADO):
                 score += W_PROJECTED_MATCH
                 reasons.append("projected_match")
         score += W_DAY_DECAY * _age_days(row["created_at"])
@@ -350,19 +352,35 @@ def _recortar(texto, limite=MAX_IDEACION_CHARS):
     return corte.rsplit(" ", 1)[0] + "… […] `why` lo muestra entero."
 
 
-def _proyectadas(row):
-    """Síntomas que dream anticipó y nadie observó. Vacío si la fila es vieja.
+def _proyectadas(conn, row):
+    """Conjeturas vivas de esta fila: `(abiertas, confirmadas, cuántas refutadas)`.
 
-    La columna se agrega por migración, así que una fila consolidada antes de ADR-004 no
-    la tiene: `row.keys()` es el guard y no un `try` alrededor de todo.
+    **Una refutada no vuelve.** Alguien fue a mirar y sabe por qué no puede pasar; seguir
+    ofreciéndola como síntoma a anticipar es peor que no haberla proyectado nunca. Se
+    cuenta, para que la inyección pueda decir que hubo trabajo ahí, y no se muestra.
+
+    **Una confirmada no asciende.** Sigue pesando la mitad y sigue apareciendo aparte de
+    `signals`: confirmarla dice que el mecanismo acertó, no que este trabajo la haya
+    observado. Esa frontera es lo que ADR-004 defiende, y borrarla acá la borraría entera.
+
+    Si la tabla todavía no tiene nada de esta fila —un store que no corrió `sync`— se cae
+    al JSON, que es el dato original y nunca se toca.
     """
+    filas = store.projections_of(conn, row["id"]) if conn is not None else []
+    if filas:
+        abiertas = [f["text"] for f in filas if f["status"] == "open"]
+        confirmadas = [f["text"] for f in filas if f["status"] == "confirmed"]
+        refutadas = sum(1 for f in filas if f["status"] == "refuted")
+        return abiertas, confirmadas, refutadas
     if "projected_signals_json" not in row.keys() or not row["projected_signals_json"]:
-        return []
+        return [], [], 0
     try:
         datos = json.loads(row["projected_signals_json"])
     except (TypeError, ValueError):
-        return []
-    return [x for x in datos if isinstance(x, str)] if isinstance(datos, list) else []
+        return [], [], 0
+    if not isinstance(datos, list):
+        return [], [], 0
+    return [x for x in datos if isinstance(x, str)], [], 0
 
 
 def render(conn, scored, *, max_injected, native_memory, task_type=None,
@@ -451,16 +469,32 @@ def render(conn, scored, *, max_injected, native_memory, task_type=None,
             if "ideation" in row.keys() and row["ideation"]:
                 lines.append("- qué se conserva y qué se pierde: %s"
                              % _recortar(row["ideation"]))
-            proyectadas = _proyectadas(row)
-            if proyectadas:
+            abiertas, confirmadas, refutadas = _proyectadas(conn, row)
+            if abiertas:
                 # Lo proyectado se anuncia como proyectado, siempre. Es lo único que se
                 # inyecta que **nadie observó**: si el agente no puede distinguirlo de
                 # una señal real, dream deja de ser memoria y pasa a ser una fuente de
                 # afirmaciones sin origen.
                 lines.append("- síntomas **anticipados** por dream desde ese mecanismo "
                              "— NINGUNO fue observado, son conjeturas:")
-                for señal in proyectadas[:3]:
+                for señal in abiertas[:3]:
                     lines.append("  - %s" % señal)
+            if confirmadas:
+                # Tercera categoría, ni observada ni conjetura suelta. Y sigue pesando la
+                # mitad: que el mecanismo haya acertado no vuelve a este trabajo el que
+                # lo vio.
+                lines.append("- anticipados por dream y después **CONFIRMADOS** por "
+                             "alguien que fue a mirar (siguen pesando la mitad: "
+                             "confirmarlos no los vuelve observaciones de esta sesión):")
+                for señal in confirmadas[:3]:
+                    lines.append("  - %s" % señal)
+            if refutadas:
+                # No se listan: alguien sabe por qué no pueden pasar. Que hubo trabajo ahí
+                # sí se dice — es lo que distingue una conjetura descartada de una que
+                # nadie miró.
+                lines.append("- y %d conjetura(s) de este mecanismo fueron **refutadas** "
+                             "y no se listan. `/nightshift:why %s` las muestra."
+                             % (refutadas, short))
         # Lo que esta trayectoria reemplazó. Es la mitad de la memoria que más se
         # olvida: sin el camino descartado, dentro de tres semanas alguien lo propone de
         # nuevo y lo recorre entero. Va aunque sea de otro repo — un contraste es
