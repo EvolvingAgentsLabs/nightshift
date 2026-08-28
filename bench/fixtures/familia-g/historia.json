@@ -1,0 +1,39 @@
+{
+  "note": "La cadena de ejecucion del release anterior. Es CTE puro: lo que vale no es ningun hecho suelto, es el orden.",
+  "trajectories": [
+    {
+      "task_type": "general",
+      "result": "tests_passed",
+      "steps": [
+        {
+          "kind": "tool_failure",
+          "text": "el release se corto en el paso 7: no hay revision base declarada"
+        },
+        {
+          "kind": "tool_use",
+          "text": "escribir .estado/revision con la version que dice app/VERSION"
+        },
+        {
+          "kind": "tool_failure",
+          "text": "el release se corto en el paso 7: el modo no es estricto"
+        },
+        {
+          "kind": "tool_use",
+          "text": "correr el release con MIGRACIONES_MODO=estricto"
+        },
+        {
+          "kind": "tool_failure",
+          "text": "el release se corto en el paso 8: falta la clave de firma"
+        },
+        {
+          "kind": "tool_use",
+          "text": "correr con FIRMA_KEY tomada del entorno de release"
+        },
+        {
+          "kind": "tool_use",
+          "text": "el release llego a 12/12 en la cuarta corrida"
+        }
+      ]
+    }
+  ]
+}

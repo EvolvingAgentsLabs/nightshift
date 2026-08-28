@@ -8,6 +8,182 @@ acá.
 
 ---
 
+## RESUELTO — dream no sabía decir que no, y la palanca era el prompt (2026-08-28)
+
+`experimentos/10-abstencion.py`. Tres trayectorias sin absolutamente nada en común —un
+margen de CSS, un índice faltante en una base, una coma de más en un JSON— y dream encontró
+un patrón **3 de 3 veces**: *"el fallo se reporta en la coordenada donde el estado inválido
+se consume"*, cierto y vacío. Las familias A, C y D no pueden ver este modo de fallo: tienen
+la causa compartida plantada a mano, así que miden la mitad favorable de la conducta y nunca
+la otra.
+
+Se agregó a `dream.PROMPT` la regla de abstención —poder señalar el paso concreto de cada
+trayectoria donde el mismo mecanismo actúa, o no hay patrón— y pasó a **3 de 3
+abstenciones, sin perder ninguna de las abstracciones correctas**.
+
+| | se abstuvo donde NO había | abstrajo donde SÍ había |
+|---|---|---|
+| antes | 0 de 3 | 3 de 3 |
+| después | 3 de 3 | 3 de 3 |
+
+**La generalización, medida el mismo día:** `sin-03` (negativo limpio, que no participó de
+la regla) da **3 de 3**. `sin-02` da **0 de 3**, y ahí el que estaba mal era el fixture: dos
+de sus tres trayectorias sí comparten mecanismo —un valor reinterpretado por una convención
+en un borde— y el modelo estiró el patrón para cubrir al tercero. Se conserva con el defecto
+anotado porque midió algo real.
+
+**Abierto de ahí:** ¿qué debería contestar un consolidador ante un grupo donde 2 de 3
+comparten mecanismo? Abstenerse pierde un patrón cierto; abstraer inventa cobertura para el
+que sobra. No está decidido, y la respuesta cambia el diseño de la familia E.
+
+Por decisión de Matías entró además la **familia E** al pre-registro (`bench/PREREG.md`
+§3-E) con sus dos umbrales en `TODO(Matias)`, y `make abstencion` corre el gate. La cuenta
+de `TODO(Matias)` subió de 22 a 25: es lo correcto, una familia nueva abre decisiones, no
+las cierra.
+
+---
+
+## RESUELTO — el notario, hacia adelante (2026-08-28)
+
+Por decisión de Matías, y en la variante "sólo hacia adelante". `nightshift resolve` acepta
+`--commit SHA` o `--pr N`, lo normaliza a dos formas —`commit:<sha>`, `pr:<n>`, prosa libre
+no entra— y lo guarda en `projections.resolution_ref`. El store fecha `notary_since` **una
+sola vez**: lo anterior queda como testimonio y lo posterior tiene que nombrar un objeto que
+git encuentre. `make notario` es el gate y sale 1 si alguna resolución nueva no lo hace.
+
+Las cuatro resoluciones viejas sin objeto verificable **no se backfillearon**, a pedido:
+eran prosa cuando se escribieron y convertirlas ahora sería declarar auditable algo que
+nunca lo fue.
+
+---
+
+## Dos familias nuevas construidas como propuesta (2026-08-28)
+
+Salen del análisis de por qué las familias A, C y D no muestran nada: **todos los brazos
+resuelven**, la métrica primaria tiene varianza cero y queda contar tool calls, donde el
+ruido entre corridas idénticas tapa cualquier efecto. El diagnóstico que el repo se había
+dado era "hace falta n=3". Es el equivocado: no falta n, falta que el brazo sin memoria
+**fracase**.
+
+- **`bench/fixtures/familia-f/` — la trampa sistemática.** Tres bugs donde el arreglo
+  localmente obvio es una perilla que ya se probó y se descartó. El gate tiene dos mitades:
+  el test del síntoma y `test_politica.py`, que afirma que los tres límites no cambiaron.
+  Tapar el síntoma moviendo un número pasa el primero y falla el segundo, de forma
+  determinista. Métrica primaria: `primer_intento_sin_trampa`, binaria y sistemática. Es la
+  única familia que mide la frase del README —*"eso ya se probó y lo corrigieron"*—, que hoy
+  no tiene ninguna tarea que la ejercite.
+- **`bench/fixtures/familia-g/` — el procedimiento que falla en el paso 7.** Un release de
+  doce pasos donde cada eslabón sólo aparece después de resolver el anterior: cuatro
+  corridas para quien no lo sabe, una para quien sí. Es la familia que mide **CTE**, porque
+  lo que transfiere no es ningún hecho suelto sino el orden. La métrica se cuenta sola:
+  `repo/.estado/corridas`.
+
+Los dos se llaman `propuesta.json` y no `fixture.json` a propósito: `PREREG` todavía no
+abrió esas secciones, y un fixture de una familia que nadie congeló no es un fixture del
+benchmark. `tests/test_fixtures.py::PropuestasTest` los defiende para que no se pudran
+mientras esperan. **Los umbrales no los escribí yo y no están.**
+
+---
+
+## Las conjeturas no son horóscopos — y el problema es el contrario (2026-08-28)
+
+`experimentos/09-lectura-en-frio.py`. Cada una de las 23 conjeturas del store, medida sola
+contra 10 prompts de otro dominio y 8 del mismo género con otro mecanismo:
+
+| | con lo retenido | con lo ajeno |
+|---|---|---|
+| conjeturas de `cbbd7ff0` | 4 de 15 (27%) | 5 de 90 (6%) |
+| las 23 del store | — | 20 de 414 (5%) |
+
+**Especificidad: bien.** Enganchan 5 veces más con el síntoma que anticiparon que con
+cualquier otra cosa. La sospecha de lectura en frío queda descartada para este material,
+con una excepción —la del `linter`, que engancha por el nombre de la herramienta.
+
+**Sensibilidad: 27%, y ahí está el problema real.** Ninguna conjetura engancha más de 1 de
+los 3 síntomas retenidos, y la primera que una persona confirmó —el panel con el
+denominador en cero— **no engancha ninguno**, ni siquiera la paráfrasis del síntoma que ella
+misma anticipó. Cero palabras de contenido en común entre *"cobertura perfecta cuando el
+denominador es cero"* y *"el resumen dice que está todo bien pero no contó ninguna celda"*.
+
+**Lo que se sigue de esto.** El riesgo que el proyecto tenía no era el que se estaba
+vigilando. No hay que hacer las conjeturas más específicas: hay que hacerlas **encontrables**,
+y eso es vocabulario, no ranking. `MIN_TOKENS_DESTILADO` ya está en 1: no queda palanca en
+el código. La palanca es el prompt, y las dos reglas nuevas de `dream.PROMPT` apuntan
+exactamente ahí — **sin medir todavía**, porque el conjunto retenido se gastó
+diagnosticando y medir el prompt nuevo contra él sería entrenar contra el test.
+
+---
+
+## La mitad de la evidencia del proyecto no la puede revisar un script (2026-08-28)
+
+`experimentos/11-la-profecia-tiene-notario.py`. Git como notario de las conjeturas
+resueltas: ¿el registro nombra un objeto verificable, existe, es posterior a la trayectoria
+y sigue vivo en la historia?
+
+**4 de 8 notarizadas.** Las cuatro de `cbbd7ff0` pasan las tres preguntas: conjetura del
+2026-08-27T15:25Z, arreglo en el merge de PR #54 a las 21:03 del mismo día, ancestro de
+`HEAD`. Es exactamente la afirmación que el README quiere hacer, y ahora la hace un script.
+
+Las otras cuatro no, y el motivo no es que la evidencia sea peor: **el autor escribió
+`LATER.md, 2026-08-27` en vez de un número de PR.** Un accidente de redacción decide qué
+parte del proyecto es auditable, y la regla 2 de `CLAUDE.md` dice que lo no automatizable es
+una opinión.
+
+**Lo que haría falta y no se hizo:** que `nightshift resolve` guarde el commit o el PR en un
+campo propio, no en prosa libre, y que el notario pase a ser un gate. Es una feature que no
+está en el plan — la decide Matías, y hay una pregunta concreta esperándolo.
+
+---
+
+## RESUELTO — el instrumento de H17 medía un campo que la cadena real no matchea (2026-08-28)
+
+`experimentos/08-el-techo-del-oraculo.py` lo encontró: H17 y el `07` armaban el bolsón de
+frases como `signals + pattern + decisive_signal`, y `retrieve.candidates`
+
+- **nunca** engancha contra `pattern`, y
+- sí engancha contra `valid_when`, que el instrumento no miraba.
+
+El único enganche del control al retenido *"el chequeo pasa porque su patrón no encontró
+ningún archivo"* venía **sólo de `pattern`**: en la cadena real no existe.
+
+**Corregido, y por decisión de Matías** —era su llamada porque mueve un número publicado en
+la dirección que favorece al plugin (control 2 → 1). Se hizo entero y en un solo paso:
+
+- `experimentos/camino_real.py`: la medición es el camino real —`promote_to_candidate`,
+  `retrieve.candidates`, `retrieve.render`— y no hay bolsón de frases en ningún lado. El
+  `07`, el `08` y H17 la comparten: **una sola definición de "engancha", la del plugin.**
+- El veredicto de H17 se endureció en el mismo commit, y a propósito: ahora pide
+  transferencia **y** control negativo en 0. Corregir un instrumento a favor propio y
+  aflojar el criterio al mismo tiempo es cómo se fabrica un `PASS`.
+- **H17 sigue en `FAIL`.** Ideado 2 de 3 retenidos contra 1 del control, con 1 prompt
+  ajeno enganchado. La corrección no compró el veredicto.
+
+---
+
+## RESUELTO — lo que el techo del oráculo dijo del prompt de consolidación (2026-08-28)
+
+Con la abstracción **esperada** —escrita a mano, con el retenido a la vista— los tres
+síntomas enganchan y ningún ajeno, por el camino real y sin tocar `retrieve.py`. **La
+cadena transporta.** Lo que faltaba estaba arriba, en `dream.PROMPT`, y se agregaron dos
+reglas duras:
+
+- `signals`, `valid_when` y `projected_signals` son la **única** superficie contra la que
+  se busca; `pattern` no se matchea nunca. El modelo ponía ahí su mejor oración.
+- Nombrar el mecanismo y no la herramienta. La única colisión del brazo ideado la carga
+  una sola palabra: la proyección dice `linter` y el prompt ajeno también, por problemas
+  distintos. En el oráculo, cambiar `linter` por `chequeo` lleva el falso positivo a 0.
+
+`tests/test_ideate.py::SuperficieDeBusquedaTest` defiende las dos mitades: que el prompt lo
+diga, y que `candidates` siga sin enganchar contra `pattern`. Si alguien cambia el ranking,
+el test falla y el prompt no queda mintiendo en silencio.
+
+**Lo que esto NO habilita, y es la parte que hay que respetar:** re-consolidar `cbbd7ff0`
+con el prompt nuevo y anunciar que H17 pasó. El retenido se usó para diagnosticar; medir el
+prompt nuevo contra él es entrenar contra el test. El prompt nuevo se evalúa sobre un corpus
+que no participó de esto, y hasta entonces la mejora es **plausible y no medida**.
+
+---
+
 ## Se corrió el control de ADR-004, y salió en contra (2026-08-28)
 
 `experimentos/07-idear-contra-no-idear.py`. Contra un conjunto **retenido** —tres síntomas
@@ -16,8 +192,13 @@ ninguno de los dos brazos vio:
 
 | | transferencia (3 retenidos) | control negativo (3 ajenos) |
 |---|---|---|
-| `observed` | 2 de 3 | 0 |
+| `observed` | ~~2 de 3~~ → **1 de 3** | 0 |
 | `ideate` | 2 de 3 | 1 |
+
+**Los números del control se corrigieron el mismo día**, más abajo en este archivo: el
+instrumento medía contra `pattern`, que la cadena real nunca matchea. Lo que sigue se
+escribió con el empate delante y se deja como estaba, porque su conclusión no cambió — sólo
+cambió cuál de las dos mitades la sostiene.
 
 **Empate en transferencia, y una colisión de más para el brazo ideado.** La colisión: «el
 linter se queja de un import sin usar» enganchó con la proyección sobre un linter cuya

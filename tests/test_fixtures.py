@@ -134,3 +134,36 @@ class FixturesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PropuestasTest(unittest.TestCase):
+    """Fixtures construidos para familias que el pre-registro todavía no abrió.
+
+    Se llaman `propuesta.json` y no `fixture.json` a propósito: `bench.FAMILIES` es lo que
+    el runner sabe correr, y `make check` afirma que los fixtures del benchmark son
+    exactamente las familias que `PREREG` declara. Un fixture de una familia que nadie
+    congeló no es un fixture del benchmark todavía — es una propuesta, y el nombre del
+    archivo lo dice. Cuando Matías abra la sección, se renombra y entra por el camino de
+    arriba.
+
+    Este test existe para que no se pudran mientras esperan.
+    """
+
+    def propuestas(self):
+        return sorted(FIXTURES.glob("*/propuesta.json"))
+
+    def test_las_propuestas_declaran_lo_mismo_que_un_fixture(self):
+        for ruta in self.propuestas():
+            with self.subTest(propuesta=ruta.parent.name):
+                data = json.loads(ruta.read_text(encoding="utf-8"))
+                self.assertTrue(data.get("tasks"), "una propuesta sin tareas no propone nada")
+                self.assertIn("note", data, "tiene que decir que es una propuesta")
+                self.assertNotIn(data["family"], bench.FAMILIES,
+                                 "si la familia ya está en el pre-registro, esto es un "
+                                 "fixture y va con su nombre")
+                for task in data["tasks"]:
+                    self.assertIn("id", task)
+                    self.assertIn("prompt", task)
+                    self.assertIn("symptom", task)
+                self.assertTrue((ruta.parent / "gate.sh").is_file(),
+                                "sin gate no se puede afirmar nada de la tarea")

@@ -407,3 +407,47 @@ class ImportacionTest(IsolatedStoreTest):
         with self.assertRaises(ValueError):
             store.import_trajectory(conn, {"schema_version": "otra.cosa"})
         conn.close()
+
+
+class NotarioTest(IsolatedStoreTest):
+    """El objeto que git tiene que poder encontrar, y que hace auditable un veredicto.
+
+    Sale de `experimentos/11-la-profecia-tiene-notario.py`: la mitad de las conjeturas
+    resueltas de este repo no las puede verificar un script porque quien las resolvió
+    escribió el nombre de un archivo de notas en vez de un número de PR. Un veredicto sin
+    objeto verificable sigue siendo cierto y deja de ser **comprobable**, que es la
+    distinción de la regla 2 de `CLAUDE.md` entre un gate y una opinión.
+    """
+
+    def _una(self, conn):
+        return store.projections_of(conn, _candidata(conn))[0]["id"]
+
+    def test_solo_dos_formas_y_prosa_no(self):
+        self.assertEqual(store.resolution_ref(commit="A1C28B5"), "commit:a1c28b5")
+        self.assertEqual(store.resolution_ref(pr="#54"), "pr:54")
+        self.assertIsNone(store.resolution_ref())
+        for malo in ({"commit": "el de ayer"}, {"commit": "zz1234567"},
+                     {"pr": "el 54 creo"}, {"commit": "abc", "pr": "54"}):
+            with self.assertRaises(ValueError):
+                store.resolution_ref(**malo)
+
+    def test_el_ref_queda_guardado_en_su_columna(self):
+        """En su propia columna, no en la prosa: es lo que un script puede leer."""
+        conn = store.connect()
+        pid = self._una(conn)
+        store.resolve_projection(conn, pid, status="confirmed", evidence="la vi pasar",
+                                 resolved_by="matias",
+                                 ref=store.resolution_ref(pr="54"))
+        fila = conn.execute("SELECT * FROM projections WHERE id = ?", (pid,)).fetchone()
+        conn.close()
+        self.assertEqual(fila["resolution_ref"], "pr:54")
+
+    def test_notary_since_no_se_mueve(self):
+        """Sólo hacia adelante: si la fecha se reescribiera, el gate se borraría solo."""
+        conn = store.connect()
+        primera = store.notary_since(conn)
+        conn.close()
+        conn = store.connect()
+        self.assertEqual(store.notary_since(conn), primera)
+        conn.close()
+        self.assertTrue(primera, "un store nuevo tiene que fechar el corte del notario")

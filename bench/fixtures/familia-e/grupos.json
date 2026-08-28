@@ -1,0 +1,277 @@
+{
+  "schema_version": "familia-e.v1",
+  "name": "familia-e",
+  "family": "E",
+  "note": "Propuesta. Los identificadores y los umbrales los fija Matias (PREREG 3-E).",
+  "groups": [
+    {
+      "id": "sin-01",
+      "expect": "abstain",
+      "why": "CSS, un indice de base y un JSON: ni dominio, ni mecanismo, ni desenlace.",
+      "trajectories": [
+        {
+          "task_type": "debug_test_failure",
+          "result": "user_confirmed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el header se corre 3px a la derecha solo en safari"
+            },
+            {
+              "kind": "tool_use",
+              "text": "probar con box-sizing border-box"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el margen colapsado del h1 era el culpable"
+            }
+          ]
+        },
+        {
+          "task_type": "implement_feature",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "la consulta del listado tarda 40 segundos y el pool se agota"
+            },
+            {
+              "kind": "tool_use",
+              "text": "EXPLAIN dice seq scan sobre 2 millones de filas"
+            },
+            {
+              "kind": "tool_use",
+              "text": "falta el indice compuesto por (cliente, fecha)"
+            }
+          ]
+        },
+        {
+          "task_type": "general",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el parser corta con Expecting property name en la linea 41"
+            },
+            {
+              "kind": "tool_use",
+              "text": "hay una coma de mas antes del cierre del objeto"
+            },
+            {
+              "kind": "tool_use",
+              "text": "sacar la coma y revalidar"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sin-02",
+      "expect": "abstain",
+      "why": "Tres trabajos que solo comparten genero: son bugs. Es la trampa de sin-01 con otro disfraz. DEFECTO CONOCIDO (2026-08-28): dos de sus tres comparten un mecanismo, asi que como negativo es ambiguo. Se conserva porque midio algo real —el modelo estira un patron para cubrir al tercero— y sin-03 es el negativo limpio.",
+      "trajectories": [
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el zip descargado llega corrupto solo en windows"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el archivo se abria en modo texto y traducia los saltos de linea"
+            }
+          ]
+        },
+        {
+          "task_type": "implement_feature",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el boton de guardar queda deshabilitado con el formulario valido"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el validador async resolvia despues del primer render"
+            }
+          ]
+        },
+        {
+          "task_type": "general",
+          "result": "user_corrected",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el cron corre dos veces cada domingo de octubre"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el horario de verano repite una hora local"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "con-01",
+      "expect": "pattern",
+      "why": "Un valor por defecto que enmascara la ausencia del dato, con tres sintomas que no se parecen.",
+      "trajectories": [
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el total del carrito da 0 cuando el cupon no existe"
+            },
+            {
+              "kind": "tool_use",
+              "text": "get(cupon, 0) devuelve 0 tanto si no hay cupon como si es 0"
+            },
+            {
+              "kind": "tool_use",
+              "text": "distinguir ausente de cero con un centinela"
+            }
+          ]
+        },
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el usuario aparece como menor de edad en el listado"
+            },
+            {
+              "kind": "tool_use",
+              "text": "edad viene en None y el render lo castea a 0"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el default tapaba que el dato nunca se cargo"
+            }
+          ]
+        },
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el reintento se dispara al instante y satura el servicio"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el backoff configurado llega vacio y cae al default de 0 segundos"
+            },
+            {
+              "kind": "tool_use",
+              "text": "un default legal escondio que la config no se leyo"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "con-02",
+      "expect": "pattern",
+      "why": "Una comparacion que normaliza de un lado y no del otro. Mecanismo compartido, sintomas ajenos entre si.",
+      "trajectories": [
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el login rechaza un mail correcto si lo escribis con mayuscula"
+            },
+            {
+              "kind": "tool_use",
+              "text": "se guarda en minuscula y se compara sin bajar el ingresado"
+            }
+          ]
+        },
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el carrito muestra dos veces el mismo producto"
+            },
+            {
+              "kind": "tool_use",
+              "text": "la clave del item se arma con el sku sin recortar espacios"
+            }
+          ]
+        },
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el filtro por etiqueta no encuentra nada con acentos"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el indice guarda la forma sin acentos y la busqueda usa la original"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sin-03",
+      "expect": "abstain",
+      "why": "Negativo limpio: ningun SUBCONJUNTO comparte mecanismo. Existe porque sin-02 tiene un defecto de diseno — dos de sus tres (modo texto que traduce saltos de linea, y la hora local que se repite en el cambio de horario) SI comparten uno: un valor reinterpretado por una convencion en un borde. Un negativo con un par adentro no mide abstencion, mide si el modelo estira para cubrir al tercero.",
+      "trajectories": [
+        {
+          "task_type": "debug_test_failure",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el boton de guardar queda deshabilitado con el formulario valido"
+            },
+            {
+              "kind": "tool_use",
+              "text": "el validador async resolvia despues del primer render"
+            }
+          ]
+        },
+        {
+          "task_type": "general",
+          "result": "tests_passed",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "la memoria del proceso crece hasta que el kernel lo mata"
+            },
+            {
+              "kind": "tool_use",
+              "text": "cada request agregaba un listener y nadie lo daba de baja"
+            }
+          ]
+        },
+        {
+          "task_type": "debug_test_failure",
+          "result": "user_corrected",
+          "steps": [
+            {
+              "kind": "tool_failure",
+              "text": "el reporte sale ordenado al reves de lo que pide el usuario"
+            },
+            {
+              "kind": "tool_use",
+              "text": "los dos argumentos del comparador estaban al reves"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

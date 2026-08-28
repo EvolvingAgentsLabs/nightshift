@@ -1,8 +1,8 @@
 # Experimentos
 
-Tres experimentos que se corren solos y muestran qué hace nightshift que la memoria
-declarativa nativa no hace. Están escritos para reproducirse, no para convencer: dos de
-los tres dieron resultados que **no favorecen al plugin**, y están reportados igual.
+Experimentos que se corren solos y muestran qué hace nightshift que la memoria
+declarativa nativa no hace. Están escritos para reproducirse, no para convencer: varios
+dieron resultados que **no favorecen al plugin**, y están reportados igual.
 
 Todos corren sobre copias desechables y stores desechables. **Ninguno toca tu store ni
 suma al conteo del gate de M1.**
@@ -14,6 +14,12 @@ suma al conteo del gate de M1.**
 | [03](03-cinco-ciclos-sobre-si-mismo.sh) | Cinco ciclos del plugin sobre sus propios problemas | 5 sesiones + 5 dreams |
 | [04](04-ideacion-visual.sh) | Un bloque `ideate` antes de abstraer: ¿el dibujo transfiere mejor que la prosa? | 6 sesiones + 2 consolidaciones |
 | [05](05-enganche-por-parafrasis.py) | ¿El enganche por síntoma sobrevive a que lo digas con otras palabras? | nada: compara frases |
+| [07](07-idear-contra-no-idear.py) | ¿Idear compra transferencia a un síntoma retenido, y no idear no? | 1 llamada al modelo |
+| [08](08-el-techo-del-oraculo.py) | El techo: con la respuesta esperada escrita a mano, ¿funciona todo? ¿falla el código o el prompt? | nada: no llama al modelo |
+| [09](09-lectura-en-frio.py) | ¿Las conjeturas son profecías o horóscopos? Especificidad y sensibilidad | nada: no llama al modelo |
+| [10](10-abstencion.py) | ¿Dream se abstiene cuando no hay patrón, o siempre encuentra uno? | 2 llamadas al modelo por repetición |
+| [11](11-la-profecia-tiene-notario.py) | ¿Cuánta de la evidencia del proyecto sobrevive a que la revise un script? | nada: lee el store y corre git |
+| [12](12-sensibilidad.py) | ¿Llega la conjetura el día que hace falta? Necesita un retenido escrito por una persona | nada, y hoy está BLOCKED |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -22,12 +28,18 @@ suma al conteo del gate de M1.**
 ./experimentos/03-cinco-ciclos-sobre-si-mismo.sh
 ./experimentos/04-ideacion-visual.sh
 python3 experimentos/05-enganche-por-parafrasis.py --alternativas
+python3 experimentos/07-idear-contra-no-idear.py
+python3 experimentos/08-el-techo-del-oraculo.py
+python3 experimentos/09-lectura-en-frio.py
+python3 experimentos/10-abstencion.py --repeticiones 3
+python3 experimentos/11-la-profecia-tiene-notario.py
+python3 experimentos/12-sensibilidad.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
-De los cinco, el **05** es el único que cambió el plugin: encontró que el enganche por
+De todos, el **05** es el único que cambió el plugin: encontró que el enganche por
 síntoma se caía a cero en cuanto el usuario parafraseaba, y de ahí salió la enmienda 0.3.6
-de la spec. Los otros cuatro miden y no tocan nada.
+de la spec. Los demás miden y no tocan nada.
 
 ---
 
@@ -342,6 +354,243 @@ es mentira». Ninguna comparte una sola palabra de contenido con el patrón que 
 describiría. Eso es un problema de sinónimo, no de morfología: `difflib` y el emparejado por
 prefijo se probaron y no compran nada — están en el archivo, con su número. Resolverlo
 necesita embeddings, que chocan con ADR-003 (stdlib, sin red). Queda en `LATER.md`.
+
+---
+
+## 07 — Idear contra no idear, con un conjunto retenido
+
+**La capacidad que ilustra:** ninguna. Es el **control de ADR-004**, la apuesta central del
+proyecto: *el dibujo de un mecanismo es invariante entre síntomas de un modo que la prosa
+no lo es.*
+
+**El montaje.** El mismo corpus (`cbbd7ff0`) consolidado de las dos maneras —el prompt del
+plugin con y sin el bloque `ideate`— medido contra un conjunto **retenido** que ninguno de
+los dos brazos vio: tres síntomas que una persona confirmó después con `nightshift
+resolve`, escritos con paráfrasis a mano. Más un control negativo de tres prompts ajenos.
+
+**Cómo se evita que sea circular.** Contar proyecciones por brazo sería trampa: `observed`
+no puede producir ninguna. Preguntarle al brazo ideado por sus propias proyecciones sería
+peor: las escribió él. Por eso el retenido y las paráfrasis humanas.
+
+### Lo que dio (2026-08-28, medido por el camino real)
+
+```
+síntoma retenido (paráfrasis humana)   control   ideado
+panel de salud con denominador cero    no        no
+ensayo verde contra store vacio        SI        SI
+linter con lista vacia                 no        SI
+engancha                               1 de 3    2 de 3
+
+control negativo (3 prompts ajenos):   0         1
+```
+
+**Idear enganchó un síntoma retenido más, y lo pagó con un prompt ajeno.** Más superficie
+engancha más de las dos cosas: mientras el control negativo no dé 0, la transferencia extra
+no se puede separar de la indiscriminación, y la hipótesis pide justamente esa separación.
+No refuta ADR-004 — la deja **sin sostener**, que es distinto. Para cerrarla hace falta
+volumen, que es lo mismo que le falta a todo lo demás de este repo.
+
+**Los números cambiaron el 2026-08-28, y hacia arriba.** Antes de esa fecha este
+experimento decía *control 2, ideado 2* — empate. El instrumento estaba mal: armaba un
+bolsón de frases `signals + pattern + decisive_signal` y la cadena real nunca matchea
+contra `pattern`. Lo encontró el `08`. Corregido, el control pierde un enganche que la
+máquina nunca produjo. **El veredicto no cambió**: sigue sin sostener ADR-004, ahora por el
+control negativo y no por un empate.
+
+---
+
+## 08 — El techo del oráculo: ¿falla el código o falla el prompt?
+
+**La capacidad que ilustra:** ninguna. Es un **diagnóstico** del `FAIL` de H17, no una
+medición del plugin.
+
+**El problema.** H17 falla y el `FAIL` no dice dónde arreglar. Dos culpables posibles:
+la cadena no transporta ni la abstracción perfecta (se arregla **código**), o la
+transporta y el modelo no escribió esa abstracción (se arregla el **prompt**).
+
+**El montaje.** Un tercer brazo, el **oráculo**: la abstracción esperada, escrita a mano,
+metida por el camino real —`promote_to_candidate` sobre un store desechable,
+`retrieve.candidates`, `retrieve.render`— contra los mismos tres síntomas retenidos y el
+mismo control negativo. No mide enganche con un helper: mide si el bloque se **inyecta**.
+
+**Qué NO es, y va antes que el resultado.** El oráculo se escribió con el conjunto
+retenido a la vista: gana por construcción. **No es evidencia, no sostiene ADR-004 y no
+convierte H17 en `PASS`** — H17 mide brazos que no vieron el retenido. Es un **techo**:
+sirve por lo que descarta. Lo que no es trivial, y por eso el experimento dice algo, es
+llegar a 3 de 3 **sin** enganchar el control negativo.
+
+### Lo que dio (2026-08-28)
+
+```
+brazo                                  retenidos    control negativo
+control (observed)                     1 de 3        0 de 3
+ideado (real, cbbd7ff0)                2 de 3        1 de 3
+ORÁCULO (techo, conoce el retenido)    3 de 3        0 de 3
+ORÁCULO, pero diciendo `linter`        3 de 3        1 de 3
+```
+
+**1. La cadena puede.** Con la abstracción esperada, los tres retenidos enganchan por
+`signal_match` y `projected_match`, el ranking los pone primeros y `render` los inyecta,
+sin tocar una línea de `retrieve.py`. Lo que le falta a H17 no es código de retrieval.
+
+**2. La colisión la carga una sola palabra.** El mismo oráculo, cambiando `linter` por
+`chequeo` en una proyección, pasa de 1 falso positivo a 0. El matcher tiene resolución de
+sobra; lo que no tiene es un prompt que le pida nombrar el mecanismo y no la herramienta.
+
+**3. Y un defecto en el instrumento de H17, que es lo que más valió.**
+H17 y el 07 medían el enganche contra `signals + pattern + decisive_signal`. El camino real
+—`retrieve.candidates`— **nunca matchea contra `pattern`**, y sí matchea contra
+`valid_when`, que el instrumento no miraba. El único enganche del brazo de control al
+retenido "el chequeo pasa porque su patrón no encontró ningún archivo" venía **sólo** de
+`pattern`: en la cadena real ese enganche no ocurre.
+
+**Corregido el 2026-08-28**, y de la única forma que no se vuelve a romper: no hay bolsón
+de frases en ningún lado. El 07, el 08 y H17 miden con `camino_real.medir` —candidata
+montada, `candidates`, `render`— y la única definición de "engancha" es la del plugin. La
+corrección mueve el marcador del control de 2 a 1, o sea a favor del plugin, y por eso el
+veredicto se endureció al mismo tiempo: H17 ahora exige además que el control negativo dé
+0. Sigue en `FAIL`.
+
+---
+
+## 09 — ¿Profecía u horóscopo? El control de lectura en frío
+
+**De dónde sale.** El proyecto trata sus proyecciones confirmadas como su mejor evidencia.
+Pero dicen cosas como *"un panel informa cobertura perfecta cuando el denominador es cero"*
+— bugs que cualquiera que sepa programar predice sin haber visto la trayectoria. Un
+horoscopista acierta por lo mismo. Nadie había probado que fueran **específicas**.
+
+**El montaje.** Cada una de las 23 conjeturas del store se monta **sola** —una candidata
+con esa conjetura y nada más, así el enganche es atribuible a ella— contra dos corpus
+ajenos: 10 prompts de otro dominio (frontend, ML, mobile, firmware, cobros) y 8 del mismo
+género con otro mecanismo (test flaky, coverage, mock que no se resetea). Ese segundo es el
+control difícil. Y como comparación, los 3 síntomas retenidos que una persona confirmó.
+
+### Lo que dio (2026-08-28), y da vuelta la pregunta
+
+```
+                        con lo retenido   con lo ajeno
+conjeturas de cbbd7ff0  4 de 15  (27%)    5 de 90  (6%)
+las 23 del store         —                20 de 414 (5%)
+```
+
+**1. No son horóscopos.** Enganchan 5 veces más con el síntoma que anticiparon que con
+cualquier otra cosa, y el control difícil no las tumba. Una sola excepción: la del `linter`,
+que engancha por el sustantivo de la herramienta — la misma colisión que ya había aparecido
+en el 07.
+
+**2. Y el problema real es el opuesto, que nadie estaba buscando.** La sensibilidad es
+**27%**. Ninguna conjetura engancha más de 1 de los 3 síntomas retenidos, y la primera que
+una persona confirmó —el panel con el denominador en cero— **no engancha ninguno**, ni
+siquiera la paráfrasis del síntoma que ella misma anticipó.
+
+No sobran conjeturas que se enciendan con todo: **faltan conjeturas que se enciendan con lo
+suyo.** Es una profecía que nadie puede consultar, y una memoria que no llega el día que
+hacía falta no es memoria. El riesgo que este experimento venía a descartar no era el riesgo
+que el proyecto tenía.
+
+---
+
+## 10 — ¿Dream se abstiene cuando no hay patrón?
+
+**Por qué es la pregunta más barata y más peligrosa del proyecto.** Las familias A, C y D
+del benchmark tienen la causa compartida **plantada a mano**: A es un normalizador roto que
+rompe diez módulos, C es la misma etapa que se traga la excepción en dos repos. Medir ahí
+si dream encuentra el patrón es medir si encuentra algo que alguien puso para que
+encuentre. Nadie midió nunca lo contrario. El código sabe recibir `{"pattern": null}` y los
+tests lo cubren **con un modelo de mentira**: lo probado era la cañería, no la conducta.
+
+**El montaje.** Cuatro grupos en `bench/fixtures/familia-e/grupos.json`. Dos sin mecanismo
+compartido —`sin-01`, dominios obviamente distintos; `sin-02`, el difícil, tres bugs que
+sólo comparten género— y dos con mecanismo compartido, que son el control obligatorio: un
+modelo que contesta `null` siempre pasaría la primera mitad con nota perfecta.
+
+### Lo que dio (2026-08-28)
+
+```
+                        se abstuvo donde NO había    abstrajo donde SÍ había
+antes de la regla       0 de 3                       3 de 3
+después de la regla     3 de 3                       3 de 3
+```
+
+**No sabía decir que no.** Con tres trabajos sin absolutamente nada en común —un margen de
+CSS, un índice faltante en una base, una coma de más en un JSON— encontró un patrón las tres
+veces. Y lo que encontró era cierto y vacío: *"el fallo se reporta en la coordenada donde el
+estado inválido se consume"*, que describe casi cualquier bug.
+
+**La palanca era el prompt.** Se le agregó a `dream.PROMPT` una regla dura: antes de escribir
+un patrón, exigirse poder señalar **el paso concreto de cada trayectoria** donde el mismo
+mecanismo actúa; si para una sola hay que argumentar, no hay patrón. Pasó a 3 de 3 **sin
+perder** ninguna de las abstracciones correctas, que es la mitad que hacía falta cuidar.
+
+**Y la generalización, que es la parte interesante.** La regla se escribió mirando
+`sin-01`, así que ese 3 de 3 no dice que generalice. Contra los grupos que no la vieron:
+
+```
+sin-02  (negativo ambiguo)  0 de 3 abstenciones
+sin-03  (negativo limpio)   3 de 3 abstenciones
+con-02                      3 de 3 abstracciones
+```
+
+`sin-02` **falló, y el que estaba mal era el fixture.** Sus tres trayectorias eran un zip
+que se corrompe en Windows (modo texto que traduce saltos de línea), un botón deshabilitado
+por un validador async, y un cron que corre dos veces en el cambio de horario. Dos de esas
+tres **sí comparten mecanismo**: un valor reinterpretado por una convención en un borde. El
+modelo encontró ese par y estiró el patrón para cubrir al tercero — que es exactamente la
+conducta que la regla prohíbe, pero medida contra un negativo que no era negativo.
+
+`sin-03` se construyó con la regla explícita —**ningún subconjunto comparte mecanismo**: un
+validador async, un listener que nunca se da de baja, y un comparador con los argumentos al
+revés— y ahí sí, 3 de 3.
+
+**Las dos cosas quedan escritas y `sin-02` se conserva**, con su defecto anotado en el
+fixture: midió algo real, que el modelo estira un patrón para cubrir al miembro que sobra.
+Es una hipótesis nueva y no está comprobada — hace falta un negativo con un par adentro,
+construido a propósito, y no queda claro todavía qué debería contestar.
+
+De acá salió la **familia E** del pre-registro (`bench/PREREG.md` §3-E), abierta por decisión
+de Matías el 2026-08-28, con sus dos umbrales en `TODO(Matias)`.
+
+---
+
+## 11 — La profecía tiene fecha, ¿y el arreglo tiene commit?
+
+**De dónde sale.** La regla 2 de `CLAUDE.md`: *si no se puede automatizar, no es un gate, es
+una opinión*. La mejor evidencia del proyecto —las cinco proyecciones de `cbbd7ff0`
+resueltas una por una— vive en un campo de texto libre: `resolved_by = "sesión 2026-08-28,
+PR 54"`. Una persona lo lee y entiende; un gate no.
+
+**El montaje.** Git como notario. Para cada conjetura resuelta: ¿el registro nombra un
+objeto verificable? ¿existe en la historia? ¿es posterior a la trayectoria que la produjo y
+sigue siendo ancestro de `HEAD`?
+
+### Lo que dio (2026-08-28)
+
+```
+notarizadas por git: 4 de 8
+```
+
+Las cuatro de `cbbd7ff0` pasan las tres preguntas: la conjetura es del 2026-08-27T15:25Z, el
+arreglo es el merge de PR #54 del mismo día a las 21:03, y sigue vivo en la historia. **Eso
+es la afirmación que el proyecto quería poder hacer, y ahora la hace un script.**
+
+Las otras cuatro no, y el motivo es incómodo: **no es que la evidencia sea peor, es que el
+autor escribió el nombre de un archivo de notas en vez de un número de PR.** Un accidente de
+redacción está decidiendo qué parte del proyecto es auditable.
+
+---
+
+## 12 — ¿Llega la conjetura el día que hace falta?
+
+**Estado: `BLOCKED`, y es lo correcto.** El `09` midió que la sensibilidad de las conjeturas
+es 27%. Se le agregaron dos reglas a `dream.PROMPT` que apuntan ahí, y **no se pueden medir
+contra el retenido de `cbbd7ff0`**: ese conjunto se gastó diagnosticando y el prompt se
+escribió mirándolo.
+
+Lo que falta no es código: es que una persona que **sólo vio las conjeturas** escriba con sus
+palabras cómo describiría cada síntoma. El protocolo y el archivo a llenar están en
+[`retenido/`](retenido/). Si las paráfrasis las escribe quien mide, lo único que se mide es
+cuánto se parece a sí mismo.
 
 ---
 

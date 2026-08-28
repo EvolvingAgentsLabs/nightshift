@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 SHELL := /usr/bin/env bash
 
-.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-fixtures bench-check simulate experiments dogfood doctor init clean help
+.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-fixtures bench-check simulate experiments notario abstencion dogfood doctor init clean help
 
 ## check: el gate completo. Un gate es un script, no un juicio.
 check: lint validate-schema test selftest
@@ -38,6 +38,14 @@ dream-selftest:
 ## experiments: recorrer las hipótesis del proyecto — cuáles se comprobaron y cuáles no
 experiments:
 	@./bin/nightshift experiments
+
+## notario: git verifica que cada conjetura resuelta nombre un commit o un PR
+notario:
+	@python3 experimentos/11-la-profecia-tiene-notario.py
+
+## abstencion: ¿dream dice que no cuando no hay patrón? Necesita modelo, por eso no está en `check`
+abstencion:
+	@python3 experimentos/10-abstencion.py --repeticiones 3
 
 ## dogfood: el gate del pivot. Afirma sobre el store REAL, no sobre uno desechable
 dogfood: check

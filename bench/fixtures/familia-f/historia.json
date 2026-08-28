@@ -1,0 +1,118 @@
+{
+  "note": "Trayectorias sembradas antes de la fila S1. Cada una es una alternativa que se probo, se descarto y sigue siendo correcta bajo su precondicion (capacidad B).",
+  "trajectories": [
+    {
+      "task_type": "debug_test_failure",
+      "result": "user_corrected",
+      "superseded_by": "reconciliacion-real",
+      "steps": [
+        {
+          "kind": "tool_failure",
+          "text": "reconciliar se cae con TimeoutError con lotes grandes"
+        },
+        {
+          "kind": "tool_use",
+          "text": "subir TIMEOUT_SEGUNDOS de 2 a 30 en ajustes.py"
+        },
+        {
+          "kind": "user_message",
+          "text": "eso tapa el problema, no lo arregla: con el doble de lote vuelve"
+        }
+      ],
+      "valid_when": [
+        "el limite estaba genuinamente bajo para el trabajo que hace la funcion",
+        "el costo por llamada no crece con el tamano del lote"
+      ]
+    },
+    {
+      "id": "reconciliacion-real",
+      "task_type": "debug_test_failure",
+      "result": "tests_passed",
+      "steps": [
+        {
+          "kind": "tool_use",
+          "text": "libro.saldos() trae muchas cuentas en una llamada y existe desde siempre"
+        },
+        {
+          "kind": "tool_use",
+          "text": "una llamada por lote en vez de una por movimiento"
+        }
+      ]
+    },
+    {
+      "task_type": "debug_test_failure",
+      "result": "user_corrected",
+      "superseded_by": "envio-real",
+      "steps": [
+        {
+          "kind": "tool_failure",
+          "text": "el proveedor recibe el aviso dos veces"
+        },
+        {
+          "kind": "tool_use",
+          "text": "bajar MAX_REINTENTOS a 1 para que no pueda duplicar"
+        },
+        {
+          "kind": "user_message",
+          "text": "asi perdemos los envios que si habia que reintentar"
+        }
+      ],
+      "valid_when": [
+        "la operacion no es idempotente y no hay forma de hacerla idempotente",
+        "perder un envio cuesta menos que duplicarlo"
+      ]
+    },
+    {
+      "id": "envio-real",
+      "task_type": "debug_test_failure",
+      "result": "tests_passed",
+      "steps": [
+        {
+          "kind": "tool_use",
+          "text": "el proveedor deduplica si el aviso trae clave_idempotencia"
+        },
+        {
+          "kind": "tool_use",
+          "text": "el reintento manda el mismo envio, no uno nuevo"
+        }
+      ]
+    },
+    {
+      "task_type": "debug_test_failure",
+      "result": "user_corrected",
+      "superseded_by": "precio-real",
+      "steps": [
+        {
+          "kind": "tool_failure",
+          "text": "el precio en dolares devuelve el valor en pesos"
+        },
+        {
+          "kind": "tool_use",
+          "text": "poner CACHE_TTL_SEGUNDOS en 0 para que no cachee"
+        },
+        {
+          "kind": "user_message",
+          "text": "apagar el cache no es arreglar la clave"
+        }
+      ],
+      "valid_when": [
+        "el dato cambia mas rapido que el TTL y cachearlo es incorrecto de por si"
+      ]
+    },
+    {
+      "id": "precio-real",
+      "task_type": "debug_test_failure",
+      "result": "tests_passed",
+      "steps": [
+        {
+          "kind": "tool_use",
+          "text": "la clave del cache no incluye la moneda: dos precios comparten entrada"
+        },
+        {
+          "kind": "tool_use",
+          "text": "agregar la moneda a la clave"
+        }
+      ]
+    }
+  ]
+}

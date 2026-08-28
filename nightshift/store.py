@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS projections (
     resolved_at TEXT,
     evidence TEXT,
     resolved_by TEXT,
+    resolution_ref TEXT,
     UNIQUE(trajectory_id, idx)
 );
 CREATE INDEX IF NOT EXISTS idx_proj_status ON projections(status);
@@ -129,6 +130,7 @@ def now() -> str:
 # ni se reescribe una columna con datos.
 COLUMNAS_AGREGADAS = {
     "runs": [("cost_usd", "REAL")],
+    "projections": [("resolution_ref", "TEXT")],
     "trajectories": [("consolidation_model", "TEXT"), ("consolidation_cost_usd", "REAL"),
                      ("ideation", "TEXT"), ("projected_signals_json", "TEXT"),
                      ("contrast_json", "TEXT"), ("diagram", "TEXT"),
@@ -191,8 +193,45 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
         "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_revision', ?)",
         (SCHEMA_REVISION,),
     )
+    # Desde cuándo el notario exige que una resolución nombre un commit o un PR.
+    #
+    # Se escribe **una sola vez**, la primera vez que este store ve la columna. Es lo que
+    # hace que la regla valga "sólo hacia adelante": las resoluciones anteriores quedan
+    # como testimonio —eran prosa cuando se escribieron y no hay forma honesta de
+    # convertirlas— y las nuevas tienen que poder verificarse sin creerle a nadie.
+    # Back-fillear esta fecha sería declarar auditable algo que nunca lo fue.
+    conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('notary_since', ?)",
+                 (now(),))
     conn.commit()
     return conn
+
+
+def notary_since(conn) -> str | None:
+    """Desde qué instante una resolución tiene que nombrar un objeto verificable."""
+    fila = conn.execute("SELECT value FROM meta WHERE key = 'notary_since'").fetchone()
+    return fila["value"] if fila else None
+
+
+def resolution_ref(*, commit=None, pr=None) -> str | None:
+    """Normaliza el objeto que git tiene que poder encontrar.
+
+    Dos formas y nada más: `commit:<sha>` y `pr:<numero>`. Prosa libre no entra — que el
+    campo acepte cualquier cosa es exactamente cómo la mitad de la evidencia de este repo
+    terminó siendo inauditable (`experimentos/11-la-profecia-tiene-notario.py`).
+    """
+    if commit and pr:
+        raise ValueError("un objeto por resolución: o el commit o el PR, no los dos")
+    if commit:
+        sha = str(commit).strip().lower()
+        if not (7 <= len(sha) <= 40) or any(c not in "0123456789abcdef" for c in sha):
+            raise ValueError("`%s` no es un sha de git" % commit)
+        return "commit:%s" % sha
+    if pr:
+        numero = str(pr).strip().lstrip("#")
+        if not numero.isdigit():
+            raise ValueError("`%s` no es un número de PR" % pr)
+        return "pr:%s" % numero
+    return None
 
 
 # ------------------------------------------------------------------ trayectorias
@@ -390,13 +429,21 @@ def all_projections(conn, *, status=None, limit=200):
     return conn.execute(sql, params).fetchall()
 
 
-def resolve_projection(conn, projection_id, *, status, evidence, resolved_by) -> bool:
+def resolve_projection(conn, projection_id, *, status, evidence, resolved_by,
+                       ref=None) -> bool:
     """Resuelve una conjetura. Devuelve si tocó una fila.
 
     `evidence` es obligatoria en los dos sentidos, y no es simetría por prolijidad:
     **refutar sin motivo es olvidar con otro nombre**, y confirmar sin motivo es el modo
     de falla que este repo ya documentó — una explicación plausible anotada como hallazgo.
     Quien resuelve también queda escrito: un veredicto sin autor no se puede revisar.
+
+    `ref` es el objeto que git tiene que poder encontrar —`commit:<sha>` o `pr:<n>`—, y lo
+    arma `resolution_ref()`. No es obligatorio acá porque un oráculo por comando (ADR-006)
+    puede resolver sin que haya commit todavía; lo exige el notario, y sólo para las
+    resoluciones posteriores a `notary_since`. La diferencia importa: sin él, el veredicto
+    sigue siendo cierto y deja de ser **verificable**, que es la distinción que la regla 2
+    de `CLAUDE.md` hace entre un gate y una opinión.
     """
     if status not in ("confirmed", "refuted"):
         raise ValueError("un veredicto es `confirmed` o `refuted`: %r" % (status,))
@@ -405,9 +452,9 @@ def resolve_projection(conn, projection_id, *, status, evidence, resolved_by) ->
     if not (resolved_by or "").strip():
         raise ValueError("un veredicto sin autor no se puede revisar")
     cursor = conn.execute(
-        "UPDATE projections SET status = ?, resolved_at = ?, evidence = ?, resolved_by = ?"
-        " WHERE id = ?",
-        (status, now(), " ".join(evidence.split()), resolved_by.strip(), projection_id))
+        "UPDATE projections SET status = ?, resolved_at = ?, evidence = ?, resolved_by = ?,"
+        " resolution_ref = ? WHERE id = ?",
+        (status, now(), " ".join(evidence.split()), resolved_by.strip(), ref, projection_id))
     conn.commit()
     return bool(cursor.rowcount)
 

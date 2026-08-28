@@ -36,7 +36,11 @@ comparte repo o tipo de tarea.
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
 21 hipótesis, una por archivo. Al 2026-08-28: **20 de 21 comprobadas.** La única que falla
 es H17, y no por código faltante — se corrió el control de ADR-004 y **el resultado no
-favorece a idear** (`LATER.md`). El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
+sostiene idear** (`LATER.md`): el brazo ideado engancha un síntoma retenido más que el
+control (2 de 3 contra 1) y lo paga con un prompt ajeno, así que la transferencia extra no
+se puede separar de la indiscriminación. El instrumento de esa medición se corrigió el
+mismo día —medía contra `pattern`, que la cadena real nunca matchea— y el veredicto no
+cambió. El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 
 ### Lo que queda pausado, y qué no cambia por pausarlo
 
@@ -118,6 +122,8 @@ Arrancá con `nightshift dev`.
 | La cadena con eslabones, y dónde corta un capítulo | `dream.cadena`, `dream.suggest_chapters` |
 | Gate del pivot | `make dogfood` — `check` y después `doctor`, `audit` y `status` sobre el store **real** |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
+| El notario: una resolución nombra un commit o un PR, y git lo verifica | `make notario`, `store.resolution_ref`, `notary_since` |
+| Abstención: ¿dream dice que no cuando no hay patrón? | `make abstencion`, `bench/fixtures/familia-e/`, PREREG §3-E |
 
 ### No construido
 
@@ -133,7 +139,7 @@ ni en el README, ni en un commit, ni en una demo.
 "cerrado" es exactamente donde este repo ya se equivocó una vez:
 
 - **M4 (benchmark go/no-go)** — pausado. Lee umbrales de `bench/PREREG.md`, donde siguen
-  los 22 `TODO(Matias)` **intactos**. **Completar uno es una violación, no una ayuda**, y
+  los 25 `TODO(Matias)` **intactos**. **Completar uno es una violación, no una ayuda**, y
   pausar el benchmark no cambia eso: lo que se sacó del camino es la espera, no la regla.
 - **M5 (verify)** — sigue prohibido, con otro motivo: ya no espera un veredicto que no va
   a llegar, sino que nadie midió que valga la pena. Verify es lo más caro de construir y
@@ -243,7 +249,7 @@ instrumento con el que aparecieron. Y [PLAN-M4 §10](PLAN-M4.md#10-preguntas-abi
 tiene ocho preguntas para Matías; descartar una es una respuesta.
 
 [`PLAN-M4.md`](PLAN-M4.md) tiene el detalle: el camino crítico y su orden (por qué la
-revisión de ADR-001 va **antes** de congelar el pre-registro), los 22 `TODO(Matias)`
+revisión de ADR-001 va **antes** de congelar el pre-registro), los 25 `TODO(Matias)`
 agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (102 celdas,
 ~1,1 h medidas), los riesgos con su evidencia, y qué pasa con cada veredicto posible.
 
@@ -274,7 +280,7 @@ haberlo obtenido.
 ### Pausado o prohibido — no empieces
 
 - **M4. Pausado por el pivot (§0-bis), y sigue sin poder correr.** El runner está construido (`nightshift bench`, spec §10.4) y **se niega a
-  correr**: `bench/PREREG.md` sigue en borrador con 22 `TODO(Matias)`. **Los tres repos
+  correr**: `bench/PREREG.md` sigue en borrador con 25 `TODO(Matias)`. **Los tres repos
   fixture también están construidos** (`bench/fixtures/familia-{a,c,d}/`, verificados con
   `make bench-fixtures`). Lo que falta no es código: son los umbrales, el modelo, el seed,
   el protocolo de reset entre corridas, y congelar los identificadores de los fixtures.
@@ -402,6 +408,76 @@ Lo del **capítulo** se resolvió a medias el 2026-08-28: `nightshift sleep` sel
 trayectoria en curso y consolida su grupo sin cerrar la sesión (enmienda 0.3.8). El borde
 lo pone una persona; **detectarlo sigue sin resolverse**, y ahora conviene medir antes de
 automatizar. Ver `LATER.md`.
+
+---
+
+## 4-ter. Para retomar después del sueño (2026-08-28, noche)
+
+Esta sección la escribió la sesión que corrió los experimentos 08 a 12 y que implementó el
+notario y la regla de abstención. **Es lo primero que lee la sesión siguiente**, y está
+escrita para leerse después de un ciclo de sueño y un reinicio.
+
+### Antes de leer nada, correr esto
+
+```sh
+nightshift dev
+make check && make notario
+./bin/nightshift experiments
+```
+
+Si el sueño corrió, el store tiene candidatas nuevas **consolidadas con el prompt nuevo**
+—el que exige abstención y el que dice que `signals` es la única superficie de búsqueda—.
+Eso importa: son las primeras conjeturas escritas con esas reglas, y nadie las miró.
+
+### Lo que quedó sabido, y no hay que volver a averiguar
+
+1. **Las conjeturas de este store no son horóscopos.** Enganchan 5 veces más con el síntoma
+   que anticiparon que con 18 prompts ajenos (`09`). Esa sospecha está descartada.
+2. **El problema es el contrario: sensibilidad 27%.** La conjetura que Matías confirmó
+   primero no engancha ni la paráfrasis de su propio síntoma. Faltan conjeturas
+   **encontrables**, no conjeturas específicas.
+3. **Dream no sabía abstenerse** —0 de 3 contra trabajos sin nada en común— y la palanca era
+   el prompt: 3 de 3 después de la regla, y 3 de 3 también en un negativo limpio que no
+   participó de escribirla (`sin-03`).
+4. **La cadena de retrieval no tiene techo.** Con la abstracción esperada, escrita a mano,
+   los tres síntomas retenidos enganchan y ninguno ajeno, sin tocar `retrieve.py` (`08`).
+   Lo que falta está arriba, en la consolidación.
+5. **`retrieve.candidates` nunca matchea contra `pattern`.** Si alguien cambia eso,
+   `tests/test_ideate.py::SuperficieDeBusquedaTest` falla y el prompt queda mintiendo.
+
+### La cola, en orden
+
+1. **Mirar las candidatas que dejó el sueño.** ¿Sus `signals` están escritas con los
+   sustantivos del síntoma o con los del diseño? Es la primera evidencia real de si la
+   regla nueva del prompt cambia lo que el modelo escribe. Mirar, no medir: el número sale
+   del punto 2.
+2. **`python3 experimentos/12-sensibilidad.py`.** Hoy sale `BLOCKED` a propósito. Se
+   destraba cuando Matías llene `experimentos/retenido/PENDIENTE-5b3ff97f.md` y se le saque
+   el prefijo. **No lo llenes vos**: si las paráfrasis las escribe quien mide, lo único que
+   se mide es cuánto se parece a sí mismo. Si sigue vacío, seguí con el 3 y no insistas.
+3. **La pregunta que abrió `sin-02`**: ¿qué debería contestar un consolidador ante un grupo
+   donde **2 de 3** trayectorias comparten mecanismo? Abstenerse pierde un patrón cierto;
+   abstraer inventa cobertura para la que sobra. No está decidido, y la respuesta cambia el
+   diseño de la familia E. Es de Matías, no de un agente.
+4. **Las familias F y G esperan que `PREREG` abra su sección.** Los fixtures están
+   construidos y sus gates corren (`sh bench/fixtures/familia-f/gate.sh` sale 1 con los
+   bugs; el de G sale 7 y cuenta las corridas). Se llaman `propuesta.json` a propósito. **No
+   les pongas umbrales.**
+5. **H17 sigue en `FAIL`** y ahora por el control negativo: el brazo ideado engancha un
+   síntoma retenido más que el control y lo paga con un prompt ajeno. Para cerrarlo hace
+   falta volumen, que es lo mismo que le falta a todo lo demás.
+
+### Lo que NO hay que hacer, y es tentador
+
+- **Re-consolidar `cbbd7ff0` con el prompt nuevo y anunciar que H17 pasó.** El conjunto
+  retenido de esa trayectoria se gastó diagnosticando y el prompt se escribió mirándolo.
+  Eso es entrenar contra el test.
+- **Backfillear las 4 resoluciones viejas sin `resolution_ref`.** Eran prosa cuando se
+  escribieron; convertirlas ahora es declarar auditable algo que nunca lo fue. Matías ya
+  eligió "sólo hacia adelante".
+- **Arreglar `sin-02` para que el modelo lo apruebe.** Su defecto está anotado en el fixture
+  y midió algo real. Tunear un negativo hasta que dé el resultado esperado es el mismo
+  pecado que completar un `TODO(Matias)`.
 
 ---
 

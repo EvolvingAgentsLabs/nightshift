@@ -227,7 +227,7 @@ Reproducilo: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas`
 
 El benchmark que respondería *"¿recordar cómo se averiguó algo mejora a un agente que ya
 tiene memoria declarativa?"* tiene su runner, sus tres repos fixture y su adaptador de
-agente — y **nunca corrió**. Ahora está **pausado**, y pausado no es cerrado: los 22
+agente — y **nunca corrió**. Ahora está **pausado**, y pausado no es cerrado: los 25
 `TODO(Matias)` del pre-registro siguen intactos y la pregunta sigue abierta. Todo lo que
 se inyecta hoy es una `candidate`: la abstrajo un modelo, no la reprodujo nadie.
 

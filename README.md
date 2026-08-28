@@ -226,7 +226,7 @@ Reproduce it: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas
 The benchmark that would answer *"does remembering how something was figured out improve
 an agent that already has declarative memory?"* has its runner, its three fixture repos and
 its agent adapter — and **has never run**. It is now **paused**, and paused is not closed:
-the 22 `TODO(Matias)` in the pre-registration are untouched and the question stays open.
+the 25 `TODO(Matias)` in the pre-registration are untouched and the question stays open.
 Everything injected today is a `candidate`: abstracted by a model, reproduced by nobody.
 
 And one of them is **false**. On 2026-08-28 dream consolidated a one-line bug and produced

@@ -428,7 +428,7 @@ está**.
 |---|---|---|
 | H04 | La cadena tiene eslabones explícitos | G1.2 — los pasos son una lista plana con dos banderas |
 | H06 | El capítulo se detecta solo | G1.3 — el borde lo pone una persona, y conviene medir antes de automatizar |
-| H17 | Idear produce conjeturas más resolubles que no idear | **BLOCKED**, no `FAIL`: es F4 y cuesta llamadas reales al modelo |
+| H17 | Idear produce conjeturas más resolubles que no idear | **`FAIL` medido** (2026-08-28): se corrió F4 y el resultado no sostiene a idear. Ya no está bloqueada: está respondida, y en contra |
 | H19 | Git dice si el fix sobrevivió | O2 |
 | H20 | Hay un oráculo genérico (`oracle_command`) | O3 |
 | H21 | Se puede importar un CTE externo | O4, y cuánto pesa lo externo lo decide Matías |

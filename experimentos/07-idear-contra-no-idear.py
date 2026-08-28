@@ -20,6 +20,18 @@ El brazo ideado tiene una ventaja obvia —proyectó esos síntomas— y por eso
 importa no es si gana, sino **cuánto** engancha el control: si `observed` engancha igual,
 proyectar no compra transferencia, compra texto.
 
+**El instrumento es la máquina.** Hasta el 2026-08-28 este archivo armaba un bolsón de
+frases —`signals + pattern + decisive_signal`— y medía el enganche contra él. La cadena
+real nunca matchea contra `pattern` y sí matchea contra `valid_when`: el bolsón contaba un
+enganche que la máquina no produce. Desde la corrección se mide por el camino real
+(`camino_real.medir`: candidata montada, `retrieve.candidates`, `retrieve.render`), y la
+única definición de "engancha" es la del plugin. El diagnóstico que lo encontró está en
+`08-el-techo-del-oraculo.py`.
+
+**Y el control negativo decide igual que el retenido.** Un brazo que engancha más síntomas
+retenidos comprando un prompt ajeno no compró transferencia: compró superficie. Por eso el
+veredicto pide las dos cosas.
+
 Corre una sola llamada al modelo: la del brazo de control. La salida del brazo ideado ya
 está en el store.
 """
@@ -31,8 +43,10 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
+sys.path.insert(0, str(RAIZ / "experimentos"))
 
-from nightshift import config, dream, retrieve, store   # noqa: E402
+import camino_real                                     # noqa: E402
+from nightshift import config, dream, store            # noqa: E402
 
 # Las paráfrasis las escribe una persona, no el modelo: si las escribiera el modelo
 # estaríamos midiendo cuánto se parece a sí mismo.
@@ -64,19 +78,6 @@ AJENOS = ["el certificado ssl del dominio vencio y el deploy no arranca",
           "el linter se queja de un import sin usar"]
 
 
-def frases_de(abstraccion):
-    """Lo destilado de una abstracción: es contra esto que se mide el enganche."""
-    frases = list(abstraccion.get("signals") or [])
-    if abstraccion.get("pattern"):
-        frases.append(abstraccion["pattern"])
-    if abstraccion.get("decisive_signal"):
-        frases.append(abstraccion["decisive_signal"])
-    return frases
-
-
-def engancha(prompt, frases):
-    return bool(retrieve._enganche(retrieve._tokens(prompt), frases,
-                                   retrieve.MIN_TOKENS_DESTILADO))
 
 
 def main():
@@ -111,42 +112,58 @@ def main():
         Path("experimentos/salidas/07-control-observed.json").write_text(
             json.dumps(control, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    frases_control = frases_de(control)
-    frases_ideado = frases_de(ideado)
+    conn.close()
+
+    retenidos = [(nombre, caso["parafrasis"]) for nombre, caso in RETENIDOS.items()]
+    brazos = [("control", control, []), ("ideado", ideado, proyectadas)]
+    marcadores = {n: camino_real.medir(a, p, retenidos, AJENOS) for n, a, p in brazos}
 
     print("corpus: la trayectoria `%s` (%s)" % (fila["id"][:8], fila["task_type"]))
-    print("brazo ideado : %d frase(s) destiladas + %d proyecciones"
-          % (len(frases_ideado), len(proyectadas)))
-    print("brazo control: %d frase(s) destiladas + 0 proyecciones (no puede producirlas)"
-          % len(frases_control))
+    print("brazo ideado : %d proyecciones. brazo control: 0 (no puede producirlas)."
+          % len(proyectadas))
+    print("medido por el camino real: candidata montada, `candidates`, `render`.")
     print()
     print("%-38s %-9s %-9s" % ("síntoma retenido (paráfrasis humana)", "control", "ideado"))
     print("-" * 60)
-    marcador = {"control": 0, "ideado": 0}
-    for nombre, caso in RETENIDOS.items():
-        c = engancha(caso["parafrasis"], frases_control)
-        i = engancha(caso["parafrasis"], frases_ideado + proyectadas)
-        marcador["control"] += bool(c)
-        marcador["ideado"] += bool(i)
-        print("%-38s %-9s %-9s" % (nombre[:38], "SI" if c else "no", "SI" if i else "no"))
+    for i, (nombre, _) in enumerate(retenidos):
+        fila_c = marcadores["control"]["detalle"][i]
+        fila_i = marcadores["ideado"]["detalle"][i]
+        print("%-38s %-9s %-9s" % (nombre[:38],
+                                   "SI" if fila_c["engancha"] else "no",
+                                   "SI" if fila_i["engancha"] else "no"))
     print("-" * 60)
-    print("%-38s %d de %d   %d de %d" % ("engancha", marcador["control"], len(RETENIDOS),
-                                         marcador["ideado"], len(RETENIDOS)))
+    print("%-38s %d de %d   %d de %d"
+          % ("engancha", marcadores["control"]["retenidos"], len(retenidos),
+             marcadores["ideado"]["retenidos"], len(retenidos)))
     print()
-    falsos = {"control": sum(engancha(p, frases_control) for p in AJENOS),
-              "ideado": sum(engancha(p, frases_ideado + proyectadas) for p in AJENOS)}
     print("control negativo (%d prompts ajenos): control %d, ideado %d — cualquier valor"
-          % (len(AJENOS), falsos["control"], falsos["ideado"]))
+          % (len(AJENOS), marcadores["control"]["ajenos"], marcadores["ideado"]["ajenos"]))
     print("distinto de 0 invalida el enganche del brazo que lo tenga.")
+    for nombre in ("control", "ideado"):
+        for d in marcadores[nombre]["detalle"]:
+            if d["clase"] == "ajeno" and d["engancha"]:
+                print("  %-8s enganchó `%s` (%s)" % (nombre, d["prompt"][:44], d["motivos"]))
     print()
     print("n = 1 corpus, %d síntomas retenidos. Esto no cierra la apuesta de ADR-004."
-          % len(RETENIDOS))
-    if marcador["ideado"] <= marcador["control"]:
-        print()
+          % len(retenidos))
+
+    gana = (marcadores["ideado"]["retenidos"] > marcadores["control"]["retenidos"])
+    limpio = marcadores["ideado"]["ajenos"] == 0
+    print()
+    if gana and limpio:
+        print("RESULTADO: idear compró transferencia y no compró falsos positivos.")
+    elif gana:
+        print("RESULTADO: idear enganchó %d síntoma(s) retenido(s) más que el control, y lo"
+              % (marcadores["ideado"]["retenidos"] - marcadores["control"]["retenidos"]))
+        print("pagó con %d prompt(s) ajeno(s). Más superficie engancha más de las dos cosas:"
+              % marcadores["ideado"]["ajenos"])
+        print("mientras el control negativo no dé 0, la transferencia extra no se puede")
+        print("separar de la indiscriminación. NO alcanza para sostener ADR-004.")
+    else:
         print("RESULTADO: idear NO compró transferencia en este corpus. Queda escrito")
         print("igual — `experimentos/` existe para los resultados que no favorecen al")
         print("plugin, y sin ésos los demás no valen nada.")
-    conn.close()
+
 
 
 if __name__ == "__main__":
