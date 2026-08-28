@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := check
 SHELL := /usr/bin/env bash
 
-.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-fixtures bench-check simulate dogfood doctor init clean help
+.PHONY: check lint lint-docs lint-code validate-schema test selftest dream-selftest bench-selftest bench-fixtures bench-check simulate experiments dogfood doctor init clean help
 
 ## check: el gate completo. Un gate es un script, no un juicio.
 check: lint validate-schema test selftest
@@ -34,6 +34,10 @@ selftest:
 ## dream-selftest: gate de M3-a. Necesita un modelo local, por eso no está en `check`
 dream-selftest:
 	@./bin/nightshift dream --selftest
+
+## experiments: recorrer las hipótesis del proyecto — cuáles se comprobaron y cuáles no
+experiments:
+	@./bin/nightshift experiments
 
 ## dogfood: el gate del pivot. Afirma sobre el store REAL, no sobre uno desechable
 dogfood: check

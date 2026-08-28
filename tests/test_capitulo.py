@@ -195,3 +195,40 @@ class AcotarLaCorridaTest(IsolatedStoreTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExperimentosTest(unittest.TestCase):
+    """El harness de hipótesis es cola de trabajo, así que tiene que ser confiable.
+
+    Un experimento roto que se lea como `FAIL` es información equivocada en la lista que
+    ordena el trabajo: diría "falta implementarlo" cuando lo que pasa es que el
+    experimento no corre.
+    """
+
+    def test_cada_experimento_declara_su_hipotesis_y_su_idea(self):
+        import importlib.util
+        from pathlib import Path
+
+        from nightshift.cli import IDEAS
+
+        carpeta = Path(__file__).resolve().parent.parent / "experimentos" / "hipotesis"
+        archivos = sorted(p for p in carpeta.glob("H*.py") if not p.name.startswith("_"))
+        self.assertTrue(archivos, "no hay ningún experimento")
+        for ruta in archivos:
+            with self.subTest(experimento=ruta.name):
+                spec = importlib.util.spec_from_file_location(ruta.stem, ruta)
+                modulo = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(modulo)
+                self.assertTrue(getattr(modulo, "HIPOTESIS", "").strip())
+                self.assertIn(getattr(modulo, "IDEA", None), IDEAS,
+                              "la idea tiene que ser una de las del pivot")
+                self.assertTrue(callable(getattr(modulo, "correr", None)))
+
+    def test_los_identificadores_no_se_repiten(self):
+        """Dos `H07` hacen que `--only H07` corra una sola y nadie se entere."""
+        from pathlib import Path
+
+        carpeta = Path(__file__).resolve().parent.parent / "experimentos" / "hipotesis"
+        ids = [p.name.split("-")[0] for p in carpeta.glob("H*.py")
+               if not p.name.startswith("_")]
+        self.assertEqual(len(ids), len(set(ids)), "identificadores repetidos: %s" % ids)
