@@ -102,6 +102,7 @@ claude --plugin-dir .          # cargalo en esta sesión
 | `/nightshift:status` | qué hay guardado, qué se inyectó acá |
 | `/nightshift:why <id>` | de dónde salió una inyección, paso por paso |
 | `/nightshift:dream` | consolidar ahora en vez de esperar a la noche |
+| `/nightshift:sleep` | sellar el capítulo en curso y soñar sobre él, sin cerrar la sesión |
 | `/nightshift:schedule` | instalar la corrida nocturna |
 | `/nightshift:doctor` | ¿la captura está funcionando de verdad? |
 | `/nightshift:dev` | arrancar una sesión de desarrollo sobre el plugin |
