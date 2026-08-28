@@ -20,6 +20,7 @@ suma al conteo del gate de M1.**
 | [10](10-abstencion.py) | ¿Dream se abstiene cuando no hay patrón, o siempre encuentra uno? | 2 llamadas al modelo por repetición |
 | [11](11-la-profecia-tiene-notario.py) | ¿Cuánta de la evidencia del proyecto sobrevive a que la revise un script? | nada: lee el store y corre git |
 | [12](12-sensibilidad.py) | ¿Llega la conjetura el día que hace falta? Necesita un retenido escrito por una persona | nada, y hoy está BLOCKED |
+| [13](13-cuanto-discrimina-el-enganche.py) | ¿Cuánto discrimina el enganche cuando el store crece? Empezó por un verbo | nada: lee el store |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -34,6 +35,7 @@ python3 experimentos/09-lectura-en-frio.py
 python3 experimentos/10-abstencion.py --repeticiones 3
 python3 experimentos/11-la-profecia-tiene-notario.py
 python3 experimentos/12-sensibilidad.py
+python3 experimentos/13-cuanto-discrimina-el-enganche.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
@@ -607,6 +609,51 @@ Lo que falta no es código: es que una persona que **sólo vio las conjeturas** 
 palabras cómo describiría cada síntoma. El protocolo y el archivo a llenar están en
 [`retenido/`](retenido/). Si las paráfrasis las escribe quien mide, lo único que se mide es
 cuánto se parece a sí mismo.
+
+---
+
+## 13 — Cuánto discrimina el enganche cuando el store crece
+
+**Se abrió por una pregunta chica y encontró una grande.** La chica: si `arranca` —el falso
+positivo que dejó el sueño del 2026-08-28— pertenece a una clase de verbos genéricos que no
+puede sostener un enganche sola, como ya se decidió para los predicados de fallo.
+
+**El montaje.** 17 prompts verdaderos —las 14 paráfrasis humanas del `05` más los 3
+retenidos de `cbbd7ff0`— contra 24 ajenos, medidos con `retrieve.candidates` sobre el
+**store real, en sólo lectura**. Una palabra por vez: cuántos falsos positivos saca y
+cuántos verdaderos se lleva puestos.
+
+### Lo que dio (2026-08-28)
+
+**La respuesta chica:** dos verbos salen gratis —`corre` y `queda`, 3 falsos positivos
+removidos, 0 verdaderos perdidos— y `arranca` **no saca nada**. El prompt del certificado
+SSL engancha igual, por otra memoria. La hipótesis del verbo era cierta contra *una*
+conjetura aislada y falsa contra el store.
+
+**La respuesta grande, que es la que importa:**
+
+```
+piso  verdaderos    ajenos
+  1     15 de 17     17 de 24      <- el de hoy (enmienda 0.3.6)
+  2      5 de 17      2 de 24
+  3      1 de 17      0 de 24
+```
+
+Con el piso de hoy engancha el **88% de los verdaderos y el 71% de los ajenos**. La enmienda
+0.3.6 midió ese piso contra **una sola candidata** y para ese store eligió bien: 6% de falsos
+positivos, y está documentado. El store creció a seis candidatas y veintiocho conjeturas, y
+con seis superficies distintas casi cualquier prompt encuentra una palabra en común con
+alguna.
+
+**No es un bug y no lo arregla una lista de palabras.** Los dos verbos gratis sacan 3 de 17.
+El resto no lo carga ninguna palabra en particular: lo carga que haya seis memorias y un piso
+de una palabra. Subir el piso a 2 deja los falsos positivos en 2 y **se lleva 10 verdaderos**:
+es un intercambio, no una mejora.
+
+**Y una lectura que conviene no perder:** el `09` midió 6% de falsos positivos montando cada
+conjetura **sola**. Ese número era correcto y describía un store de una memoria. La
+discriminación no es una propiedad del texto de una conjetura: es una propiedad del store
+entero, y cambia a medida que crece.
 
 ---
 

@@ -85,6 +85,48 @@ mientras esperan. **Los umbrales no los escribí yo y no están.**
 
 ---
 
+## MEDIDO — el enganche casi no discrimina cuando el store crece (2026-08-28, noche)
+
+`experimentos/13-cuanto-discrimina-el-enganche.py`. Se abrió para responder si `arranca`
+pertenece a una clase de verbos genéricos que no puede sostener un enganche sola. La
+respuesta chica es que **`arranca` no saca ningún falso positivo**: el prompt del certificado
+SSL engancha igual, por otra memoria. La hipótesis del verbo era cierta contra una conjetura
+aislada —así lo midió el `09`— y falsa contra el store.
+
+Dos verbos sí salen gratis: `corre` y `queda`, 3 falsos positivos removidos y 0 verdaderos
+perdidos.
+
+**Y la grande, medida sobre el store real con 17 prompts verdaderos y 24 ajenos:**
+
+| piso | verdaderos | ajenos |
+|---|---|---|
+| **1 (hoy)** | 15 de 17 (88%) | **17 de 24 (71%)** |
+| 2 | 5 de 17 (29%) | 2 de 24 (8%) |
+| 3 | 1 de 17 (6%) | 0 de 24 (0%) |
+
+La enmienda 0.3.6 midió el piso contra **una sola candidata** y para ese store eligió bien:
+6% de falsos positivos, documentado. El store creció a seis candidatas y veintiocho
+conjeturas, y con seis superficies distintas casi cualquier prompt encuentra una palabra en
+común con alguna. **No es un bug, y no lo arregla una lista de palabras.**
+
+**Lo que se aprendió, y vale más que el número:** la discriminación no es una propiedad del
+texto de una conjetura, es una propiedad del **store entero**, y se degrada a medida que
+crece. El 6% que midió el `09` era correcto y describía un store de una memoria. Cualquier
+umbral fijado contra un store chico va a envejecer.
+
+### Lo que NO se hizo
+
+No se tocó `_PREDICADOS_DE_FALLO` ni `MIN_TOKENS_DESTILADO`. Los dos verbos gratis sacan 3 de
+17: es una mejora chica y real, pero entra junto con la decisión grande o no entra —parchear
+la lista ahora dejaría el número en 14 de 24 y la sensación de que se arregló algo.
+
+Subir el piso a 2 es **spec** (enmienda 0.3.6 lo fijó en 1) y es un intercambio, no una
+mejora: 10 enganches verdaderos por 15 falsos positivos. Lo decide Matías, y la pregunta de
+diseño que abre es si el piso puede ser fijo: un umbral que se eligió con una memoria en el
+store no puede seguir siendo el mismo con veintiocho.
+
+---
+
 ## RESUELTO — el instrumento modela la compuerta, y el número cae a cero (2026-08-28, noche)
 
 `camino_real.medir` ahora devuelve **dos marcadores** en vez de uno:
