@@ -20,15 +20,31 @@ medición cambia con ella y no hay una segunda definición que se quede vieja.
 Corolario que conviene tener escrito: **que un helper devuelva un número no es que el
 agente lo vea.** Lo que cuenta es que la fila llegue al `additionalContext`.
 
-**Y le falta un eslabón, anotado el 2026-08-28 a la noche.** Este módulo llama a
-`candidates` + `render` directo, y el camino de verdad tiene una compuerta más arriba:
-`hook.on_user_prompt_submit` sólo rankea en el prompt que fija el tipo de tarea, y sale
-temprano cuando el tipo sigue siendo `general`. Los tres síntomas retenidos clasifican como
-`general`, así que **ninguno habría producido una inyección en una sesión real**. Lo que
-mide este módulo es el ranking; lo que llega al agente puede ser menos. Es el mismo error de
-altitud que corrigió el `08`, una capa más arriba, y está en `LATER.md` con las tres
-opciones de spec que abre. Hasta que se cierre, todo número que salga de acá se lee como
-**cota superior**.
+**El eslabón que le faltaba, y ahora está: la compuerta del clasificador.** Hasta el
+2026-08-28 a la noche este módulo llamaba a `candidates` + `render` directo, y el camino de
+verdad tiene una compuerta más arriba: `hook.on_user_prompt_submit` sólo rankea en el
+prompt que **fija** el tipo de tarea, y sale temprano cuando `classify_task` devuelve
+`general`. Los tres síntomas retenidos clasifican como `general`, así que ninguno habría
+producido una inyección en una sesión real por más alto que rankeara.
+
+Por eso `medir` devuelve **dos marcadores y no uno**, y no son intercambiables:
+
+- **`retenidos` / `ajenos` — lo que RANKEA.** Es el número de siempre, el que publicaron el
+  `07`, el `09` y H17. No cambió, y no se toca: reescribirlo haría irreproducible todo lo
+  que ya está escrito.
+- **`retenidos_llegan` / `ajenos_llegan` — lo que LLEGA al agente.** Cuenta sólo los prompts
+  que además pasan la compuerta. Es el número que corresponde citar cuando la pregunta es si
+  la memoria sirve, y hoy es más chico.
+
+Cuál se usa depende de la pregunta, y hay que decir cuál. "¿El ranking pone esta fila
+arriba?" es lo primero; "¿el agente la ve?" es lo segundo, y una respuesta al primero
+presentada como respuesta al segundo es el error de altitud que este repo ya cometió dos
+veces en un día.
+
+**Lo que este módulo sigue sin modelar, escrito para que no sorprenda:** la regla de una
+inyección por trayectoria. `on_user_prompt_submit` inyecta en el prompt que fija el tipo y
+nunca más; acá cada prompt se mide contra un store desechable propio, así que cada uno
+tiene su oportunidad. Para medir una sesión entera haría falta otra cosa.
 
 Todo corre sobre un `HOME` temporal. Nunca toca el store real.
 """
@@ -108,19 +124,40 @@ def montar(d, abstraccion, proyecciones=None):
     return tid
 
 
-def llega(d, cfg, prompt):
+def compuerta(prompt):
+    """¿`on_user_prompt_submit` llegaría siquiera a rankear con este prompt?
+
+    Devuelve `(pasa, tipo)`. La rama de inyección del hook se toma sólo cuando el prompt
+    **fija** el tipo de tarea, es decir cuando `classify_task` devuelve algo distinto de
+    `general`. Con `general` el hook sale temprano y no rankea nada: da lo mismo lo que
+    hubiera puesto arriba.
+
+    Se llama a la función del plugin y no se reimplementa la regla: es exactamente el error
+    que este módulo existe para no volver a cometer.
+    """
+    from nightshift import context
+    tipo = context.classify_task(prompt)
+    return tipo != context.DEFAULT_TASK_TYPE, tipo
+
+
+def llega(d, cfg, prompt, tipo=None):
     """¿La memoria llega al bloque que ve el agente, y llega **por enganche**?
 
     Devuelve `(inyectada, engancha, motivos)`. `inyectada` sola no alcanza: en un store con
     una fila, `same_repo` la inyecta siempre. Lo que se mide es `engancha`, que es lo que
     distingue "habla de tu problema" de "es del mismo repo".
+
+    `tipo` es el que **clasificó el prompt**, no el de la candidata: es lo que le pasa el
+    hook a `candidates`, y de ahí sale `same_task_type`. Pasarle el tipo de la candidata
+    regalaría un bonus que en una sesión real depende de lo que el usuario escribió.
     """
     from nightshift import retrieve
-    scored = retrieve.candidates(d.conn, task_type=TASK, repo_fingerprint=REPO,
+    tipo = tipo or TASK
+    scored = retrieve.candidates(d.conn, task_type=tipo, repo_fingerprint=REPO,
                                  cfg=cfg, prompt=prompt)
     texto, elegidas = retrieve.render(d.conn, scored,
                                       max_injected=cfg.get("max_injected", 3),
-                                      native_memory=None, task_type=TASK,
+                                      native_memory=None, task_type=tipo,
                                       repo_fingerprint=REPO)
     motivos = scored[0][1] if scored else ""
     engancha = bool(retrieve.MOTIVOS_DE_ENGANCHE & set(motivos.split(",")))
@@ -137,19 +174,22 @@ def medir(abstraccion, proyecciones, retenidos, ajenos):
     with StoreDesechable() as d:
         montar(d, abstraccion, proyecciones)
         cfg = config.load()
-        marcador = {"retenidos": 0, "ajenos": 0}
+        marcador = {"retenidos": 0, "ajenos": 0,
+                    "retenidos_llegan": 0, "ajenos_llegan": 0}
         detalle = []
-        for etiqueta, prompt in retenidos:
-            inyectada, engancha, motivos = llega(d, cfg, prompt)
-            marcador["retenidos"] += bool(engancha)
-            detalle.append({"etiqueta": etiqueta, "prompt": prompt, "clase": "retenido",
-                            "engancha": bool(engancha), "inyectada": inyectada,
-                            "motivos": motivos})
-        for prompt in ajenos:
-            inyectada, engancha, motivos = llega(d, cfg, prompt)
-            marcador["ajenos"] += bool(engancha)
-            detalle.append({"etiqueta": "AJENO", "prompt": prompt, "clase": "ajeno",
-                            "engancha": bool(engancha), "inyectada": inyectada,
-                            "motivos": motivos})
+        for clase, items in (("retenido", retenidos),
+                             ("ajeno", [("AJENO", p) for p in ajenos])):
+            for etiqueta, prompt in items:
+                pasa, tipo = compuerta(prompt)
+                inyectada, engancha, motivos = llega(d, cfg, prompt, tipo=tipo)
+                # La compuerta va primero: si el hook sale temprano, lo que el ranking
+                # hubiera puesto arriba no existe para el agente.
+                llegada = pasa and engancha
+                marcador[clase + "s"] += bool(engancha)
+                marcador[clase + "s_llegan"] += bool(llegada)
+                detalle.append({"etiqueta": etiqueta, "prompt": prompt, "clase": clase,
+                                "engancha": bool(engancha), "inyectada": inyectada,
+                                "motivos": motivos, "clasifica": tipo,
+                                "compuerta": pasa, "llega": llegada})
     marcador["detalle"] = detalle
     return marcador

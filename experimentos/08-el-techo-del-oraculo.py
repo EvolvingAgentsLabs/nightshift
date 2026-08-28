@@ -141,7 +141,7 @@ def medir(nombre, abstraccion, proyecciones):
                 d["motivos"])
                for d in r["detalle"] if d["clase"] == "retenido" or d["engancha"]]
     return {"nombre": nombre, "retenidos": r["retenidos"], "ajenos": r["ajenos"],
-            "detalle": detalle}
+            "llegan": r["retenidos_llegan"], "detalle": detalle}
 
 
 def brazo_real():
@@ -176,14 +176,15 @@ def main():
 
     print("el techo del oráculo — ¿el que falla es el código o el prompt?")
     print()
-    print("%-38s %-12s %s" % ("brazo", "retenidos", "control negativo"))
+    print("%-38s %-12s %-12s %s" % ("brazo", "rankea", "llega", "control negativo"))
     print("-" * 74)
     resultados = []
     for nombre, abstraccion, proyecciones in brazos:
         r = medir(nombre, abstraccion, proyecciones)
         resultados.append(r)
-        print("%-38s %d de %-8d %d de %d" % (nombre[:38], r["retenidos"], len(RETENIDOS),
-                                             r["ajenos"], len(AJENOS)))
+        print("%-38s %d de %-8d %d de %-8d %d de %d"
+              % (nombre[:38], r["retenidos"], len(RETENIDOS),
+                 r["llegan"], len(RETENIDOS), r["ajenos"], len(AJENOS)))
     print("-" * 74)
     print()
     for r in resultados:
@@ -194,6 +195,12 @@ def main():
         print()
 
     techo = next(r for r in resultados if r["nombre"].startswith("ORÁCULO (techo"))
+    if techo["llegan"] < techo["retenidos"]:
+        print("Y una columna que no estaba hasta el 2026-08-28: `llega`. Aunque el ranking")
+        print("ponga la fila arriba, `on_user_prompt_submit` sólo inyecta en el prompt que")
+        print("fija el tipo de tarea, y estos síntomas clasifican `general`. El techo de la")
+        print("cadena es más bajo que el del ranking, y no lo levanta ninguna abstracción.")
+        print()
     print("=" * 74)
     if techo["retenidos"] == len(RETENIDOS) and techo["ajenos"] == 0:
         print("LA CADENA PUEDE.  Con la abstracción esperada, los tres síntomas retenidos")

@@ -82,6 +82,15 @@ def correr():
                       "Sobre n=1 corpus, idear no compro transferencia."
                       % (c["retenidos"], i["retenidos"], len(RETENIDOS)))
     ajenos = [d["prompt"] for d in i["detalle"] if d["clase"] == "ajeno" and d["engancha"]]
+    cerrados = sum(1 for d in i["detalle"]
+                   if d["clase"] == "retenido" and not d["compuerta"])
+    nota = ""
+    if cerrados:
+        nota = ("\n  Y encima: %d de %d retenidos clasifican `general`, asi que el hook\n"
+                "  sale antes de rankear y LLEGAN AL AGENTE 0 de %d en los dos brazos.\n"
+                "  Este veredicto es sobre el ranking; la compuerta lo vuelve discutible\n"
+                "  hasta que se decida la spec 5.7 (LATER.md)."
+                % (cerrados, len(RETENIDOS), len(RETENIDOS)))
     return FAIL, ("MEDIDO por el camino real. Idear engancha mas, y lo paga:\n"
                   "  retenidos: control %d, ideado %d de %d.\n"
                   "  control negativo: control %d, ideado %d de %d.\n"
@@ -94,7 +103,7 @@ def correr():
                   "demas de este repo."
                   % (c["retenidos"], i["retenidos"], len(RETENIDOS),
                      c["ajenos"], i["ajenos"], len(AJENOS),
-                     "; ".join(ajenos) or "(ninguno)"))
+                     "; ".join(ajenos) or "(ninguno)") + nota)
 
 
 if __name__ == "__main__":

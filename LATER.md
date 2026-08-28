@@ -85,6 +85,62 @@ mientras esperan. **Los umbrales no los escribí yo y no están.**
 
 ---
 
+## RESUELTO — el instrumento modela la compuerta, y el número cae a cero (2026-08-28, noche)
+
+`camino_real.medir` ahora devuelve **dos marcadores** en vez de uno:
+
+- **`retenidos` / `ajenos` — lo que RANKEA.** El número de siempre. No cambió y no se tocó:
+  reescribirlo haría irreproducible todo lo publicado.
+- **`retenidos_llegan` / `ajenos_llegan` — lo que LLEGA al agente.** Sólo los prompts que
+  además pasan `classify_task`, que es la compuerta que toma `on_user_prompt_submit`.
+
+`compuerta()` **llama** a `context.classify_task`, no reimplementa la regla — que es
+exactamente lo que se arregló a la mañana en H17 y lo que se volvió a romper una capa más
+arriba. Y `llega()` ahora le pasa a `candidates` el tipo que clasificó **el prompt**, no el
+de la candidata: regalar `same_task_type` era darle un bonus que en una sesión real depende
+de lo que el usuario escribió.
+
+### Lo que dio, y es lo más duro del día
+
+| | rankea | llega |
+|---|---|---|
+| `07` control / ideado | 1 de 3 / 2 de 3 | **0 de 3 / 0 de 3** |
+| `08` oráculo (el techo) | 3 de 3 | **0 de 3** |
+| `09` sensibilidad de `cbbd7ff0` | 4 de 15 (27%) | **0 de 15** |
+
+**El techo del ranking es 3 de 3 y el de la cadena entera es 0 de 3.** No lo levanta ninguna
+abstracción, ningún prompt de consolidación y ninguna palabra mejor elegida: lo cierra la
+compuerta. El `08` decía "la cadena puede" y era cierto de la mitad que medía.
+
+Y el control negativo cae con ellos: el falso positivo del `linter` tampoco llega. La
+compuerta no discrimina — cierra todo prompt sin predicado de fallo, el verdadero y el
+falso.
+
+### Lo que esto NO cambia
+
+Ningún veredicto se reescribió. H17 sigue en `FAIL` por el control negativo, con una nota
+nueva que dice que a nivel compuerta los dos brazos llegan a cero y que por eso el veredicto
+es sobre el ranking. Cambiar el criterio de una hipótesis para que refleje un hallazgo del
+mismo día es cómo se fabrica un resultado.
+
+### La forma exacta del problema, para que la decisión sea informada
+
+El enganche necesita **dos** cosas del prompt y sólo mide una:
+
+1. una palabra que `classify_task` reconozca —`falla`, `error`, `rompe`, `test`, `crash`—
+   para que el hook rankee;
+2. un sustantivo del dominio compartido con la memoria, para que `_enganche` dispare.
+
+Un prompt con las dos funciona hoy: *"los tests fallan cuando la corrida no procesa ningún
+caso"* clasifica **y** engancha. Lo que nunca llega es el prompt con sólo (2), que es
+justamente la clase que las enmiendas 0.3.6 y 0.3.7 fueron a servir.
+
+`tests/test_hook.py::CompuertaDelClasificadorTest` deja las dos mitades ejecutándose: que un
+síntoma sin predicado no clasifica y el hook no inyecta, y que con tipo clasificado sí
+rankea. Si la spec §5.7 cambia, esos tests fallan y el instrumento se entera.
+
+---
+
 ## El enganche por síntoma está detrás de una compuerta que nadie nombró (2026-08-28, noche)
 
 Encontrado al explicar por qué la última inyección era de las 14:00 con cinco prompts

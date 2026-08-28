@@ -133,12 +133,26 @@ def main():
                                    "SI" if fila_i["engancha"] else "no"))
     print("-" * 60)
     print("%-38s %d de %d   %d de %d"
-          % ("engancha", marcadores["control"]["retenidos"], len(retenidos),
+          % ("rankea", marcadores["control"]["retenidos"], len(retenidos),
              marcadores["ideado"]["retenidos"], len(retenidos)))
+    print("%-38s %d de %d   %d de %d"
+          % ("LLEGA al agente", marcadores["control"]["retenidos_llegan"], len(retenidos),
+             marcadores["ideado"]["retenidos_llegan"], len(retenidos)))
     print()
+    sin_compuerta = [n for n, _ in retenidos
+                     if not camino_real.compuerta(dict(retenidos)[n])[0]]
+    if sin_compuerta:
+        print("%d de %d síntomas retenidos clasifican como `general`, así que"
+              % (len(sin_compuerta), len(retenidos)))
+        print("`on_user_prompt_submit` sale antes de rankear y no inyectan nada en una")
+        print("sesión real, por alto que rankeen. Ver LATER.md, la compuerta del")
+        print("clasificador. La fila de arriba es el ranking; la de abajo, lo que llega.")
+        print()
     print("control negativo (%d prompts ajenos): control %d, ideado %d — cualquier valor"
           % (len(AJENOS), marcadores["control"]["ajenos"], marcadores["ideado"]["ajenos"]))
     print("distinto de 0 invalida el enganche del brazo que lo tenga.")
+    print("  y de ésos, LLEGAN al agente: control %d, ideado %d"
+          % (marcadores["control"]["ajenos_llegan"], marcadores["ideado"]["ajenos_llegan"]))
     for nombre in ("control", "ideado"):
         for d in marcadores[nombre]["detalle"]:
             if d["clase"] == "ajeno" and d["engancha"]:

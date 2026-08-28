@@ -379,10 +379,18 @@ síntoma retenido (paráfrasis humana)   control   ideado
 panel de salud con denominador cero    no        no
 ensayo verde contra store vacio        SI        SI
 linter con lista vacia                 no        SI
-engancha                               1 de 3    2 de 3
+rankea                                 1 de 3    2 de 3
+LLEGA al agente                        0 de 3    0 de 3
 
 control negativo (3 prompts ajenos):   0         1
+  y de ésos, llegan al agente:         0         0
 ```
+
+**La fila `LLEGA` se agregó el 2026-08-28 a la noche y es la que hay que leer.** Los tres
+síntomas retenidos clasifican como `general`, así que `on_user_prompt_submit` sale antes de
+rankear: ninguno de los dos brazos habría inyectado nada en una sesión real. El veredicto de
+abajo es sobre el ranking, que es lo que la hipótesis compara; la compuerta lo vuelve
+discutible hasta que se decida la spec §5.7 (`LATER.md`).
 
 **Idear enganchó un síntoma retenido más, y lo pagó con un prompt ajeno.** Más superficie
 engancha más de las dos cosas: mientras el control negativo no dé 0, la transferencia extra
@@ -422,12 +430,18 @@ llegar a 3 de 3 **sin** enganchar el control negativo.
 ### Lo que dio (2026-08-28)
 
 ```
-brazo                                  retenidos    control negativo
-control (observed)                     1 de 3        0 de 3
-ideado (real, cbbd7ff0)                2 de 3        1 de 3
-ORÁCULO (techo, conoce el retenido)    3 de 3        0 de 3
-ORÁCULO, pero diciendo `linter`        3 de 3        1 de 3
+brazo                                  rankea    llega    control negativo
+control (observed)                     1 de 3    0 de 3    0 de 3
+ideado (real, cbbd7ff0)                2 de 3    0 de 3    1 de 3
+ORÁCULO (techo, conoce el retenido)    3 de 3    0 de 3    0 de 3
+ORÁCULO, pero diciendo `linter`        3 de 3    0 de 3    1 de 3
 ```
+
+**La columna `llega` cambia la conclusión de este experimento y hay que decirlo.** El techo
+del ranking es 3 de 3 — la cadena de retrieval transporta cualquier abstracción bien
+escrita. El techo de la **cadena entera** es 0 de 3, y no lo levanta ninguna abstracción:
+`on_user_prompt_submit` sólo inyecta en el prompt que fija el tipo de tarea, y estos
+síntomas clasifican `general`. Lo que sigue abajo era cierto y era la mitad de la historia.
 
 **1. La cadena puede.** Con la abstracción esperada, los tres retenidos enganchan por
 `signal_match` y `projected_match`, el ranking los pone primeros y `render` los inyecta,
@@ -472,6 +486,8 @@ control difícil. Y como comparación, los 3 síntomas retenidos que una persona
                         con lo retenido   con lo ajeno
 conjeturas de cbbd7ff0  4 de 15  (27%)    5 de 90  (6%)
 las 23 del store         —                20 de 414 (5%)
+
+y de esas 4 que rankean, LLEGAN al agente: 0
 ```
 
 **1. No son horóscopos.** Enganchan 5 veces más con el síntoma que anticiparon que con

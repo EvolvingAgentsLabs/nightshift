@@ -109,13 +109,16 @@ def main():
         print("retenido: %s — %d de %d conjeturas con frase humana"
               % (ruta.name, len(respondidas), len(filas)))
         print()
-        aciertos = 0
+        aciertos = llegadas = 0
         for f in respondidas:
             r = camino_real.medir(NEUTRA, [f["conjetura"]],
                                   [("x", f["frase"])], AJENOS)
             engancha = r["retenidos"] == 1
+            llega = r["retenidos_llegan"] == 1
             aciertos += bool(engancha)
-            print("  [%s] %s" % ("SI" if engancha else "no", f["frase"][:66]))
+            llegadas += bool(llega)
+            print("  [%s%s] %s" % ("SI" if engancha else "no",
+                                   "→llega" if llega else "      ", f["frase"][:60]))
             print("       conjetura: %s" % f["conjetura"][:66])
             if r["ajenos"]:
                 print("       OJO: esta conjetura engancha %d prompt(s) ajeno(s)" % r["ajenos"])
@@ -124,7 +127,11 @@ def main():
         if respondidas:
             print("SENSIBILIDAD: %d de %d (%.0f%%)."
                   % (aciertos, len(respondidas), 100 * aciertos / len(respondidas)))
-            print("Referencia: el retenido de `cbbd7ff0`, con el prompt viejo, dio 27%%.")
+            print("Y LO QUE LLEGA AL AGENTE: %d de %d — los que además pasan la compuerta"
+                  % (llegadas, len(respondidas)))
+            print("del clasificador (`classify_task` distinto de `general`).")
+            print("Referencia: el retenido de `cbbd7ff0`, con el prompt viejo, dio 27%% de")
+            print("ranking y 0%% de llegada.")
             print("Es una comparación entre corpus distintos, así que no es un antes/después")
             print("limpio: dice el orden de magnitud, no la mejora.")
         print("=" * 78)

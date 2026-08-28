@@ -112,11 +112,15 @@ def proyecciones_del_store():
         conn.close()
 
 
-def medir_una(texto, prompts):
-    """¿Con cuántos de estos prompts engancha esta conjetura, sola?"""
+def medir_una(texto, prompts, llegan=False):
+    """¿Con cuántos de estos prompts engancha esta conjetura, sola?
+
+    Con `llegan=True` cuenta sólo los que además pasan la compuerta del clasificador —lo
+    que el agente ve— en vez de lo que el ranking pone arriba.
+    """
     r = camino_real.medir(NEUTRA, [texto], [("x", p) for p in prompts], [])
-    enganchados = [d["prompt"] for d in r["detalle"] if d["engancha"]]
-    return enganchados
+    clave = "llega" if llegan else "engancha"
+    return [d["prompt"] for d in r["detalle"] if d[clave]]
 
 
 def main():
@@ -204,7 +208,15 @@ def main():
         for c, ac, aj in horoscopos:
             print("  · retenidos %d, ajenos %d: %s" % (ac, aj, c["texto"][:60]))
     print()
-    print("SENSIBILIDAD, y acá está el problema de verdad: %.0f%%. Ninguna conjetura engancha"
+    llegan = sum(len(medir_una(c["texto"], RETENIDOS_CBBD7FF0, llegan=True))
+                 for c, _, _ in veredictos)
+    print("Y LO QUE LLEGA AL AGENTE: %d de %d. Los tres síntomas retenidos clasifican"
+          % (llegan, posibles))
+    print("`general`, así que `on_user_prompt_submit` sale antes de rankear. Todo lo de")
+    print("arriba mide el ranking; esto mide la cadena entera. Ver LATER.md, la compuerta")
+    print("del clasificador, y sus tres opciones de spec.")
+    print()
+    print("SENSIBILIDAD DEL RANKING: %.0f%%. Ninguna conjetura engancha"
           % (100 * tasa_ret))
     print("más de 1 de los 3 síntomas retenidos, y la que una persona confirmó primero")
     print("—el panel con el denominador en cero— **no engancha ninguno**, ni siquiera la")
