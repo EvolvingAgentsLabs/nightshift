@@ -22,6 +22,7 @@ suma al conteo del gate de M1.**
 | [12](12-sensibilidad.py) | ¿Llega la conjetura el día que hace falta? Necesita un retenido escrito por una persona | nada, y hoy está BLOCKED |
 | [13](13-cuanto-discrimina-el-enganche.py) | ¿Cuánto discrimina el enganche cuando el store crece? Empezó por un verbo | nada: lee el store |
 | [14](14-la-escena-antes-del-diagrama.py) | Los dos medios de idear sobre el mismo corpus: ¿el modelo traduce de verdad a una escena física? | 2 llamadas al modelo |
+| [15](15-el-techo-a-escala.py) | Seis ideaciones diseñadas a mano compitiendo en un store: ¿cada síntoma encuentra su caso? | nada: no llama al modelo |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -38,6 +39,7 @@ python3 experimentos/11-la-profecia-tiene-notario.py
 python3 experimentos/12-sensibilidad.py
 python3 experimentos/13-cuanto-discrimina-el-enganche.py
 python3 experimentos/14-la-escena-antes-del-diagrama.py
+python3 experimentos/15-el-techo-a-escala.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
@@ -721,6 +723,54 @@ Tres cosas que conviene no leer de más:
    superficie es el código, no el prompt.
 3. **Esto no sostiene ADR-007 ni tumba ADR-004.** Dice que el brazo corre y que lo pedido
    llega. Nada más.
+
+---
+
+## 15 — El techo a escala: casos diseñados primero, sintéticos después
+
+**La capacidad que ilustra:** ninguna. Es un **instrumento**, y su método es el pedido de
+Matías del 2026-08-28: *diseñar ejemplos de ideación que funcionen primero, y usarlos como
+casos sintéticos.*
+
+**El montaje.** Seis mecanismos clásicos —una copia que no se refresca, una normalización
+de un solo lado, una carrera, una fuga de recursos, un borde una unidad corto, unidades sin
+declarar— cada uno con su ideación completa escrita a mano en
+[`casos_de_ideacion.py`](casos_de_ideacion.py): escena física, logograma, patrón, señales,
+precondiciones, proyecciones y una paráfrasis. Cada caso **pasa los gates reales del brazo
+`fisica`** (un test lo fija en `make check`), y después los seis se montan **juntos** en un
+store desechable — porque una sesión real no encuentra una memoria sola, encuentra un
+store, y el `13` midió que la discriminación se degrada al crecer.
+
+**El veredicto automatizable es [H24](hipotesis/H24-la-referencia-engancha-y-discrimina.py).**
+
+### Lo que dio (2026-08-28, sin modelo)
+
+| | |
+|---|---|
+| la propia engancha | **6 de 6** |
+| la propia queda entre las elegidas | **6 de 6** |
+| prompts ajenos que enganchan | **0 de 4** |
+| paráfrasis que enganchan además casos ajenos | 4 de 6 |
+| **LLEGA al agente en una sesión real** | **0 de 6** — todas clasifican `general` |
+
+Tres lecturas, en orden de importancia:
+
+1. **El techo a escala existe.** Con material ideal, la cadena separa seis mecanismos: cada
+   síntoma encuentra su caso y ningún ajeno engancha. Lo que falta no está en el retrieval:
+   está en que la consolidación real produzca señales así de encontrables — que es lo mismo
+   que dijo el `08` con una memoria sola.
+2. **La compuerta bloquea hasta el techo.** 0 de 6 llegan: ni el material perfecto pasa el
+   clasificador. Es el número más fuerte hasta ahora para la decisión de spec §5.7, porque
+   ya no se puede atribuir a señales mal escritas.
+3. **El piso cruza incluso lo diseñado.** 4 de 6 paráfrasis enganchan además casos que no
+   hablan de su problema (la correcta llega igual, pero comparte el bloque). La degradación
+   del `13`, reproducida sobre material construido para ser separable.
+
+**Lo que este número NO es, dicho dos veces porque se va a citar mal:** transferencia.
+Casos, señales y paráfrasis los escribió **la misma mano**, así que esto mide lo mejor que
+la cadena puede dar, nunca que la memoria sirva. Y los casos **no** van al prompt de
+consolidación como few-shot: eso cambiaría el brazo (PREREG §2) y ensuciaría toda medición
+futura contra ellos.
 
 ## Cómo leer todo esto
 

@@ -105,8 +105,13 @@ def condiciones(items):
     return salida
 
 
-def montar(d, abstraccion, proyecciones=None):
-    """Mete la abstracción de un brazo por el camino real: candidata con proyecciones."""
+def montar(d, abstraccion, proyecciones=None, *, physical_scene=None, logogram=None):
+    """Mete la abstracción de un brazo por el camino real: candidata con proyecciones.
+
+    `physical_scene` y `logogram` (ADR-007) viajan a sus columnas. No cambian el ranking
+    —se muestran y no se buscan— pero un caso montado sin ellos no es el caso entero, y
+    `render` tiene que poder mostrarlos.
+    """
     tid = d.store.open_trajectory(d.conn, session_id="s", repo_fingerprint=REPO,
                                   task_type=TASK, base_commit="abc1234",
                                   redaction={"redactor_version": "0.1.0"})
@@ -120,7 +125,8 @@ def montar(d, abstraccion, proyecciones=None):
         valid_when=condiciones(abstraccion.get("valid_when")),
         hypothesis=None, weight=0.6,
         projected_signals=list(proyecciones or []) or None,
-        diagram=abstraccion.get("diagram"))
+        diagram=abstraccion.get("diagram"),
+        physical_scene=physical_scene, logogram=logogram)
     return tid
 
 

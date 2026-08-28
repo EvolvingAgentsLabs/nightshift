@@ -34,7 +34,7 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 comparte repo o tipo de tarea.
 
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
-**23 hipótesis**, una por archivo. Al 2026-08-28, tarde: **21 comprobadas, 1 en contra y 1
+**24 hipótesis**, una por archivo. Al 2026-08-28, noche: **22 comprobadas, 1 en contra y 1
 esperando material.**
 
 La que falla es H17, y no por código faltante — se corrió el control de ADR-004 y **el

@@ -241,7 +241,7 @@ that came true twice.
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **23 hypotheses**. As of 2026-08-28: **21 verified**, 1 against, 1 waiting on material — `make experiments` walks them. The one that fails is the project's own bet
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-28: **22 verified**, 1 against, 1 waiting on material — `make experiments` walks them. The one that fails is the project's own bet
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed
