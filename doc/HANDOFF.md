@@ -479,8 +479,29 @@ El punto 1 de la cola de arriba **ya se hizo**, la misma noche. `nightshift slee
 - Apareció un falso positivo nuevo, y lo carga **una sola palabra**: `arranca`. Es una clase
   que `_PREDICADOS_DE_FALLO` no cubre —verbos genéricos de proceso, no de fallo— y es la
   tercera colisión de este tipo que encuentra el repo. **Medirlo antes de tocar la lista**:
-  el corpus son los 18 prompts ajenos del `09` y las 28 conjeturas del store. Ése es el
-  primer trabajo concreto que tiene la sesión que sigue.
+  el corpus son los 18 prompts ajenos del `09` y las 28 conjeturas del store.
+- Y después apareció algo más grande, que va primero: **la compuerta del clasificador**, más
+  abajo en esta sección.
+
+### Lo más grande que se encontró, y es lo primero de la cola
+
+**El enganche por síntoma está detrás de una compuerta.** `on_user_prompt_submit` inyecta
+una sola vez por trayectoria —en el prompt que fija el tipo de tarea— y sale temprano
+cuando el tipo ya no es `general`. Está documentado en el código y no es un fallo. Lo que
+nadie había mirado es que **los tres síntomas retenidos clasifican como `general`**, así que
+ninguno habría producido una inyección en una sesión real.
+
+Y las dos reglas que chocan son las dos correctas: `classify_task` necesita `falla`,
+`error`, `rompe` para clasificar; `_enganche` descarta esas mismas palabras porque solas no
+dicen de qué se habla (enmienda 0.3.6). Un prompt escrito como la spec quiere que se lo
+pueda enganchar es un prompt que el clasificador deja pasar.
+
+**Y alcanza al instrumento:** `experimentos/camino_real.py` no modela esa compuerta, así que
+el 27% de sensibilidad del `09` mide el ranking y no lo que llega al agente. Arreglar el
+instrumento va **antes** que discutir la spec — sin eso, la discusión no tiene números.
+
+Las tres opciones de spec están en `LATER.md` con sus costos. **Las decide Matías**, no un
+agente: cambian cuánto contexto se gasta por sesión.
 
 ### Lo que NO hay que hacer, y es tentador
 

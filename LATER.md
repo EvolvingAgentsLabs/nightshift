@@ -85,6 +85,71 @@ mientras esperan. **Los umbrales no los escribí yo y no están.**
 
 ---
 
+## El enganche por síntoma está detrás de una compuerta que nadie nombró (2026-08-28, noche)
+
+Encontrado al explicar por qué la última inyección era de las 14:00 con cinco prompts
+después. **No es un fallo silencioso**: `on_user_prompt_submit` inyecta **una sola vez por
+trayectoria**, en el prompt que fija el tipo de tarea, y está documentado en el código
+(`hook.py`, la rama que sale temprano cuando `task_type != general`).
+
+Lo que sí es nuevo es lo que se ve al mirar esa compuerta de cerca.
+
+### Los tres síntomas retenidos clasifican como `general`
+
+```
+'el resumen dice que esta todo bien pero no conto ninguna celda'  -> general
+'la corrida termina en verde y no proceso ni un solo caso'        -> general
+'el chequeo pasa porque su patron no encontro ningun archivo'     -> general
+```
+
+Con `general`, `on_user_prompt_submit` sale antes de rankear. **Ninguno de los tres habría
+producido una inyección en una sesión real**, sin importar cuánto enganche midan `07`, `09`
+o H17.
+
+### Y hay una tensión entre dos piezas que se escribieron por separado
+
+- `classify_task` necesita `falla`, `error`, `rompe`, `test`, `crash` para clasificar:
+  son casi todo `TASK_TYPE_RULES`.
+- `_enganche` **descarta esas mismas palabras**. Son `_PREDICADOS_DE_FALLO`: dicen *que*
+  algo se rompió, no *qué*, y la enmienda 0.3.6 midió que solas no pueden sostener un
+  enganche.
+
+Un prompt escrito exactamente como la spec quiere que se lo pueda enganchar —el síntoma
+nombrado con sustantivos del dominio, sin decir "falla"— es un prompt que el clasificador
+deja pasar como `general`. **Las dos reglas son correctas por separado y se anulan
+juntas.**
+
+### Esto alcanza al instrumento que se construyó hoy
+
+`experimentos/camino_real.py` llama a `retrieve.candidates` + `retrieve.render` directo. Se
+llama "camino real" y le falta la última compuerta: `on_user_prompt_submit`. Por lo tanto:
+
+- El **27% de sensibilidad** del `09` mide el ranking, no lo que llega al agente. Lo que
+  llega puede ser menos, y para los tres retenidos es **cero**.
+- Es el mismo error de altitud que se corrigió esta mañana en H17 —medir contra un campo
+  que la cadena real no usa— una capa más arriba. Que haya vuelto a pasar el mismo día
+  dice algo sobre el modo de falla, no sobre el descuido: **la cadena tiene más eslabones
+  que los que cualquiera de sus mediciones modela**, y cada eslabón que falta se descubre
+  cuando alguien pregunta por un número que no cierra.
+
+### Qué NO se hizo, y por qué es de Matías
+
+Cambiar cuándo se inyecta es **spec** (§5.7), no una corrección. Las opciones no son
+equivalentes y ninguna es obviamente mejor:
+
+1. **Inyectar en cada prompt que enganche**, no sólo en el que clasifica. Es lo que la
+   promesa del README describe, y multiplica el contexto gastado por sesión.
+2. **Desacoplar el enganche del clasificador**: si hay `signal_match` o `projected_match`,
+   inyectar aunque el tipo siga siendo `general`. Más barato que 1 y menos general.
+3. **Ampliar `classify_task`** para que los síntomas sin predicado de fallo clasifiquen.
+   Es lo más chico y lo que menos resuelve: mueve la compuerta, no la saca.
+
+Lo que sí corresponde antes de elegir: **medir**. El corpus existe —los retenidos, las 28
+conjeturas, los 18 prompts ajenos— y lo que falta es que `camino_real` modele la compuerta
+para que los números digan lo que llega y no lo que rankea.
+
+---
+
 ## Un enganche falso lo carga un verbo genérico: `arranca` (2026-08-28, noche)
 
 El ciclo de sueño posterior al merge de #61 consolidó `8678f39f` — la sesión de los
