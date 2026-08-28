@@ -8,10 +8,13 @@ Una prueba de concepto, no un producto.
 ![El sueño proyecta trayectorias hacia bugs; la misma persona se los encuentra horas después en la pantalla](doc/assets/night.png)
 
 > **Estado: M3 construido — captura, retrieval y dream fase 1, como plugin de Claude Code.**
-> Todo lo de abajo corre. El código ya no es lo que bloquea el benchmark: lo que falta es
-> **evidencia**. El gate de M1 son cinco sesiones reales, el de M3 tres noches sin
-> intervención, y ninguno se juntó. Si algo de esto *ayuda* está sin medir: `verify` no
-> existe, así que nada llega a `procedure` y ninguna memoria inyectada está verificada.
+> Todo lo de abajo corre, y el gate es `make dogfood`: el agente usando nightshift sobre
+> el código de nightshift, verificado contra el store real.
+>
+> **El 2026-08-27 el benchmark (M4) y los gates humanos salieron del camino crítico** —
+> pausados, no cerrados. Así que la pregunta que M4 iba a responder sigue sin respuesta:
+> **nadie midió que nada de esto ayude.** `verify` no existe, nada llega a `procedure` y
+> ninguna memoria inyectada está verificada.
 
 ## Qué hace
 
@@ -56,7 +59,15 @@ aparecido una vez. Lo proyectado se guarda aparte, pesa exactamente la mitad, y 
 siempre como conjetura ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). Si esa
 frontera se borra, esto deja de ser memoria.
 
-**Idear en vez de razonar.** El prompt de consolidación arranca negándose a razonar:
+Una conjetura que llega *después* del error no proyectó nada, así que una fila que
+engancha con lo que acabás de escribir **ordena antes que cualquier fila con más puntaje
+que no engancha** — es una regla de orden, no un peso. Y una conjetura que nadie resuelve
+no es memoria, es una nota: `/nightshift:resolve` registra que una pasó, o que no puede,
+siempre con evidencia y autor. Una refutada deja de enganchar; una confirmada **no
+asciende**: sigue pesando la mitad.
+
+**Idear en vez de razonar.** No es una estrategia entre dos: desde la enmienda 0.3.7 no
+hay clave de config que lo apague. El prompt de consolidación arranca negándose a razonar:
 *"no razones todavía: buscá la imagen."* Hay explicaciones que sólo se entienden cuando
 alguien las dibuja **bien**, y el dibujo correcto no agrega información: saca la que
 sobra. La transformada discreta de Fourier no es una sumatoria con exponenciales: es
@@ -95,6 +106,9 @@ git clone https://github.com/EvolvingAgentsLabs/nightshift
 cd nightshift
 ./bin/nightshift init          # crea el store y resuelve deny_paths
 claude --plugin-dir .          # cargalo en esta sesión
+
+make dogfood                   # el gate: check + doctor + audit + status, sobre el store REAL
+make experiments               # qué hipótesis del proyecto están comprobadas de verdad
 ```
 
 | Skill | Qué responde |
@@ -126,14 +140,14 @@ Tres cosas hay que decir, o es un cuento:
   y el trabajo las redescubrió midiendo. Una conjetura que nadie resuelve no es memoria:
   es una nota. Ese agujero es el que tantea
   [`experimentos/preguntar.py`](experimentos/preguntar.py).
-- **El puntaje es cuatro proyecciones: dos confirmadas, una refutada, una abierta** — una
-  candidata, un store. Una anécdota con numerador, y el numerador se puede contar:
+- **El puntaje dejó de escribirse a mano.** Vivía en prosa, en dos idiomas, y se
+  desincronizó: esta sección llegó a decir *«seis proyecciones: dos confirmadas, dos
+  refutadas, dos abiertas»* y dos de esas cuentas no existían. Ahora lo calcula el store:
   ```sh
-  sqlite3 ~/.nightshift/trajectories.sqlite3 \
-    "select projected_signals_json from trajectories where status='candidate';"
+  nightshift resolve      # las conjeturas abiertas, y la tasa de acierto
   ```
-  Esta sección decía *«seis proyecciones: dos confirmadas, dos refutadas, dos abiertas»*.
-  Dos de esas cuentas no existían. La corrección está en [`LATER.md`](LATER.md).
+  Al 2026-08-28: **19 proyectadas · 12 abiertas · 5 confirmadas · 2 refutadas — 71% sobre
+  7 resueltas.** No copies ese número a ningún lado: corré el comando.
 - **El mismo trabajo encontró tres defectos en el brazo del tratamiento.** Los tres eran
   invisibles porque todos los hooks salen 0 por diseño. Están arreglados; lo que importa es
   por qué pasaron semanas sin que nada los dijera.
@@ -163,14 +177,23 @@ Reproducilo: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas`
 
 El benchmark que respondería *"¿recordar cómo se averiguó algo mejora a un agente que ya
 tiene memoria declarativa?"* tiene su runner, sus tres repos fixture y su adaptador de
-agente — y **nunca corrió**, porque el pre-registro sigue en borrador. Todo lo que se
-inyecta hoy es una `candidate`: la abstrajo un modelo, no la reprodujo nadie.
+agente — y **nunca corrió**. Ahora está **pausado**, y pausado no es cerrado: los 22
+`TODO(Matias)` del pre-registro siguen intactos y la pregunta sigue abierta. Todo lo que
+se inyecta hoy es una `candidate`: la abstrajo un modelo, no la reprodujo nadie.
+
+Y una de ellas es **falsa**. El 2026-08-28 dream consolidó un bug de una línea y produjo
+un mecanismo que no existe, con diagrama, analogía y cinco precondiciones coherentes. No
+lo alucinó: levantó el razonamiento ya escrito en los comentarios del propio código y lo
+presentó como su diagnóstico. Para eso existe ahora `LECTURA-DEL-REPO`, y es la razón por
+la que nada llega a `procedure`.
 
 Un ensayo no es evidencia, una demostración no es un resultado, y una proyección que se
 cumplió dos veces tampoco.
 
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
-- [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el plan y el benchmark
+- [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
+- [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el alcance, y el benchmark (pausado)
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: 15 de 21 comprobadas, y las otras 6 dicen por qué no
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado
