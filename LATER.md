@@ -8,6 +8,28 @@ acá.
 
 ---
 
+## MEDIDO — la abstención y el contraste, ahora también con el brazo físico (2026-08-28, noche)
+
+Los dos agujeros de cobertura de la ideación, cerrados el mismo día que se nombraron:
+
+1. **La abstención sobrevive al prefijo físico: 5 de 5.** `10-abstencion.py` ganó
+   `--ideacion`, y el brazo `fisica` —cuyo prefijo empuja a *encontrar* una escena, que es
+   justo el sesgo que la abstención resiste— se abstuvo en los tres negativos (incluidos
+   `sin-02`, el difícil, y `sin-03`, el limpio) y abstrajo en los dos positivos. n=1 por
+   grupo: es el piso del brazo, no una tasa.
+2. **El contraste ideado en modo físico funciona, y paga tokens de más.** Ejercitado una
+   vez contra el montaje del `02` (timeout subido contra llamador arreglado):
+   `validate_contrast` pasa, la diferencia queda bien abstraída y `old_valid_when` nombra
+   un régimen real. La aspereza confirmada: el modelo devuelve `physical_scene`,
+   `logogram` y `diagram`, campos que el contraste **no consume y descarta en silencio** —
+   el prefijo Mermaid tiene la misma aspereza con `diagram`, desde antes. Es costo de
+   salida, no un bug. Arreglarlo sería un prefijo propio para el contraste; no se hizo
+   porque el contraste corre sólo cuando hay contradicción registrada, que es raro, y un
+   tercer prompt que mantener cuesta más que los tokens que ahorra. Si el contraste se
+   vuelve frecuente, esto se revisa.
+
+---
+
 ## MEDIDO — el techo a escala, con casos diseñados (2026-08-28, noche)
 
 El pedido de Matías: *diseñar ejemplos de ideación que funcionen primero, y usarlos como
