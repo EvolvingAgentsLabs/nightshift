@@ -167,6 +167,44 @@ class CifrasTest(unittest.TestCase):
         self.assertGreater(vistos, 0, "nadie cita la cuenta: el test no está mirando nada")
 
 
+class MarcadorDeConjeturasTest(unittest.TestCase):
+    """El número que este repo ya publicó mal, y la regla que lo evita.
+
+    El README llegó a decir «seis proyecciones: dos confirmadas, dos refutadas, dos
+    abiertas» y **dos de esas cuentas no existían**. La causa no fue descuido: era un
+    marcador escrito a mano, en dos idiomas, sin ninguna fuente que lo desmintiera.
+
+    La fuente ahora es el store (`nightshift resolve`). Que el README igual muestre una
+    foto es útil, así que la regla no es prohibirla — es que **lleve fecha y que los dos
+    idiomas digan lo mismo**, que son las dos formas concretas en que se desincronizó.
+    """
+
+    MARCADOR_RE = re.compile(
+        r"(\d+)\s+(?:proyectadas|projected)\s*·\s*(\d+)\s+(?:abiertas|open)\s*·\s*"
+        r"(\d+)\s+(?:confirmadas|confirmed)\s*·\s*(\d+)\s+(?:refutadas|refuted)")
+
+    def _marcadores(self, nombre):
+        return self.MARCADOR_RE.findall(texto(nombre))
+
+    def test_los_dos_readme_dicen_el_mismo_marcador(self):
+        cuentas = {nombre: self._marcadores(nombre) for nombre in READMES}
+        valores = list(cuentas.values())
+        self.assertEqual(valores[0], valores[1],
+                         "los dos README publican marcadores distintos: %s" % cuentas)
+
+    def test_el_marcador_lleva_fecha_y_manda_a_correr_el_comando(self):
+        """Sin fecha, una foto se lee como el estado de hoy para siempre."""
+        for nombre in READMES:
+            contenido = texto(nombre)
+            for match in self.MARCADOR_RE.finditer(contenido):
+                ventana = contenido[max(0, match.start() - 200):match.end() + 200]
+                with self.subTest(readme=nombre):
+                    self.assertRegex(ventana, r"20\d\d-\d\d-\d\d",
+                                     "el marcador no dice de cuándo es")
+                    self.assertIn("nightshift resolve", ventana,
+                                  "el marcador no manda a la fuente que lo calcula")
+
+
 class AfirmacionesTest(unittest.TestCase):
     def test_ninguna_afirmacion_caducada_sigue_en_pie(self):
         for condicion, prohibida, motivo in AFIRMACIONES_QUE_CADUCAN:

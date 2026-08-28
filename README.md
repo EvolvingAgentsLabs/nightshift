@@ -8,10 +8,13 @@ A proof of concept, not a product.
 ![Dream projects trajectories toward bugs; the same person meets them hours later on screen](doc/assets/night.png)
 
 > **Status: M3 built — capture, retrieval and dream phase 1, as a Claude Code plugin.**
-> Everything below runs. The code is no longer what blocks the benchmark: the **evidence**
-> is. M1's gate is five real sessions, M3's is three unattended nights, and neither has
-> been collected. Whether any of this *helps* is unmeasured: `verify` does not exist, so
-> nothing reaches `procedure` and nothing injected is verified.
+> Everything below runs, and the gate is `make dogfood`: the agent using nightshift on
+> nightshift's own code, checked against the real store.
+>
+> **On 2026-08-27 the benchmark (M4) and the human gates were taken off the critical
+> path** — paused, not closed. So the question M4 was going to answer is still
+> unanswered: **nobody has measured that any of this helps.** `verify` does not exist,
+> nothing reaches `procedure`, and nothing injected is verified.
 
 ## What it does
 
@@ -56,7 +59,15 @@ stored separately, weighted at exactly half, and always announced as conjecture
 ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). If that boundary blurs, this stops
 being memory.
 
-**Imagine instead of think.** The consolidation prompt opens by refusing to reason:
+A conjecture reaching the agent *after* the error would have projected nothing, so a row
+that latches onto what you just typed is **ordered ahead of any row with a higher score
+that latches onto nothing** — a rule about order, not a weight. And a conjecture nobody
+resolves is not memory, it is a note: `/nightshift:resolve` records that one happened, or
+that it cannot, always with evidence and an author. A refuted one stops latching; a
+confirmed one **does not get promoted** — it still weighs half.
+
+**Imagine instead of think.** Not a strategy among two — since amendment 0.3.7 there is
+no config key that turns it off. The consolidation prompt opens by refusing to reason:
 *"don't reason yet — find the image."* Some explanations only land when someone draws
 them **well**, and the right drawing does not add information, it removes what is
 redundant. The DFT is not a sum of exponentials: it is winding a signal around a circle
@@ -94,6 +105,9 @@ git clone https://github.com/EvolvingAgentsLabs/nightshift
 cd nightshift
 ./bin/nightshift init          # creates the store, resolves deny_paths
 claude --plugin-dir .          # load it in this session
+
+make dogfood                   # the gate: check + doctor + audit + status, on the REAL store
+make experiments               # which of the project's hypotheses are actually verified
 ```
 
 | Skill | What it answers |
@@ -125,14 +139,14 @@ Three things have to be said, or it is a fairy tale:
   available, and the work rediscovered them by measuring. A conjecture nobody resolves is
   not memory — it is a note. That gap is what
   [`experimentos/preguntar.py`](experimentos/preguntar.py) probes.
-- **The score is four projections: two confirmed, one refuted, one open** — one candidate,
-  one store. An anecdote with a numerator, and the numerator is countable:
+- **The scoreboard is no longer written by hand.** It used to live in prose, in two
+  languages, and it drifted — this section once said *"six projections, two confirmed, two
+  refuted, two open"* and two of those counts did not exist. Now the store computes it:
   ```sh
-  sqlite3 ~/.nightshift/trajectories.sqlite3 \
-    "select projected_signals_json from trajectories where status='candidate';"
+  nightshift resolve      # open conjectures, and the hit rate
   ```
-  This section used to say *"six projections, two confirmed, two refuted, two open"*. Two
-  of those counts did not exist. The correction is in [`LATER.md`](LATER.md).
+  On 2026-08-28: **19 projected · 12 open · 5 confirmed · 2 refuted — 71% over 7
+  resolved.** Do not copy that number anywhere; run the command.
 - **The same work found three defects in the treatment arm itself.** All three were
   invisible because every hook exits 0 by design. Fixed; why they went unnoticed for weeks
   is the point.
@@ -161,14 +175,23 @@ Reproduce it: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas
 
 The benchmark that would answer *"does remembering how something was figured out improve
 an agent that already has declarative memory?"* has its runner, its three fixture repos and
-its agent adapter — and **has never run**, because the pre-registration is still a draft.
+its agent adapter — and **has never run**. It is now **paused**, and paused is not closed:
+the 22 `TODO(Matias)` in the pre-registration are untouched and the question stays open.
 Everything injected today is a `candidate`: abstracted by a model, reproduced by nobody.
+
+And one of them is **false**. On 2026-08-28 dream consolidated a one-line bug and produced
+a mechanism that does not exist — with a diagram, an analogy and five coherent
+preconditions. It did not hallucinate it: it lifted the reasoning already written in the
+code's own comments and presented it as its diagnosis. That is what `LECTURA-DEL-REPO`
+now exists for, and it is why nothing reaches `procedure`.
 
 A rehearsal is not evidence, a demonstration is not a result, and neither is a projection
 that came true twice.
 
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
-- [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the plan and the benchmark
+- [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
+- [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: 15 of 21 verified, and the other 6 say why not
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed

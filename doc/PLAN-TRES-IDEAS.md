@@ -401,6 +401,48 @@ escribe el usuario, con su credencial y su riesgo.
 - **Reabrir M4.** Pausado. Ninguna fase de este plan lo necesita ni lo desbloquea.
 - **Embeddings para las dos paráfrasis que no enganchan.** Chocan con ADR-003. Sin cambio.
 
+## 8. El ciclo de trabajo: una hipótesis por archivo
+
+**Agregado el 2026-08-28, a pedido de Matías.** El plan de arriba dice qué falta; esto lo
+vuelve una cola que se puede recorrer sin releerlo.
+
+```sh
+nightshift experiments              # las 21
+nightshift experiments --only H03   # una
+```
+
+Cada hipótesis vive en `experimentos/hipotesis/H<nn>-*.py`, corre sola, y devuelve
+`PASS`, `FAIL` o `BLOCKED`. **Los tres estados son tres y no dos**: `BLOCKED` es una
+hipótesis que no se puede comprobar todavía porque espera una decisión humana o material
+que no existe, y leerla como `FAIL` convierte una espera en un fracaso.
+
+Así, cada hipótesis pendiente es una tarea con borde: se le puede dar a un subagente sin
+más contexto que su archivo, porque el detalle del `FAIL` dice qué falta **y por qué no
+está**.
+
+### El estado al escribir esto
+
+**15 de 21 comprobadas · 5 sin implementar · 1 esperando.**
+
+| | Hipótesis pendiente | Qué es |
+|---|---|---|
+| H04 | La cadena tiene eslabones explícitos | G1.2 — los pasos son una lista plana con dos banderas |
+| H06 | El capítulo se detecta solo | G1.3 — el borde lo pone una persona, y conviene medir antes de automatizar |
+| H17 | Idear produce conjeturas más resolubles que no idear | **BLOCKED**, no `FAIL`: es F4 y cuesta llamadas reales al modelo |
+| H19 | Git dice si el fix sobrevivió | O2 |
+| H20 | Hay un oráculo genérico (`oracle_command`) | O3 |
+| H21 | Se puede importar un CTE externo | O4, y cuánto pesa lo externo lo decide Matías |
+
+### La iteración
+
+1. `nightshift experiments` — qué falta hoy.
+2. Trabajar los `FAIL`, uno por rama, con su gate.
+3. Cerrar la sesión y `nightshift sleep`, para que lo que se hizo entre a la memoria del
+   propio proyecto.
+
+El paso 3 no es ceremonia: es la única forma de que el plugin acumule material sobre su
+propio desarrollo, que es el gate del pivot.
+
 ## 6. Cómo se sabe que cada idea quedó entera
 
 Un criterio por idea, y los tres son comprobables sin preguntarle a nadie:

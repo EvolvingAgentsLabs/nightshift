@@ -493,6 +493,97 @@ def _print_dream_report(report):
     print("se inyectan con menos peso y marcadas como no verificadas (spec §6.3).")
 
 
+def cmd_experiments(args) -> int:
+    """Recorrer las hipótesis del proyecto, una por archivo.
+
+    Es la cola de trabajo del pivot hecha script: cada archivo de `experimentos/hipotesis/`
+    valida **una** hipótesis y devuelve `PASS`, `FAIL` o `BLOCKED`.
+
+    La distinción entre los tres es lo único que hace útil a esta lista:
+
+    - `PASS` es que se **comprobó**, ejercitando el código. Un experimento que no ejercita
+      nada no es un experimento: es una opinión con nombre de archivo.
+    - `FAIL` es un resultado, no un error: es la lista de lo que falta.
+    - `BLOCKED` es distinto de `FAIL` — la hipótesis no se puede comprobar todavía porque
+      depende de una decisión humana o de material que no existe. Confundirlos convierte
+      una espera en un fracaso, y este repo ya pagó esa confusión.
+
+    Sale 0 si no hay ningún `FAIL`: un `BLOCKED` no rompe el gate, lo espera.
+    """
+    import importlib.util
+
+    carpeta = PLUGIN_ROOT / "experimentos" / "hipotesis"
+    if not carpeta.is_dir():
+        print("no hay `experimentos/hipotesis/`: esto corre desde el repo, no desde un "
+              "plugin instalado.", file=sys.stderr)
+        return 2
+
+    archivos = sorted(p for p in carpeta.glob("H*.py") if not p.name.startswith("_"))
+    if args.only:
+        archivos = [p for p in archivos if p.name.upper().startswith(args.only.upper())]
+        if not archivos:
+            print("ninguna hipótesis empieza con %s" % args.only, file=sys.stderr)
+            return 2
+
+    resultados = []
+    for ruta in archivos:
+        spec = importlib.util.spec_from_file_location(ruta.stem, ruta)
+        modulo = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(modulo)
+            estado, detalle = modulo.correr()
+        except Exception as exc:                       # un experimento roto no es un PASS
+            estado, detalle = "FAIL", "el experimento no corrió: %r" % (exc,)
+        resultados.append({"id": ruta.name.split("-")[0], "idea": getattr(modulo, "IDEA", "?"),
+                           "hypothesis": getattr(modulo, "HIPOTESIS", ruta.stem),
+                           "status": estado, "detail": str(detalle), "file": ruta.name})
+
+    if args.json:
+        json.dump(resultados, sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+    else:
+        _print_experimentos(resultados, verbose=args.verbose)
+
+    fallan = [r for r in resultados if r["status"] == "FAIL"]
+    return 1 if fallan else 0
+
+
+IDEAS = {"CTE": "1 · la cadena de pensamiento es la cadena de ejecución",
+         "adelante": "2 · correr la cadena para adelante",
+         "idear": "3 · idear en vez de razonar",
+         "oraculos": "§7 · oráculos"}
+
+
+def _print_experimentos(resultados, verbose=False):
+    marca = {"PASS": "✓", "FAIL": "✗", "BLOCKED": "⏸"}
+    print("nightshift experiments · una hipótesis por archivo")
+    for clave, titulo in IDEAS.items():
+        del_grupo = [r for r in resultados if r["idea"] == clave]
+        if not del_grupo:
+            continue
+        print()
+        print("idea %s" % titulo)
+        for r in del_grupo:
+            print("  %s %s  %s" % (marca.get(r["status"], "?"), r["id"], r["hypothesis"]))
+            if verbose or r["status"] != "PASS":
+                for linea in r["detail"].splitlines():
+                    print("        %s" % linea)
+    sueltos = [r for r in resultados if r["idea"] not in IDEAS]
+    if sueltos:
+        print()
+        print("sin idea declarada")
+        for r in sueltos:
+            print("  %s %s  %s" % (marca.get(r["status"], "?"), r["id"], r["hypothesis"]))
+
+    cuenta = {estado: len([r for r in resultados if r["status"] == estado])
+              for estado in ("PASS", "FAIL", "BLOCKED")}
+    print()
+    print("%d de %d comprobadas · %d sin implementar · %d esperando algo"
+          % (cuenta["PASS"], len(resultados), cuenta["FAIL"], cuenta["BLOCKED"]))
+    if cuenta["BLOCKED"]:
+        print("`BLOCKED` no es `FAIL`: no rompe el gate, lo espera.")
+
+
 def cmd_resolve(args) -> int:
     """Resolver una conjetura: el humano como oráculo (plan §7, F1).
 
@@ -2225,6 +2316,13 @@ def main(argv=None) -> int:
                    help="gate de M3-a: correr sobre un set fixture en un store desechable")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_dream)
+
+    p = sub.add_parser("experiments", help="recorrer las hipótesis del proyecto: cuáles"
+                                          " se comprobaron y cuáles faltan")
+    p.add_argument("--only", help="una sola hipótesis, por prefijo (p. ej. H03)")
+    p.add_argument("--verbose", action="store_true", help="el detalle también de las que pasan")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_experiments)
 
     p = sub.add_parser("resolve", help="resolver una conjetura proyectada por dream:"
                                        " confirmada o refutada, siempre con evidencia")
