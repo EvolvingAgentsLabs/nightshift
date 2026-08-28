@@ -467,6 +467,21 @@ Eso importa: son las primeras conjeturas escritas con esas reglas, y nadie las m
    síntoma retenido más que el control y lo paga con un prompt ajeno. Para cerrarlo hace
    falta volumen, que es lo mismo que le falta a todo lo demás.
 
+### Lo que dejó el sueño de esa noche, ya mirado
+
+El punto 1 de la cola de arriba **ya se hizo**, la misma noche. `nightshift sleep` consolidó
+`8678f39f` y lo que se vio está en `LATER.md`:
+
+- La regla del vocabulario **cambia lo que el modelo escribe**: los `signals` salieron en
+  palabras de síntoma y no de diseño. Una trayectoria no es una medición, pero apunta a
+  donde el `09` decía que faltaba.
+- La regla de abstención **no se ejercitó**: grupo de 1.
+- Apareció un falso positivo nuevo, y lo carga **una sola palabra**: `arranca`. Es una clase
+  que `_PREDICADOS_DE_FALLO` no cubre —verbos genéricos de proceso, no de fallo— y es la
+  tercera colisión de este tipo que encuentra el repo. **Medirlo antes de tocar la lista**:
+  el corpus son los 18 prompts ajenos del `09` y las 28 conjeturas del store. Ése es el
+  primer trabajo concreto que tiene la sesión que sigue.
+
 ### Lo que NO hay que hacer, y es tentador
 
 - **Re-consolidar `cbbd7ff0` con el prompt nuevo y anunciar que H17 pasó.** El conjunto

@@ -85,6 +85,63 @@ mientras esperan. **Los umbrales no los escribí yo y no están.**
 
 ---
 
+## Un enganche falso lo carga un verbo genérico: `arranca` (2026-08-28, noche)
+
+El ciclo de sueño posterior al merge de #61 consolidó `8678f39f` — la sesión de los
+experimentos, sellada con 176 pasos. Al medir sus conjeturas con el corpus del `09`, un
+prompt ajeno enganchó:
+
+    "el certificado ssl del dominio vencio y el deploy no arranca"
+      comunes=['arranca']
+      <- "La exploración inicial del proyecto arranca con un fallo que igual parece haber
+          funcionado"
+
+**Una sola palabra, y no es un predicado de fallo.** `_PREDICADOS_DE_FALLO` cubre a los que
+dicen *que* algo se rompió —`falla`, `rompe`, `anda`— y por eso no atrapa a éste: `arranca`
+no dice que algo se rompió, dice que algo **empieza**. Es una clase nueva: **verbos
+genéricos de proceso** (`arranca`, `empieza`, `termina`, `corre`, `pasa`) que aparecen en
+cualquier prompt de cualquier dominio y no nombran de qué se habla.
+
+Es la tercera colisión de un solo sustantivo o verbo que encuentra este repo: `falla`
+(enmienda 0.3.6), `linter` (experimento `07`), y ahora `arranca`.
+
+**Qué NO se hizo, y por qué.** Extender la lista es tocar el ranking, y las dos entradas
+que ya tiene salieron de **medir** sobre un corpus, no de intuición (spec §5.10, enmienda
+0.3.6). Lo mismo corresponde acá: proponer la lista, medir cuántos falsos positivos saca y
+cuántos enganches verdaderos se lleva puestos, y recién entonces tocarla. Sin esa medición
+es una lista de palabras que a alguien le parecieron genéricas, que es exactamente cómo se
+empieza a decidir a mano qué se parece a qué.
+
+**El corpus para medirlo ya existe:** los 18 prompts ajenos del `09` y las 28 conjeturas del
+store.
+
+---
+
+## Lo que dejó el primer sueño con el prompt nuevo (2026-08-28, noche)
+
+Primera consolidación real con las tres reglas que entraron en #61. La candidata
+`8678f39f` salió de un **grupo de 1**, así que la regla de abstención no se ejercitó — con
+una sola trayectoria no hay mecanismo compartido que verificar. Lo que sí se ve es la otra
+regla, la del vocabulario, y se ve fuerte:
+
+| | cómo escribe `signals` |
+|---|---|
+| `cbbd7ff0` (prompt viejo) | *"El control negativo reporta una diferencia de listas contra la lista vacía esperada"* |
+| `8678f39f` (prompt nuevo) | *"El comando termina en error pero igual imprimió todo el listado que se esperaba"* |
+
+El de arriba nombra el diseño; el de abajo nombra el síntoma, que es lo que alguien tipea.
+Es **una** trayectoria y no es una medición — la medición limpia es
+`12-sensibilidad.py` con el retenido que escriba una persona. Pero es la primera señal sobre
+material real y apunta en la dirección que el `09` decía que faltaba.
+
+**Y el patrón que abstrajo es sobre el agente, no sobre el repo:** rutas relativas escritas
+dando por sentado un directorio de origen que el proceso siguiente no hereda, con el primer
+fallo devolviendo sólo un código de salida mientras imprimía salida plausible. Es CTE en su
+forma más literal — la cadena capturada es la de ejecución, y el error que abstrajo lo
+cometió el agente durante esta misma sesión.
+
+---
+
 ## Las conjeturas no son horóscopos — y el problema es el contrario (2026-08-28)
 
 `experimentos/09-lectura-en-frio.py`. Cada una de las 23 conjeturas del store, medida sola
