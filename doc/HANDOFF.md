@@ -515,11 +515,15 @@ agente: cambian cuánto contexto se gasta por sesión.
 `experimentos/13-cuanto-discrimina-el-enganche.py`, sobre el store real, 17 prompts
 verdaderos y 24 ajenos:
 
-| piso | verdaderos | ajenos |
-|---|---|---|
-| **1 (hoy)** | 15 de 17 (88%) | **17 de 24 (71%)** |
-| 2 | 5 de 17 (29%) | 2 de 24 (8%) |
-| 3 | 1 de 17 (6%) | 0 de 24 (0%) |
+| piso | engancha algo | la que corresponde | entra en el top-3 | ajenos |
+|---|---|---|---|---|
+| **1 (hoy)** | 15 de 17 | 11 de 17 | **4 de 17** | 17 de 24 |
+| 2 | 5 de 17 | 5 de 17 | **5 de 17** | 2 de 24 |
+| 3 | 1 de 17 | 0 de 17 | 0 de 17 | 0 de 24 |
+
+Sólo la tercera columna importa: una memoria correcta que engancha pero queda cuarta no
+llegó, porque `max_injected` es 3. **Subir el piso es mejor en las dos mitades**, no un
+intercambio.
 
 La enmienda 0.3.6 fijó el piso en 1 midiendo contra **una sola candidata**, y para ese store
 eligió bien: 6% de falsos positivos. Con seis candidatas y veintiocho conjeturas casi
@@ -529,9 +533,9 @@ cualquier prompt encuentra una palabra en común con alguna superficie.
 a medida que crece. Cualquier umbral fijado contra un store chico va a envejecer — y ése es
 el problema de diseño, más que el número de hoy.
 
-No se tocó nada: subir el piso es spec, y es un intercambio (10 enganches verdaderos por 15
-falsos positivos), no una mejora. Los dos verbos que salen gratis —`corre`, `queda`, 3 falsos
-positivos, 0 verdaderos— entran junto con la decisión grande o no entran.
+No se tocó nada: subir el piso es **spec**, y aunque la medición lo favorece, cambiar un
+umbral que una enmienda fijó no es de un agente. Los dos verbos que salen gratis —`corre`,
+`queda`— entran junto con la decisión grande o no entran.
 
 ### Lo que NO hay que hacer, y es tentador
 

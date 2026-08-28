@@ -6,20 +6,23 @@ sostener un enganche sola, como ya se decidió para los predicados de fallo. La 
 apareció al medir: **el enganche destilado casi no discrimina cuando el store tiene más de
 una memoria.**
 
-    piso  verdaderos    ajenos
-      1     15 de 17     17 de 24      <- el de hoy (enmienda 0.3.6)
-      2      5 de 17      2 de 24
-      3      1 de 17      0 de 24
+    piso  engancha algo  la que corresponde  y entra en el top-3   ajenos
+      1     15 de 17       11 de 17            4 de 17              17 de 24   <- hoy
+      2      5 de 17        5 de 17            5 de 17               2 de 24
+      3      1 de 17        0 de 17            0 de 17               0 de 24
 
-Con el piso de hoy engancha el **88%** de los prompts verdaderos y el **71%** de los
-ajenos. La enmienda 0.3.6 midió ese piso contra **una sola candidata** y para ese store
-eligió bien: 6% de falsos positivos. El store creció a seis candidatas y veintiocho
-conjeturas, y con seis superficies distintas casi cualquier prompt encuentra una palabra en
-común con alguna.
+**Las tres columnas de verdaderos no dicen lo mismo, y sólo la tercera importa.** Con el
+piso de hoy engancha algo el 88% de los prompts, pero la memoria que corresponde entra en la
+inyección **4 de 17**: las otras la desplazan. Con piso 2 entra **5 de 17** —más— y los
+falsos positivos caen de 17 a 2.
 
-**No es un bug y no lo arregla una lista de palabras.** Sacar los verbos genéricos que
-salieron gratis remueve 3 de 17 falsos positivos. El resto no lo carga ninguna palabra en
-particular: lo carga que haya seis memorias y un piso de una palabra.
+**Subir el piso no es un intercambio: es mejor en las dos mitades.** Lo que se pierde al
+bajarlo no son enganches útiles, son enganches con la memoria equivocada que además tapan a
+la correcta.
+
+La enmienda 0.3.6 midió el piso contra **una sola candidata**, donde "engancha algo" y
+"engancha la que corresponde" son la misma pregunta. Con seis candidatas se separan, y ahí
+se ve que el piso bajo compra ruido.
 
 Lo que sigue abajo es la pregunta chica, con su respuesta, porque su medición es la que
 destapó la grande.
@@ -82,25 +85,32 @@ import camino_real                                                  # noqa: E402
 
 # Las 14 paráfrasis humanas del `05` (escritas para `fff6af83`, antes de esta pregunta) y
 # los 3 síntomas retenidos que una persona confirmó para `cbbd7ff0`.
-VERDADEROS = [
-    "ninguna de las acciones que ejecute quedo con descripcion",
-    "las tool calls se registran pero sin ningun detalle de lo que hicieron",
-    "no se que hizo el agente porque los registros no tienen informacion",
-    "no puedo saber si la sesion termino bien o mal",
-    "todas las sesiones me quedan sin resultado final",
-    "las trayectorias son indistinguibles, solo cambia el numero de pasos",
-    "todo me cae en la categoria por defecto, nada se clasifica",
-    "el vacio es parejo en todos lados, no parece un caso aislado",
-    "la busqueda me trae siempre lo mismo sin importar que le pregunte",
-    "el ranking no cambia aunque cambie el texto que le paso",
-    "dos resumenes de tareas diferentes me salieron practicamente iguales",
-    "las metricas dicen que esta todo bien pero es mentira",
-    "abri un registro guardado y estaba todo vacio, los campos existen pero no tienen nada adentro",
-    "los datos se guardan pero cuando los leo no hay texto en ningun lado",
-    "el resumen dice que esta todo bien pero no conto ninguna celda",
-    "la corrida termina en verde y no proceso ni un solo caso",
-    "el chequeo pasa porque su patron no encontro ningun archivo",
+# Cada prompt con **la memoria que le corresponde**, y esa columna es la que hacía falta:
+# preguntar "¿engancha algo?" cuenta como acierto que el prompt de una paráfrasis de
+# `fff6af83` enganche con `07695a69`, que es un falso positivo con otro nombre. La
+# procedencia: las 14 primeras son las paráfrasis humanas del `05`, escritas para
+# `fff6af83`; las 3 últimas, los síntomas retenidos que una persona confirmó de `cbbd7ff0`.
+VERDADEROS_CON_MEMORIA = [
+    ("ninguna de las acciones que ejecute quedo con descripcion", "fff6af83"),
+    ("las tool calls se registran pero sin ningun detalle de lo que hicieron", "fff6af83"),
+    ("no se que hizo el agente porque los registros no tienen informacion", "fff6af83"),
+    ("no puedo saber si la sesion termino bien o mal", "fff6af83"),
+    ("todas las sesiones me quedan sin resultado final", "fff6af83"),
+    ("las trayectorias son indistinguibles, solo cambia el numero de pasos", "fff6af83"),
+    ("todo me cae en la categoria por defecto, nada se clasifica", "fff6af83"),
+    ("el vacio es parejo en todos lados, no parece un caso aislado", "fff6af83"),
+    ("la busqueda me trae siempre lo mismo sin importar que le pregunte", "fff6af83"),
+    ("el ranking no cambia aunque cambie el texto que le paso", "fff6af83"),
+    ("dos resumenes de tareas diferentes me salieron practicamente iguales", "fff6af83"),
+    ("las metricas dicen que esta todo bien pero es mentira", "fff6af83"),
+    ("abri un registro guardado y estaba todo vacio, los campos existen pero no tienen nada adentro",
+     "fff6af83"),
+    ("los datos se guardan pero cuando los leo no hay texto en ningun lado", "fff6af83"),
+    ("el resumen dice que esta todo bien pero no conto ninguna celda", "cbbd7ff0"),
+    ("la corrida termina en verde y no proceso ni un solo caso", "cbbd7ff0"),
+    ("el chequeo pasa porque su patron no encontro ningun archivo", "cbbd7ff0"),
 ]
+VERDADEROS = [p for p, _ in VERDADEROS_CON_MEMORIA]
 
 # El control negativo del `05` más el del `09`.
 AJENOS = [
@@ -176,6 +186,39 @@ def medir_con(conn, cfg, fingerprint, extra=()):
     finally:
         retrieve._PREDICADOS_DE_FALLO = original
     return v, a
+
+
+def medir_fino(conn, cfg, fingerprint, piso):
+    """Tres preguntas distintas, y sólo la tercera es la que le importa a una sesión.
+
+    1. ¿engancha **algo**? — es lo que se venía midiendo, y cuenta como acierto que la
+       paráfrasis de una memoria enganche con otra.
+    2. ¿engancha **la que corresponde**? — un enganche con la memoria equivocada es un
+       falso positivo con otro nombre.
+    3. ¿la que corresponde **entra en el top-`max_injected`**? — porque lo que el agente
+       lee son las primeras, y una memoria correcta desplazada por tres incorrectas no
+       llegó.
+    """
+    from nightshift import context, retrieve
+    n = cfg.get("max_injected", 3)
+    original = retrieve.MIN_TOKENS_DESTILADO
+    retrieve.MIN_TOKENS_DESTILADO = piso
+    algo = correcta = arriba = 0
+    try:
+        for prompt, memoria in VERDADEROS_CON_MEMORIA:
+            scored = retrieve.candidates(conn, task_type=context.classify_task(prompt),
+                                         repo_fingerprint=fingerprint, cfg=cfg,
+                                         prompt=prompt)
+            def engancha_fila(m):
+                return bool(retrieve.MOTIVOS_DE_ENGANCHE & set(m.split(",")))
+            algo += any(engancha_fila(m) for _, m, _ in scored)
+            correcta += any(r["id"].startswith(memoria) and engancha_fila(m)
+                            for _, m, r in scored)
+            arriba += any(r["id"].startswith(memoria) for _, _, r in scored[:n])
+        ajenos = [p for p in AJENOS if engancha(conn, cfg, p, fingerprint)]
+    finally:
+        retrieve.MIN_TOKENS_DESTILADO = original
+    return {"algo": algo, "correcta": correcta, "arriba": arriba, "ajenos": len(ajenos)}
 
 
 def medir_con_piso(conn, cfg, fingerprint, piso):
@@ -255,23 +298,32 @@ def main():
         print("=" * 74)
         print("Y la pregunta grande, que apareció midiendo la chica:")
         print()
-        print("%-6s %-14s %s" % ("piso", "verdaderos", "ajenos"))
+        print("%-6s %-13s %-15s %-16s %s"
+              % ("piso", "engancha algo", "engancha la que", "y entra en el", "ajenos"))
+        print("%-6s %-13s %-15s %-16s %s" % ("", "", "corresponde", "top-%d" % cfg.get("max_injected", 3), ""))
+        print("-" * 74)
         for piso in (1, 2, 3):
-            v, a = medir_con_piso(conn, cfg, fingerprint, piso)
-            print("%-6s %-14s %s  %s"
-                  % (piso, "%d de %d" % (len(v), len(VERDADEROS)),
-                     "%d de %d" % (len(a), len(AJENOS)),
-                     "<- el de hoy" if piso == 1 else ""))
+            r = medir_fino(conn, cfg, fingerprint, piso)
+            print("%-6s %-13s %-15s %-16s %s  %s"
+                  % (piso, "%d de %d" % (r["algo"], len(VERDADEROS)),
+                     "%d de %d" % (r["correcta"], len(VERDADEROS)),
+                     "%d de %d" % (r["arriba"], len(VERDADEROS)),
+                     "%d de %d" % (r["ajenos"], len(AJENOS)),
+                     "<- hoy" if piso == 1 else ""))
+        print("-" * 74)
         print()
-        print("El piso de hoy engancha el 88% de los verdaderos y el 71% de los ajenos.")
-        print("La enmienda 0.3.6 lo midió contra UNA candidata y para ese store eligió")
-        print("bien: 6% de falsos positivos. Con seis candidatas y veintiocho conjeturas,")
-        print("casi cualquier prompt encuentra una palabra en común con alguna superficie.")
+        print("**Las tres columnas de verdaderos no dicen lo mismo, y sólo la tercera")
+        print("importa.** Con el piso de hoy engancha algo el 88% de los prompts, pero la")
+        print("memoria que corresponde entra en la inyección sólo 4 de 17: las otras la")
+        print("desplazan. Con piso 2 entra 5 de 17 — más — y los falsos positivos caen de")
+        print("17 a 2.")
         print()
-        print("No lo arregla una lista de palabras: los verbos gratis sacan 3 de 17. El")
-        print("resto lo carga que haya seis memorias y un piso de una palabra. Subir el")
-        print("piso a 2 baja los falsos positivos a 2 y se lleva 10 verdaderos: es un")
-        print("intercambio, no una mejora, y elegirlo es spec.")
+        print("Subir el piso NO es un intercambio: es mejor en las dos mitades. Lo que se")
+        print("pierde al bajarlo no son enganches útiles, son enganches con la memoria")
+        print("equivocada que además tapan a la correcta.")
+        print()
+        print("La enmienda 0.3.6 midió el piso contra UNA candidata, donde 'engancha algo'")
+        print("y 'engancha la que corresponde' son lo mismo. Con seis, se separan.")
         print("=" * 74)
         print()
         print("Esto mide el **ranking**. Lo que llega al agente pasa además por la")

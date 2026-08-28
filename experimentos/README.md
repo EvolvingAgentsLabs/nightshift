@@ -633,22 +633,24 @@ conjetura aislada y falsa contra el store.
 **La respuesta grande, que es la que importa:**
 
 ```
-piso  verdaderos    ajenos
-  1     15 de 17     17 de 24      <- el de hoy (enmienda 0.3.6)
-  2      5 de 17      2 de 24
-  3      1 de 17      0 de 24
+piso  engancha algo  la que corresponde  entra en el top-3   ajenos
+  1     15 de 17       11 de 17            4 de 17           17 de 24   <- hoy
+  2      5 de 17        5 de 17            5 de 17            2 de 24
+  3      1 de 17        0 de 17            0 de 17            0 de 24
 ```
 
-Con el piso de hoy engancha el **88% de los verdaderos y el 71% de los ajenos**. La enmienda
-0.3.6 midió ese piso contra **una sola candidata** y para ese store eligió bien: 6% de falsos
-positivos, y está documentado. El store creció a seis candidatas y veintiocho conjeturas, y
-con seis superficies distintas casi cualquier prompt encuentra una palabra en común con
-alguna.
+**Las tres columnas de verdaderos no dicen lo mismo, y sólo la tercera importa.** Preguntar
+"¿engancha algo?" cuenta como acierto que la paráfrasis de una memoria enganche con otra, y
+una memoria correcta que queda cuarta no llegó: `max_injected` es 3.
 
-**No es un bug y no lo arregla una lista de palabras.** Los dos verbos gratis sacan 3 de 17.
-El resto no lo carga ninguna palabra en particular: lo carga que haya seis memorias y un piso
-de una palabra. Subir el piso a 2 deja los falsos positivos en 2 y **se lleva 10 verdaderos**:
-es un intercambio, no una mejora.
+Con el piso de hoy **la memoria que corresponde entra en la inyección 4 de 17**. Con piso 2
+entra 5 —más— y los falsos positivos caen de 17 a 2. **Subir el piso es mejor en las dos
+mitades**, no un intercambio: lo que se pierde al bajarlo son enganches con la memoria
+equivocada que además tapan a la correcta.
+
+La enmienda 0.3.6 midió el piso contra **una sola candidata**, donde "engancha algo" y
+"engancha la que corresponde" son la misma pregunta. No estuvo mal medida: midió lo que se
+podía medir con el store que había.
 
 **Y una lectura que conviene no perder:** el `09` midió 6% de falsos positivos montando cada
 conjetura **sola**. Ese número era correcto y describía un store de una memoria. La
