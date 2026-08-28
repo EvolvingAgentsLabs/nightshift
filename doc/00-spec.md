@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005 |
-| Revisión | 0.3.7 — idear deja de ser una estrategia y pasa a ser el flujo; el enganche ordena antes que el puntaje |
+| Revisión | 0.3.8 — el capítulo: sellar y soñar a demanda, sin cerrar la sesión |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -530,7 +530,9 @@ Las skills de un plugin llevan el namespace del plugin, así que los nombres rea
 - `/nightshift:dev` — estado de desarrollo del propio plugin, para las sesiones que lo
   modifican.
 - `/nightshift:dream` — **fase 1 (`consolidate`), desde M3-a.** `--verify` no existe:
-  la fase 2 es M5 y está bloqueada hasta el veredicto de M4.
+  la fase 2 es M5 y sigue prohibida.
+- `/nightshift:sleep` — **el capítulo (enmienda 0.3.8).** Sella la trayectoria en curso y
+  consolida su grupo, sin cerrar la sesión.
 
 Todas son envoltorios finos sobre `nightshift <subcomando>`, que es donde vive la lógica
 para poder testearla sin un harness corriendo.
@@ -612,6 +614,39 @@ default — la misma clase de silencio que ya costó dos milestones (§5.9).
 El brazo de control no se pierde: `build_prompt(..., ideate=False)` sigue existiendo para
 `experimentos/ideate.py`, que es donde se mide la diferencia entre las dos ramas. Lo que
 se perdió es la posibilidad de que una corrida del plugin no idee sin que nadie lo note.
+
+**Enmienda 0.3.8 — el capítulo, y quién pone el borde.** La sesión era la unidad de
+captura y la trayectoria la unidad de consolidación, así que eran la misma cosa: dream
+sólo mira `closed`, y la trayectoria en curso se cierra en `SessionEnd`. Para consolidar
+lo que se acaba de hacer había que dejar de hacerlo, y cuanto más largo el día, menos
+consolidable quedaba — quince tandas con su rama y su merge se guardan como una sola cosa
+que no se parece a nada (`LATER.md`, "un día no es una trayectoria").
+
+Segmentar sola una sesión larga sigue sin resolverse y no se resuelve acá. Lo que se hace
+es **esquivar el problema**: `nightshift sleep` sella el capítulo en curso y consolida su
+grupo. El detector de bordes es la persona que trabaja, que ya sabe cuándo terminó un
+capítulo — un `make check` en verde, un merge.
+
+Cuatro decisiones que la acompañan:
+
+- **`Stop` sigue sin cerrar nada.** §5.6 no cambia: cerrar por turno partiría la sesión
+  sin que nadie lo pidiera. Sellar a demanda hace la misma partición **porque alguien la
+  pidió en el borde que eligió**, y esa es toda la diferencia.
+- **La sesión sigue capturando.** `hook._ensure_trajectory` abre una trayectoria nueva
+  cuando la sesión no tiene ninguna `open`. Sellar la deja sin trayectoria abierta hasta
+  el próximo evento de hook, y nada más. Hay un test que lo fija: si dejara de ser cierto,
+  la captura se apagaría a mitad de sesión en silencio, que es el peor modo de falla de
+  este proyecto (§7.2).
+- **Se consolida el grupo del capítulo, no el período.** `consolidate(only_trajectory=…)`
+  filtra por pertenencia, no por posición como `--max-groups`. Con el backend
+  `claude-code` la diferencia se paga por token (ADR-003).
+- **El capítulo se identifica por repo y actividad, no por sesión.** El CLI no recibe el
+  `session_id` — `CLAUDE_PLUGIN_DATA` llega a los hooks y no al Bash tool (§5.9) — así que
+  con más de una trayectoria `open` del mismo repo el comando **se niega** y pide cuál.
+  Adivinar sellaría el capítulo de la sesión equivocada.
+
+Lo que no cambia: lo que sale es `candidate` y nada llega a `procedure`. Un ciclo a
+demanda no es una verificación.
 
 Una `candidate` **no** requiere que varias trayectorias compartan un patrón. Se comprobó
 con el modelo real: un grupo de una sola trayectoria con contenido produce candidata. El
@@ -937,3 +972,11 @@ pide que la configuración de retrieval y la estrategia de consolidación sean c
 del experimento. M4 está pausado, así que no hay ninguna corrida que invalidar — pero el
 cambio queda escrito acá, que es lo que no pasó el 2026-08-27 cuando el ranking cambió
 tres veces en una sesión sin dejar constancia.
+
+### Enmiendas 0.3.8 (el capítulo)
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.5, 6.1 | `nightshift sleep`: sella la trayectoria en curso y consolida su grupo, sin cerrar la sesión | Dream sólo ve `closed`, y la trayectoria en curso se cierra en `SessionEnd`: para soñar sobre lo que acabás de hacer había que dejar de hacerlo. Segmentar sola una sesión larga sigue sin resolverse; el borde lo pone la persona que trabaja, que ya sabe cuándo terminó un capítulo |
+| 6.1 | `consolidate(only_trajectory=…)` acota la corrida a los grupos que contienen esa trayectoria | Filtra por pertenencia y no por posición, que es lo que `--max-groups` no puede hacer. Consolidar la semana entera cuesta la semana entera y no es lo que pidió quien selló un capítulo |
+| 5.6 | Sin cambio, y queda dicho: `Stop` **sigue** sin cerrar la trayectoria | Cerrar por turno partiría la sesión sin que nadie lo pidiera. Sellar a demanda hace la misma partición porque alguien la pidió en el borde que eligió |

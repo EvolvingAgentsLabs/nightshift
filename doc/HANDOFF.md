@@ -101,12 +101,13 @@ Arrancá con `nightshift dev`.
 | Retrieval estructural e inyección | `nightshift/retrieve.py` |
 | Auditoría del store (gate de M1) | `nightshift/audit.py` |
 | Dream fase 1 — `consolidate`, con ideación y proyección | `nightshift/dream.py` |
+| Capítulo a demanda — `sleep` sella y consolida sin cerrar la sesión | `dream.seal_chapter`, `cli.cmd_sleep` |
 | Contraste entre una alternativa descartada y la que la reemplazó | `nightshift/dream.py`, `store.mark_superseded` |
 | Scheduler pluggable + registro de corridas | `nightshift/schedule.py` |
 | Cohorte de captura: `status` no promedia entre generaciones | `store.COHORTE_DE_CAPTURA` |
 | Runner del benchmark de M4 (se niega a correr) | `nightshift/bench.py` |
 | CLI y skills | `nightshift/cli.py`, `skills/` |
-| Gate | `make check` — lint-docs, lint-code, schema, 305 tests, selftest |
+| Gate | `make check` — lint-docs, lint-code, schema, 317 tests, selftest |
 | Gate del pivot | `make dogfood` — `check` y después `doctor`, `audit` y `status` sobre el store **real** |
 | Gate con modelo local | `make dream-selftest` — fuera de `check` a propósito |
 
@@ -389,8 +390,10 @@ bloqueaba era qué pasos veía el modelo: seis por trayectoria elegidos por la b
 mientras 177 pasos con texto no se miraban. Arreglado en spec §6.1 (enmienda 0.3.5); el
 experimento y la corrección están en `LATER.md`.
 
-Lo del **capítulo** sigue en pie, pero como problema de calidad: de un día heterogéneo
-sale una candidata que lo promedia. No está en el plan v0.3.
+Lo del **capítulo** se resolvió a medias el 2026-08-28: `nightshift sleep` sella la
+trayectoria en curso y consolida su grupo sin cerrar la sesión (enmienda 0.3.8). El borde
+lo pone una persona; **detectarlo sigue sin resolverse**, y ahora conviene medir antes de
+automatizar. Ver `LATER.md`.
 
 ---
 

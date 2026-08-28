@@ -387,6 +387,68 @@ def groups(conn, *, lookback_days=7, limit=200):
     return [buckets[key] for key in sorted(buckets)]
 
 
+# ------------------------------------------------------------------- capítulos
+#
+# **La sesión es la unidad de captura y la trayectoria es la unidad de consolidación, así
+# que hasta acá eran la misma cosa** — y cuanto más productivo es el día, menos
+# consolidable queda: quince tandas de trabajo, cada una con su rama y su merge, se
+# guardan como una sola trayectoria que no se parece a nada (`LATER.md`).
+#
+# Segmentar sola una sesión larga es el problema difícil, y sigue sin resolverse. Lo que
+# esto hace es **esquivarlo**: la persona que está trabajando sabe cuándo terminó un
+# capítulo —un `make check` en verde, un merge— y lo dice. El detector de bordes es ella.
+#
+# `Stop` no cierra la trayectoria a propósito (spec §5.6): dispara por turno, y cerrar ahí
+# partiría la sesión en dos sin que nadie lo pidiera. Sellar a demanda hace exactamente
+# eso, la partición, pero **porque alguien la pidió en el borde que eligió**. Esa es toda
+# la diferencia, y es la que la vuelve legítima.
+#
+# Que la sesión siga capturando después no es una esperanza: `hook._ensure_trajectory`
+# busca la trayectoria `open` de la sesión y, si no hay, **abre una nueva**. Sellar deja a
+# la sesión sin trayectoria abierta exactamente hasta el próximo evento de hook. Hay un
+# test que lo fija, porque si eso dejara de ser cierto la captura se apagaría en silencio
+# a mitad de sesión, que es el peor modo de falla de este proyecto.
+
+
+def open_chapters(conn, repo_fingerprint=None, limit=10):
+    """Trayectorias `open`, la de actividad más reciente primero.
+
+    El CLI **no sabe el `session_id`**: `CLAUDE_PLUGIN_DATA` llega a los hooks y no al
+    Bash tool, y por eso el store se fija en `~/.nightshift` (HANDOFF §3). Así que el
+    capítulo en curso se identifica por repo y actividad, no por sesión — y cuando hay más
+    de uno, quien llama tiene que elegir en vez de adivinar.
+    """
+    sql = ("SELECT t.*,"
+           " COALESCE((SELECT MAX(s.at) FROM steps s WHERE s.trajectory_id = t.id),"
+           "          t.created_at) AS last_at,"
+           " (SELECT COUNT(*) FROM steps s WHERE s.trajectory_id = t.id) AS n_steps"
+           " FROM trajectories t WHERE t.status = 'open'")
+    params = []
+    if repo_fingerprint:
+        sql += " AND t.repo_fingerprint = ?"
+        params.append(repo_fingerprint)
+    sql += " ORDER BY last_at DESC, t.rowid DESC LIMIT ?"
+    params.append(limit)
+    return conn.execute(sql, params).fetchall()
+
+
+def seal_chapter(conn, row):
+    """Cierra una trayectoria `open` sin terminar la sesión. Devuelve `(estado, result)`.
+
+    El desenlace se infiere con la misma regla que usa `SessionEnd` — no hay una segunda
+    heurística para lo mismo. La evidencia dice que el borde lo puso una persona, porque
+    una trayectoria sellada a mano y una cerrada por fin de sesión no son la misma clase
+    de dato y el store tiene que poder distinguirlas.
+    """
+    from .hook import _infer_outcome        # tardío: `hook` no importa `dream`
+
+    result, evidence = _infer_outcome(conn, row["id"])
+    estado = store.close_trajectory(
+        conn, row["id"], result=result,
+        evidence=evidence or "capítulo sellado a demanda, sesión en curso")
+    return estado, result
+
+
 OUTCOME_RANK = {"tests_passed": 3, "unknown": 2, "user_corrected": 1}
 
 
@@ -805,13 +867,19 @@ def validate(data, *, redactor, home_dir, ideation=None):
 
 # ------------------------------------------------------------------ consolidar
 def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
-                max_groups=None, dry_run=False, log=None) -> dict:
+                max_groups=None, dry_run=False, log=None, only_trajectory=None) -> dict:
     """Ejecuta la fase 1 completa. Devuelve un reporte; no imprime nada.
 
     `max_groups` limita cuántos grupos consolida esta corrida. Cada grupo llama al
     modelo, y desde ADR-003 eso cuesta (el backend `claude-code` cobra por token). El
     límite corta por los primeros grupos en el orden estable de `groups()`; los que
     quedan afuera no se pierden, se consolidan en la próxima corrida.
+
+    `only_trajectory` acota la corrida a los grupos que **contienen** esa trayectoria. Es
+    lo que necesita un ciclo de sueño a demanda: sellar un capítulo y consolidar la semana
+    entera cuesta la semana entera, y quien pidió dormir sobre lo que acaba de hacer no
+    pidió eso. Filtra por pertenencia y no por posición, que es lo que `max_groups` no
+    puede hacer.
     """
     cfg = cfg or config.load()
     lookback = lookback_days if lookback_days is not None else cfg.get("dream_lookback_days", 7)
@@ -838,11 +906,14 @@ def consolidate(conn, model, *, cfg=None, identifiers=None, lookback_days=None,
     idear = True
 
     todos = groups(conn, lookback_days=lookback)
+    if only_trajectory:
+        todos = [g for g in todos if any(r["id"] == only_trajectory for r in g)]
     limitados = todos[:max_groups] if max_groups is not None else todos
     saltados_por_limite = len(todos) - len(limitados)
 
     reporte = {"model": model.name, "lookback_days": lookback, "groups": 0,
                "groups_total": len(todos), "groups_skipped_by_limit": saltados_por_limite,
+               "only_trajectory": only_trajectory,
                "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
                "strategy": "ideate",
                "trajectories": 0, "candidates": [], "superseded": [], "rejected": [],

@@ -443,6 +443,113 @@ def _print_dream_report(report):
     print("se inyectan con menos peso y marcadas como no verificadas (spec §6.3).")
 
 
+def cmd_sleep(args) -> int:
+    """Un ciclo de sueño **a demanda**: sella el capítulo en curso y consolida.
+
+    Hasta acá dream sólo veía trayectorias `closed`, y la de la sesión en curso se cierra
+    en `SessionEnd`. Es decir: para soñar sobre lo que acabás de hacer había que dejar de
+    hacerlo, y la memoria de una sesión no existía hasta el día siguiente.
+
+    Lo que esto agrega no es una segunda forma de consolidar — es la misma, `consolidate`,
+    sin ninguna rama nueva ni ningún gate de menos. Lo que agrega es el **borde**: dónde
+    termina un capítulo. Y no lo detecta: lo pregunta, porque quien está trabajando ya lo
+    sabe (`LATER.md`, "un día no es una trayectoria").
+
+    Consolida **sólo el grupo del capítulo sellado**. Dormir sobre lo que acabás de hacer
+    no es consolidar la semana entera, y con el backend `claude-code` la diferencia se
+    paga por token (ADR-003).
+    """
+    from . import dream as dream_mod
+
+    if not config.config_path().is_file():
+        print("nightshift no está configurado. Corré `nightshift init`.", file=sys.stderr)
+        return 2
+
+    fingerprint = context.repo_fingerprint(os.getcwd())
+    conn = store.connect()
+    try:
+        abiertos = dream_mod.open_chapters(conn, fingerprint)
+        if args.trajectory:
+            abiertos = [r for r in abiertos if r["id"].startswith(args.trajectory)]
+        sellado, codigo, mensaje = _sellar_capitulo(conn, abiertos, args, dream_mod)
+    finally:
+        conn.close()
+
+    if sellado is None:
+        # Ninguna de estas ramas llama al modelo. `sleep` significa una cosa —dormir sobre
+        # el capítulo que acabás de cerrar— y si no hay capítulo, consolidar la semana
+        # entera por las dudas sería gastar tokens en algo que nadie pidió. Para eso está
+        # `nightshift dream`, que es explícito.
+        salida = sys.stderr if codigo else sys.stdout
+        if args.json:
+            json.dump({"sealed": None, "exit": codigo, "reason": mensaje}, sys.stdout,
+                      indent=2, ensure_ascii=False)
+            sys.stdout.write("\n")
+        else:
+            print(mensaje, file=salida)
+        return codigo
+
+    if not args.json:
+        print(mensaje)
+        print()
+    args.selftest = False
+    args.only_trajectory = sellado
+    return cmd_dream(args)
+
+
+def _sellar_capitulo(conn, abiertos, args, dream_mod):
+    """Devuelve `(trajectory_id | None, exit_code, mensaje)`.
+
+    Con `trajectory_id` en `None` el ciclo no sigue: no hay capítulo sobre el que dormir.
+    El código de salida distingue "no había nada que sellar" —que no es un fallo— de "hay
+    un capítulo y está vacío", que es el modo de falla silencioso de este proyecto y tiene
+    que ser ruidoso.
+    """
+    if not abiertos:
+        if args.trajectory:
+            return None, 1, ("no hay ninguna trayectoria abierta de este repo que empiece"
+                             " con %s." % args.trajectory)
+        # Pasa al correr `sleep` dos veces seguidas: la primera selló y todavía no hubo un
+        # evento de hook que abra la siguiente.
+        return None, 0, ("no hay ningún capítulo abierto de este repo: no hay nada que"
+                         " sellar.\n`nightshift dream` consolida lo que ya está cerrado.")
+    if len(abiertos) > 1:
+        # El CLI no recibe el `session_id` (HANDOFF §3), así que con dos sesiones en
+        # paralelo elegir la más reciente sería adivinar — y sellarle el capítulo a la
+        # sesión equivocada la parte al medio sin que se entere.
+        lineas = ["hay %d trayectorias abiertas de este repo y no puedo saber cuál es la"
+                  " tuya:" % len(abiertos)]
+        for row in abiertos:
+            lineas.append("  %s  %-18s %s  pasos=%d"
+                          % (row["id"][:8], row["task_type"], row["last_at"], row["n_steps"]))
+        lineas.append("elegí una con `--trajectory <id>`.")
+        return None, 1, "\n".join(lineas)
+
+    row = abiertos[0]
+    etiqueta = "%s (%s, %d pasos)" % (row["id"][:8], row["task_type"], row["n_steps"])
+    if not row["n_steps"]:
+        return None, 0, ("el capítulo abierto %s no tiene un solo paso: no hay nada sobre"
+                         " lo que dormir." % etiqueta)
+    if not dream_mod.tiene_contenido(conn, row):
+        # Sellar una silueta la deja `closed` para siempre y dream la va a saltar igual.
+        # Lo que hay que arreglar está aguas arriba, en la captura, y sale 1 porque el
+        # silencio es exactamente lo que este proyecto no puede permitirse.
+        return None, 1, ("el capítulo abierto %s tiene pasos pero **ninguno con"
+                         " contenido**: no se sella.\ncorré `nightshift doctor` — esto es"
+                         " un problema de captura, no de dream." % etiqueta)
+    if args.dry_run:
+        return None, 0, ("--dry-run: sellaría el capítulo %s y consolidaría su grupo."
+                         "\nNo se selló ni se le preguntó nada al modelo." % etiqueta)
+
+    estado, resultado = dream_mod.seal_chapter(conn, row)
+    if estado != "closed":
+        return None, 1, ("el capítulo %s quedó en `%s`, no en `closed`: no se consolida."
+                         % (etiqueta, estado))
+    return row["id"], 0, ("capítulo %s sellado como `%s`. La sesión sigue capturando: el"
+                          " próximo evento de hook abre la siguiente trayectoria."
+                          % (etiqueta, resultado))
+
+
 def cmd_dream(args) -> int:
     """Dream fase 1. Sale 2 sin modelo local, 1 si había material y no consolidó nada."""
     from . import dream as dream_mod
@@ -468,6 +575,7 @@ def cmd_dream(args) -> int:
             conn, model, cfg=cfg,
             identifiers=dream_mod.redactor_identifiers(os.getcwd()),
             lookback_days=args.lookback_days, max_groups=args.max_groups, dry_run=args.dry_run,
+            only_trajectory=getattr(args, "only_trajectory", None),
             log=(lambda message: print("  %s" % message, file=sys.stderr))
             if args.verbose else None)
     except dream_mod.ModelUnavailable as exc:
@@ -1945,6 +2053,21 @@ def main(argv=None) -> int:
                    help="gate de M3-a: correr sobre un set fixture en un store desechable")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_dream)
+
+    p = sub.add_parser("sleep", help="ciclo de sueño a demanda: sella el capítulo en"
+                                     " curso y consolida, sin cerrar la sesión")
+    p.add_argument("--trajectory", help="qué capítulo sellar, si hay más de uno abierto")
+    p.add_argument("--lookback-days", type=int, default=None)
+    p.add_argument("--max-groups", type=int, default=None)
+    p.add_argument("--model", help="comando del modelo local (por defecto, autodetección)")
+    p.add_argument("--timeout", type=int, default=None, help="segundos por llamada al modelo")
+    p.add_argument("--dry-run", action="store_true",
+                   help="no sellar ni escribir: mostrar qué capítulo sellaría")
+    p.add_argument("--verbose", action="store_true")
+    p.add_argument("--backend", default="sleep",
+                   help="quién disparó esta corrida: queda en el registro de `schedule status`")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_sleep)
 
     p = sub.add_parser("schedule", help="programar la corrida nocturna (M3-b)")
     p.add_argument("action", nargs="?", default="status",

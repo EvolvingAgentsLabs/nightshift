@@ -519,6 +519,28 @@ antes `sin patrón común`, después una candidata sobre el problema real de esa
 entero sigue siendo una trayectoria sola, y de un día heterogéneo sale una candidata que
 lo promedia. Que ahora salga *algo* no vuelve buena la unidad de consolidación.
 
+### El capítulo, a medias, el 2026-08-28
+
+Matías pidió poder correr un ciclo de sueño **a demanda**, no sólo al cerrar la sesión.
+Salió `nightshift sleep` (enmienda 0.3.8 de la spec).
+
+**Lo que resuelve:** el borde. Sella la trayectoria en curso, consolida su grupo, y la
+sesión sigue capturando en una nueva. Ya no hay que dejar de trabajar para consolidar lo
+que se acaba de hacer.
+
+**Lo que NO resuelve, y es la mitad difícil:** nightshift sigue sin poder *detectar* un
+capítulo. El borde lo pone una persona. La idea que quedó escrita arriba —segmentar por el
+desenlace, cada `make check` en verde y cada merge cierra uno— sigue sin abrirse, y ahora
+tiene un motivo más para esperar: con `sleep` andando se puede **medir** si los bordes que
+elige una persona producen candidatas mejores que un día entero, antes de escribir una
+heurística que los adivine. Automatizar primero sería estimar en vez de medir, que es el
+error que este archivo documenta tres veces.
+
+**Lo que se acepta a cambio:** sellar parte la sesión en dos, que es exactamente lo que
+spec §5.6 evita hacer en `Stop`. Es legítimo porque lo pide una persona en el borde que
+elige, y no es gratis: una sesión mal cortada produce dos capítulos que ninguno cuenta la
+historia entera. Nadie midió todavía cuánto cuesta eso.
+
 Y queda una lección sobre este mismo archivo: **una explicación plausible anotada como
 hallazgo es exactamente el tipo de memoria que este proyecto dice no querer.** El párrafo
 de arriba se escribió sin aislar la variable, y sonaba lo bastante bien como para que
