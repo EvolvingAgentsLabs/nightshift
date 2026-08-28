@@ -146,11 +146,61 @@ Tres cosas hay que decir, o es un cuento:
   ```sh
   nightshift resolve      # las conjeturas abiertas, y la tasa de acierto
   ```
-  Al 2026-08-28: **19 proyectadas · 12 abiertas · 5 confirmadas · 2 refutadas — 71% sobre
-  7 resueltas.** No copies ese número a ningún lado: corré el comando.
+  Al 2026-08-28: **23 proyectadas · 15 abiertas · 5 confirmadas · 3 refutadas — 62% sobre
+  8 resueltas.** No copies ese número a ningún lado: corré el comando.
 - **El mismo trabajo encontró tres defectos en el brazo del tratamiento.** Los tres eran
   invisibles porque todos los hooks salen 0 por diseño. Están arreglados; lo que importa es
   por qué pasaron semanas sin que nada los dijera.
+
+## La segunda noche, y lo único que se puede afirmar de ella
+
+El 2026-08-28 el plugin consolidó su propio desarrollo dos veces, y los dos resultados no
+fueron la misma clase de cosa. Esa diferencia es la observación más interesante que produjo
+este proyecto, y también la más fácil de agrandar de más, así que va en su tamaño real.
+
+**La primera candidata describió un mecanismo que no existe.** Abstrajo un bug de una
+línea —un `or` que descartaba un marcador— como *«una propiedad derivada viaja como bandera
+efímera que no cruza el sellado»*, con diagrama, analogía y cinco precondiciones
+coherentes. No lo había alucinado: levantó el razonamiento ya escrito en los **comentarios
+del propio código** —*«sin bandera de por medio»*, *«el comando está redactado, y eso no lo
+afecta»*— y lo presentó como su diagnóstico de un bug del que esos comentarios no hablaban.
+
+**La segunda no.** Su patrón —*«el trabajo cierra en verde porque el gate automatizado pasa,
+pero cada fallo real ocurre fuera de él, en comandos improvisados: un nombre acuñado en la
+intención viaja como puro texto y sólo revienta en la primera etapa que lo resuelve contra
+algo real»*— describe bien lo que efectivamente pasó. Cuatro de sus cinco señales son
+observaciones verificables de esa sesión: el gate en verde mientras los one-liners
+improvisados fallaban, un traceback por argumentos armados a mano, un error de parseo del
+shell, una trayectoria abierta con señal `unknown`. La quinta, un push rechazado por
+refspec, **no se pudo confirmar** — puede ser una conflación. Cuatro de cinco, y la quinta
+nombrada.
+
+Y produjo el primer **contraste** del store ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)):
+la alternativa descartada conservada con la precondición bajo la cual seguía siendo la
+correcta. Su campo `cost` nombra un precio real del cambio de ese día que nadie había
+escrito — *«corregir la definición reescribe retroactivamente lo que las trayectorias
+viejas significaban, y no queda registro de que significaban otra cosa»*.
+
+### Qué cambió en el medio, y cuánto vale eso
+
+Entre las dos corridas entraron dos cosas que apuntan exactamente al primer fallo: los
+pasos que **leen el repositorio** (`grep`, `cat`, `git log`) ahora llegan al modelo
+etiquetados `LECTURA-DEL-REPO` —contexto, nunca evidencia— y la hipótesis tiene que citar
+un paso que **observe** algo, o quedarse en `null`. Medido sobre el store real: el **50% y
+el 67%** de los pasos de esas trayectorias eran el repositorio leyéndose a sí mismo, y
+llegaban con el mismo rango que un fallo.
+
+**Y eso es una corrida contra una corrida, sobre corpus distintos, en sesiones distintas.**
+No es evidencia de que el arreglo haya funcionado. Es la primera observación compatible con
+que haya funcionado, y la diferencia entre esas dos frases es toda la disciplina de este
+repositorio.
+
+Corrélo para adelante vos:
+
+```sh
+nightshift why 07695a69     # la cadena, el dibujo, el contraste, lo que dice git
+nightshift resolve          # las conjeturas que dejó abiertas
+```
 
 ## El defecto que apareció cuando alguien midió la promesa
 
