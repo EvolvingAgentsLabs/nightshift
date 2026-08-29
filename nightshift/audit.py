@@ -155,22 +155,34 @@ def scan_value(value, field, *, redactor, home_dir=None):
             add(name, match.start(), len(match.group(0)))
             break
 
-    if _puede_ser_una_ruta(value) and redactor.is_denied(value):
+    # Primero la tokenización, y **todas** las que encuentre. Para decir *falla* alcanza
+    # con una, pero el reporte existe para poder ir a arreglar: nombrando sólo la primera,
+    # el que corre `audit` limpia una, vuelve a correr, aparece la siguiente, y el conteo
+    # de hallazgos nunca fue el conteo de fugas.
+    #
+    # Y va primero porque antes iba en la rama `else` de la comparación del valor entero:
+    # una oración que **terminaba** en una ruta negada matcheaba entera, se reportaba como
+    # `pos=0 len=<toda la oración>` y las rutas de adentro no se nombraban nunca. Un
+    # reporte que dice "la fuga está en algún lugar de estos 400 caracteres" no ubica nada.
+    encontradas = False
+    for match in PATH_TOKEN_RE.finditer(value):
+        # Un token pegado a un metacarácter de glob es parte de un **patrón**, no una
+        # ruta. `**/.env` en una lista de `deny_paths` —o en un `.gitignore`— es la regla
+        # que evita la fuga, no la fuga: el tokenizador la ve como `/.env` porque tiene
+        # separador. Sin esto el auditor marca la propia config de nightshift cada vez que
+        # alguien la imprime en una sesión, que es como se descubrió (2026-08-29). Es el
+        # mismo límite que ya fijaba `una mención no es una ruta`, un paso más adentro.
+        if match.start() and value[match.start() - 1] in "*?":
+            continue
+        if redactor.is_denied(match.group(0)):
+            add("deny_path", match.start(), len(match.group(0)))
+            encontradas = True
+
+    # El valor entero, para lo único que la tokenización no puede ver: un valor que **es**
+    # la ruta negada sin ningún separador (`.env` a secas en `args.file_path`). Con la
+    # misma semántica que usó el redactor al capturar.
+    if not encontradas and _puede_ser_una_ruta(value) and redactor.is_denied(value):
         add("deny_path", 0, len(value))
-    else:
-        for match in PATH_TOKEN_RE.finditer(value):
-            # Un token pegado a un metacarácter de glob es parte de un **patrón**, no una
-            # ruta. `**/.env` en una lista de `deny_paths` —o en un `.gitignore`— es la
-            # regla que evita la fuga, no la fuga: el tokenizador la ve como `/.env`
-            # porque tiene separador. Sin esto el auditor marca la propia config de
-            # nightshift cada vez que alguien la imprime en una sesión, que es como se
-            # descubrió (2026-08-29). Es el mismo límite que ya fijaba `una mención no es
-            # una ruta`, un paso más adentro.
-            if match.start() and value[match.start() - 1] in "*?":
-                continue
-            if redactor.is_denied(match.group(0)):
-                add("deny_path", match.start(), len(match.group(0)))
-                break
 
     match = HOME_PATH_RE.search(value)
     if match:

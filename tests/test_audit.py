@@ -99,6 +99,34 @@ class AuditTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_reporta_todos_los_tokens_negados_no_solo_el_primero(self):
+        """Un valor con dos fugas tiene dos hallazgos, y cada uno dice dónde.
+
+        El `break` original cortaba al primer token denegado. Para decir *falla* alcanza
+        con uno, pero el reporte existe para poder ir a arreglar: si sólo se nombra el
+        primero, el que corre `audit` limpia uno, vuelve a correr, aparece el siguiente,
+        y el conteo de hallazgos nunca fue el conteo de fugas.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="comparé %s con /home/matias/otro/.env" % DENIED)
+            report = self.audit(conn)
+            fugas = [f for f in report["findings"] if f["rule"] == "deny_path"]
+            self.assertEqual(len(fugas), 2, "sólo se reportó una de las dos rutas")
+            self.assertNotEqual(fugas[0]["pos"], fugas[1]["pos"])
+        finally:
+            conn.close()
+
+    def test_el_mismo_token_repetido_se_reporta_en_cada_posicion(self):
+        """Dos apariciones de la misma ruta son dos lugares que hay que ir a limpiar."""
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="%s y de nuevo %s" % (DENIED, DENIED))
+            fugas = [f for f in self.audit(conn)["findings"] if f["rule"] == "deny_path"]
+            self.assertEqual(len(fugas), 2)
+        finally:
+            conn.close()
+
     def test_una_mencion_no_es_una_ruta(self):
         """El límite del chequeo anterior, fijado porque se cruzó una vez.
 
