@@ -7,29 +7,12 @@ A proof of concept, not a product.
 
 ![Dream projects trajectories toward bugs; the same person meets them hours later on screen](doc/assets/night.png)
 
-> **Status: M3 built — capture, retrieval and dream phase 1, as a Claude Code plugin.**
-> Everything below runs, and the gate is `make dogfood`: the agent using nightshift on
-> nightshift's own code, checked against the real store.
+> **Status: M3 built** — capture, retrieval and dream phase 1, as a Claude Code plugin.
+> Everything below runs. The gate is `make dogfood`.
 >
-> - **M1 (capture): the 5 real sessions are there, and the gate is red.** On 2026-08-29
->   `audit --min-sessions 5` exited 0 for the first time — 5 real sessions with content,
->   1352 steps, zero findings — and went back to red the same day: it now reports **45
->   findings**, all in a single trajectory, the session that worked on the auditor itself
->   and wrote `.env` into comments and docstrings. They are the false-positive class
->   described in [`LATER.md`](LATER.md), and fixing it lowers real sensitivity, so it is
->   Matías's call. **Not declared closed.**
-> - **M4 (benchmark) paused** since 2026-08-27, along with the human gates — paused, not
->   closed.
-> - **The pivot's three ideas are implemented:** CTE (the chain of thought is the chain of
->   execution), forward projection, and ideation — drawing the mechanism before
->   abstracting it.
-> - **The injection funnel is unblocked:** with ideal material, 6 of 6 paraphrases hook
->   their case, **6 of 6 reach** the agent, and none of the 4 foreign prompts hook. That
->   is a **ceiling** measured on author-written material, not transfer.
->
-> **And none of that says this helps.** That was M4's question and it is still
-> unanswered. `verify` does not exist, nothing reaches `procedure`, and nothing injected
-> is verified.
+> **Nobody has measured that any of this helps.** That was the benchmark's question and
+> it is paused, not answered. `verify` does not exist, nothing reaches `procedure`, and
+> every memory injected today is unverified.
 
 ## What it does, in plain words
 
@@ -41,13 +24,23 @@ solved.
 
 1. **It watches your trajectory.** Your commands, your errors, your corrections —
    redacted, on your machine, in SQLite. Nothing goes over the network.
+
 2. **At night it dreams about it.** It turns that trajectory into the problem's
-   **mechanism**, drawn as a physical scene — "a funnel that narrows", "a stereo-to-mono
-   downmix" — rather than as technical prose.
+   **mechanism**, drawn as a physical scene rather than as technical prose. This one came
+   out of this repo's own store; it is not a made-up example:
+
+   > **`tamiz sin agujero`** (*sieve with no hole*) — *Sealed drums travel down a belt to
+   > an arch with a cut-out template: the one that fits through the gap lights the green
+   > lamp and goes on to the truck. The template measures height and width, nothing else.*
+
+   It was a check that came up green because it counted items without looking inside them.
+
 3. **It projects forward.** From that mechanism it writes **symptoms nobody has seen
    yet**: which other faces the same problem will come back wearing.
-4. **It injects before, not after.** Next session, if you describe a symptom that hooks
-   one of those, the solution reaches you **before** you repeat the same mistakes.
+
+4. **It hands it back before, not after.** Next session, if you describe a symptom that
+   hooks one of those, what was done last time reaches you **before** you repeat the same
+   mistakes.
 
 The difference in one line: not *"the timeout is 2000"*, but *"this was already tried,
 someone raised the limit, it got corrected because it papered over the symptom, and that
@@ -68,41 +61,34 @@ flowchart LR
   style P stroke-dasharray: 5 5
 ```
 
-## The three ideas
+## The three ideas we are after
 
-**CTE — the chain of thought *is* the chain of execution.** For a coding agent these are
-not two things. The reasoning that survives is not an internal monologue, it is the
-sequence that touched the filesystem: hypothesis → command → error → correction →
-decisive signal → fix. That chain is what gets captured, redacted, as a trajectory. The
-spec calls it *CTE capture* in the capability matrix (§1.2).
+These are the objectives. Everything in the repo exists to serve one of them, and each one
+has hypotheses that say whether it holds — `make experiments` runs them.
 
-**Run the chain forward, not backward.** A chain of thought normally explains something
-that already happened. Dream walks it the other way — trajectory → mechanism →
-abstraction → **conjecture** — and projects symptoms nobody has observed. That is what
-lets memory latch onto a problem *before* its symptom has appeared once. Projections are
-stored separately, weighted at exactly half, and always announced as conjecture
-([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). If that boundary blurs, this stops
-being memory.
+**1 · CTE — the chain of thought *is* the chain of execution.** For a coding agent these
+are not two things. The reasoning that survives is not an internal monologue, it is the
+sequence that touched the filesystem: hypothesis → command → error → correction → decisive
+signal → fix. That chain is what gets captured, redacted, as a trajectory.
 
-A conjecture reaching the agent *after* the error would have projected nothing, so a row
-that latches onto what you just typed is **ordered ahead of any row with a higher score
-that latches onto nothing** — a rule about order, not a weight. And a conjecture nobody
-resolves is not memory, it is a note: `/nightshift:resolve` records that one happened, or
-that it cannot, always with evidence and an author. A refuted one stops latching; a
-confirmed one **does not get promoted** — it still weighs half.
+**2 · Run the chain forward, not backward.** A chain of thought normally explains
+something that already happened. Dream walks it the other way — trajectory → mechanism →
+abstraction → **conjecture** — so memory can latch onto a problem *before* its symptom has
+appeared once. Conjectures are stored apart, weighed at exactly half, and always announced
+as conjecture ([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). If that boundary
+blurs, this stops being memory. And a conjecture nobody resolves is a note, not memory:
+`/nightshift:resolve` records that one happened, or that it cannot — always with evidence
+and an author.
 
-**Imagine instead of think.** Not a strategy among two — since amendment 0.3.7 there is
-no config key that turns it off. The consolidation prompt opens by refusing to reason:
-*"don't reason yet — find the image."* Some explanations only land when someone draws
-them **well**, and the right drawing does not add information, it removes what is
-redundant. The DFT is not a sum of exponentials: it is winding a signal around a circle
-at each speed and watching where the center of mass lands. Convolution is flipping one,
-sliding it, and recording the overlap. The model is asked for **the shortest image that
-makes the invariant obvious**, and only then to abstract from the drawing.
-
-The bet is falsifiable — *a drawing of a mechanism is invariant across symptoms in a way
-prose is not* — and the cost is measured, not hidden: asking for the canonical
-visualization nearly **tripled** output tokens per group, 1,715 → 4,866.
+**3 · Imagine instead of think.** Before abstracting, draw. The consolidation prompt opens
+by refusing to reason: *"don't reason yet — find the image."* Some explanations only land
+when someone draws them well, and the right drawing does not add information, it removes
+what is redundant. The bet is falsifiable — *a drawing of a mechanism is invariant across
+symptoms in a way prose is not* — and it is the one still being argued: as of 2026-08-29,
+against a 5-symptom held-out set, the `mermaid` arm hooks 4 and the physical scene hooks
+**0**, precisely because the scene does not name the domain. The scene stays the default by
+Matías's decision ([ADR-007](doc/adr/ADR-007-la-escena-antes-del-diagrama.md)), not by
+verdict.
 
 ## What it is not
 
@@ -146,136 +132,33 @@ make experiments               # which of the project's hypotheses are actually 
 | `/nightshift:doctor` | is capture actually working |
 | `/nightshift:dev` | start a development session on the plugin itself |
 
-## The night it dreamed about itself
-
-On 2026-08-27 at 15:25 UTC the plugin consolidated its own development store and, from the
-drawing of the mechanism, **projected four symptoms nobody had observed**
-([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). That same afternoon, measuring for
-an unrelated reason, two turned out to be real:
-
-| What dream projected | What was measured hours later |
-|---|---|
-| «Retrieval returns matches by structural shape, unrelated to the content of the work.» | Two prompts describing different symptoms returned the same ranking and the same scores |
-| «A manual review of a recent record shows the full structure and every text field blank.» | Dream's own prompt showed six `(no summary)` steps out of a 400-step trajectory that had 177 with content |
-
-Three things have to be said, or it is a fairy tale:
-
-- **Neither was found *because* of the projection.** Both were written, injected and
-  available, and the work rediscovered them by measuring. A conjecture nobody resolves is
-  not memory — it is a note. That gap is what
-  [`experimentos/preguntar.py`](experimentos/preguntar.py) probes.
-- **The scoreboard is no longer written by hand.** It used to live in prose, in two
-  languages, and it drifted — this section once said *"six projections, two confirmed, two
-  refuted, two open"* and two of those counts did not exist. Now the store computes it:
-  ```sh
-  nightshift resolve      # open conjectures, and the hit rate
-  ```
-  On 2026-08-28: **23 projected · 15 open · 5 confirmed · 3 refuted — 62% over 8
-  resolved.** Do not copy that number anywhere; run the command.
-- **The same work found three defects in the treatment arm itself.** All three were
-  invisible because every hook exits 0 by design. Fixed; why they went unnoticed for weeks
-  is the point.
-
-## The second night, and the one thing that can be said about it
-
-On 2026-08-28 the plugin consolidated its own development twice, and the two results were
-not the same kind of thing. That difference is the most interesting observation this
-project has produced, and it is also the easiest one to overclaim, so here it is at its
-real size.
-
-**The first candidate described a mechanism that does not exist.** It abstracted a
-one-line bug — an `or` that dropped a marker — into *"a derived property travels as an
-ephemeral flag that does not cross the sealing step"*, with a diagram, an analogy and five
-coherent preconditions. It had not hallucinated: it lifted the reasoning already written
-in the code's **own comments** — *"no flag in between"*, *"the command is redacted, and
-that does not affect it"* — and presented it as its diagnosis of a bug those comments were
-not about.
-
-**The second one did not.** Its pattern — *"the work closes green because the automated
-gate passes, but every real failure happens outside it, in improvised commands: a name
-coined in intent travels as pure text and only breaks at the first stage that resolves it
-against something real"* — is a fair description of what actually happened. Four of its
-five signals are verifiable observations from that session: the gate green while ad-hoc
-one-liners failed, a traceback from hand-built arguments, a shell parse error, a
-trajectory left open with `unknown`. The fifth, a push rejected by refspec, **could not be
-confirmed** — it may be a conflation. Four out of five, and the fifth named.
-
-It also produced the store's first **contrast** ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)):
-the discarded approach kept with the precondition under which it was still right. Its
-`cost` field names a real price of that day's change that nobody had written down —
-*"correcting the definition retroactively rewrites what old trajectories meant, and no
-record is kept that they meant something else."*
-
-### What changed in between, and what that is worth
-
-Between the two runs, two things shipped that target exactly the first failure: steps that
-**read the repository** (`grep`, `cat`, `git log`) now reach the model labelled
-`LECTURA-DEL-REPO` — context, never evidence — and the hypothesis must cite a step that
-**observes** something, or stay `null`. Measured on the real store: **50% and 67%** of the
-steps in those trajectories were the repository reading itself, arriving with the same
-rank as a failure.
-
-**And that is one run against one run, on different corpora, in different sessions.** It
-is not evidence that the fix worked. It is the first observation consistent with it, and
-the difference between those two sentences is the whole discipline of this repository.
-
-Run it forward yourself:
-
-```sh
-nightshift why 07695a69     # the chain, the drawing, the contrast, what git says
-nightshift resolve          # the conjectures it left open
-```
-
-## The defect that only showed up when someone measured the promise
-
-The README above promises that when you *describe what is happening to you*, the memory
-comes back. Nobody had measured that. Measured on the real store: **1 paraphrase out of 6
-hooked.** The mechanism this project advertises most — memory latching onto a problem
-before its symptom has been seen once — only fired when you used the model's own words.
-
-The cause was one threshold for two kinds of text that are nothing alike: a sentence the
-model distilled has no filler, so one content word is already signal; a raw error dump is
-mostly harness scaffolding. Split in two, plus a rule that a match can never rest only on
-words that say *that* something broke rather than *what*: **4 out of 6**, with the negative
-control at zero both times.
-
-The story since then, each step measured: the floor went up to 2 across every surface and
-the classifier gate stopped blocking injection (amendment 0.3.10 — Matías's call), regular
-plurals now fold to a canonical form (0.3.11), and the last two cases —
-`resumen`/`memoria consolidada`, `métrica`/`contador de cobertura`, which share no word at
-all — got a **semantic fallback** (ADR-003, amended 2026-08-29). It is a *command*, not a
-service: `embedding_command` reads texts on stdin and writes vectors on stdout, the
-network is spoken by the user's own script (`tools/embed-ollama.sh` wraps local ollama),
-and `nightshift/` still imports no network module. Calibrated against real
-`embeddinggemma` before writing the code: the two documented synonym pairs score 0.48 and
-0.44 cosine against a 0.33 maximum for unrelated pairs. What it does **not** do, measured
-and written down: bridge a symptom to an abstract mechanism (0.24–0.28, *below* the
-unrelated pairs). It resolves same-register synonymy, not understanding. Off by default —
-without the command, the ranking is byte-for-byte the lexical one.
-
-Reproduce it: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas`
-
 ## The honest part
 
 The benchmark that would answer *"does remembering how something was figured out improve
-an agent that already has declarative memory?"* has its runner, its three fixture repos and
-its agent adapter — and **has never run**. It is now **paused**, and paused is not closed:
+an agent that already has declarative memory?"* has its runner, its three fixture repos
+and its agent adapter — and **has never run**. It is **paused**, and paused is not closed:
 the 25 `TODO(Matias)` in the pre-registration are untouched and the question stays open.
-Everything injected today is a `candidate`: abstracted by a model, reproduced by nobody.
 
-And one of them is **false**. On 2026-08-28 dream consolidated a one-line bug and produced
+Everything injected today is a `candidate`: abstracted by a model, reproduced by nobody.
+**And one of them is false.** On 2026-08-28 dream consolidated a one-line bug and produced
 a mechanism that does not exist — with a diagram, an analogy and five coherent
 preconditions. It did not hallucinate it: it lifted the reasoning already written in the
-code's own comments and presented it as its diagnosis. That is what `LECTURA-DEL-REPO`
-now exists for, and it is why nothing reaches `procedure`.
+code's own comments and presented it as its diagnosis. That is why nothing reaches
+`procedure`.
 
 A rehearsal is not evidence, a demonstration is not a result, and neither is a projection
 that came true twice.
 
+The long form — the nights it dreamed about itself, the defect that only showed up when
+someone measured the promise, and what each fix was actually worth — is in
+[`doc/LOGBOOK.md`](doc/LOGBOOK.md).
+
+## Where to look next
+
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
-- [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 against** — H23, measured under simulated validation, **does not favor the physical scene**: against a 5-symptom held-out set, the `mermaid` arm hooks 4 and the `fisica` arm **0**, with 0 foreign hooks on both. The scene fails to hook because its projections do not name the domain, which is exactly what H22 requires of it. The default stays `fisica` by Matías's decision (ADR-007), not by verdict — `make experiments` walks them
+- [`doc/LOGBOOK.md`](doc/LOGBOOK.md) — what actually happened, at its real size
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. `make experiments` walks them and says which hold
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed
