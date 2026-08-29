@@ -1417,3 +1417,86 @@ con M5 (`verify`) por ser lo siguiente — y `verify` gana, porque hoy nada lleg
 
 Queda escrito con el número que lo motiva, que es lo que le faltaba a la versión anterior
 de esta página.
+
+---
+
+## El esquema de intercambio es anterior al pivot: `export` pierde las tres ideas
+
+**Encontrado el 2026-08-29, y lo encontró una conjetura del propio sistema.** La
+proyección #14 de `5b3ff97f` decía: *«Exportar y reimportar el store fija la pérdida: el
+campo ya no puede reconstruirse porque el canal lateral no viaja con el registro.»* Nadie
+la había observado. Se fue a mirar y es cierta, sobre nightshift mismo.
+
+`schema/trajectory.v1.json` declara `abstraction.additionalProperties: false` y admite
+exactamente tres campos: `decisive_signal`, `pattern`, `signals`. El esquema se escribió
+antes del pivot del 2026-08-27, y **nunca se extendió**. Entonces:
+
+```sh
+nightshift export 5b3ff97f    # sale 0
+# abstraction: decisive_signal, pattern, signals
+# projected_signals: 0 · physical_scene: ausente · diagram: ausente · logogram: ausente
+```
+
+El store **sí** tiene los cuatro campos —`nightshift why 5b3ff97f` los muestra enteros—,
+pero no viajan. Un `export` seguido de un `import` devuelve una trayectoria sin ninguna de
+las tres ideas: sin proyecciones, sin dibujo y sin escena. Sale 0, no avisa, y el registro
+resultante es válido contra el esquema. Es el mismo mecanismo que la trayectoria que lo
+predijo: *un objeto válido no es un objeto completo*.
+
+**Qué toca esto que no es obvio.** H21 (*«se puede importar una cadena de ejecución
+generada afuera»*) pasa, pero lo que importa llega mutilado: un CTE externo entra sin
+proyecciones, o sea sin lo único que engancha con un síntoma **antes** de que ocurra.
+
+**No lo arreglo en esta sesión** porque cambiar `trajectory.v1` es cambiar el contrato de
+intercambio, y eso es una enmienda de spec con número, no un parche. Las opciones son dos
+y las decide Matías: extender `v1` (rompe a cualquiera que valide estricto) o versionar a
+`trajectory.v2` (y decidir qué hace `import` con un `v1`).
+
+Queda escrito con la evidencia que lo motiva, y con la nota de que la primera conjetura
+proyectada que se resolvió yendo a mirar el código **acertó**.
+
+---
+
+## El auditor trata un blob de 400 caracteres como si fuera una ruta
+
+**Encontrado el 2026-08-29, y lo encontró el gate.** `make dogfood` pasó a rojo (exit 2)
+con un hallazgo de `deny_path` en la trayectoria abierta de la propia sesión:
+
+```
+deny_path  trayectoria=16a5f7ff paso=36  campo=steps[36].result_summary  pos=0 len=400
+```
+
+**No es una fuga.** Lo capturado es la salida de un `grep` seguida del contenido de
+`~/.nightshift/config.json` — o sea, la **lista de `deny_paths`**, no el contenido de
+ningún archivo denegado. Lo que pasó es un artefacto de truncado:
+
+```python
+# el resumen se corta en max_result_summary_chars = 400, y cayó justo acá:
+v[-25:] == 'ny_paths": [\n    "**/.env'
+r.is_denied(v)        # True   ← el blob entero
+r.is_denied(v[:-8])   # False  ← ocho caracteres menos y desaparece
+# patrón que matchea: **/.env
+```
+
+`audit._scan_value` hace `redactor.is_denied(value)` sobre el **valor entero**
+(`audit.py:123-124`), y `is_denied` usa `fnmatch`, donde `*` cruza saltos de línea. El
+corte en 400 dejó la cadena terminando en `/.env`, así que 400 caracteres de texto
+multilínea matchearon el glob de una ruta.
+
+`audit.py:41-48` ya documenta exactamente esta tensión para el camino de *tokens* —«un
+nombre suelto es una **mención**, no una ruta»— pero la rama del valor entero quedó sin
+esa protección.
+
+**El arreglo conservador es una línea:** no correr `is_denied` sobre valores multilínea,
+porque una ruta no contiene `\n`. No afloja ninguna detección real —un valor que *es* una
+ruta denegada sigue siendo de una sola línea— y elimina toda esta clase de falso positivo.
+
+**No lo aplico en esta sesión, y el motivo es el orden.** Tocar el auditor para poner el
+gate en verde, justo después de que el auditor marcó algo, es la maniobra que este
+proyecto no debe normalizar aunque el diagnóstico sea correcto. Lo decide Matías, y si
+dice que sí va con test primero (regla 5): un caso que fije que un blob multilínea
+terminado en `/.env` **no** es un hallazgo, y otro que fije que la ruta `x/.env` **sí** lo
+sigue siendo.
+
+**Mientras tanto `make dogfood` queda en rojo**, y eso es el gate diciendo la verdad, no
+un problema a esquivar.

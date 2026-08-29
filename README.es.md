@@ -11,20 +11,41 @@ Una prueba de concepto, no un producto.
 > Todo lo de abajo corre, y el gate es `make dogfood`: el agente usando nightshift sobre
 > el código de nightshift, verificado contra el store real.
 >
-> **El 2026-08-27 el benchmark (M4) y los gates humanos salieron del camino crítico** —
-> pausados, no cerrados. Así que la pregunta que M4 iba a responder sigue sin respuesta:
-> **nadie midió que nada de esto ayude.** `verify` no existe, nada llega a `procedure` y
-> ninguna memoria inyectada está verificada.
+> - **M1 (captura) CERRADO** el 2026-08-29: `audit --min-sessions 5` sale 0 sobre 5
+>   sesiones reales con contenido, 1352 pasos, 14310 campos revisados, cero fugas.
+> - **M4 (benchmark) pausado** desde el 2026-08-27, junto con los gates humanos —
+>   pausados, no cerrados.
+> - **Las tres ideas del pivot están implementadas:** CTE (la cadena de pensamiento es la
+>   de ejecución), proyección hacia adelante, e ideación —el mecanismo dibujado antes de
+>   abstraerlo.
+> - **El embudo de inyección está destrabado:** con material ideal, 6 de 6 paráfrasis
+>   enganchan su caso, **6 de 6 llegan** al agente, y ninguno de los 4 prompts ajenos
+>   engancha. Es un **techo** medido con material de autor, no transferencia.
+>
+> **Y lo que nada de eso dice: nadie midió que esto ayude.** Ésa era la pregunta de M4 y
+> sigue sin respuesta. `verify` no existe, nada llega a `procedure` y ninguna memoria
+> inyectada está verificada.
 
-## Qué hace
+## Qué hace, en simple
 
-Mira mientras trabajás. Cada comando, cada error y cada corrección se guarda como una
-**trayectoria** — redactada, en tu máquina, en SQLite. De noche un sueño las consolida en
-un **patrón**: qué forma tenía el problema, qué señal lo delató, un dibujo del mecanismo, y
-una conjetura sobre con qué otras caras va a volver.
+La memoria nativa de un agente es **declarativa**: aprende *hechos*. "El timeout es
+2000ms". Eso ya funciona y nightshift no lo toca.
 
-En la sesión siguiente, cuando describís lo que te está pasando, te lo devuelve. No *"el
-timeout es 2000"* —eso lo sabe una memoria declarativa— sino *"esto ya se probó, alguien
+nightshift agrega la otra mitad, la **procedimental**: recordar **cómo** se resolvió un
+problema.
+
+1. **Mira tu trayectoria.** Tus comandos, tus errores, tus correcciones — redactados, en
+   tu máquina, en SQLite. Nada sale por red.
+2. **De noche sueña con ella.** Convierte esa trayectoria en el **mecanismo** del
+   problema, dibujado como una escena física —"un embudo que se angosta", "la mezcla de
+   estéreo a mono"— en vez de como prosa técnica.
+3. **Proyecta hacia adelante.** Desde ese mecanismo escribe **síntomas que nadie vio
+   todavía**: con qué otras caras va a volver el mismo problema.
+4. **Te lo inyecta antes, no después.** En la sesión siguiente, si describís un síntoma
+   que engancha con alguno de ésos, la solución te llega **antes** de que repitas los
+   mismos errores.
+
+La diferencia, en una línea: no *"el timeout es 2000"*, sino *"esto ya se probó, alguien
 subió el límite, se corrigió porque tapaba el síntoma, y ese camino descartado igual tenía
 razón cuando el límite era genuinamente bajo"*.
 
@@ -253,7 +274,7 @@ cumplió dos veces tampoco.
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el alcance, y el benchmark (pausado)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-29: **23 comprobadas y 1 en contra** — H23, medida bajo validación simulada, no favoreció a la escena física — `make experiments` las recorre
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-29: **23 comprobadas y 1 en contra** — H23, medida bajo validación simulada, **no favorece a la escena física**: contra un retenido de 5 síntomas, el brazo `mermaid` engancha 4 y el brazo `fisica` **0**, con 0 ajenos en los dos. La escena no engancha porque sus proyecciones no nombran el dominio, que es justo lo que H22 le exige. El default sigue siendo `fisica` por decisión de Matías (ADR-007), no por veredicto — `make experiments` las recorre
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado

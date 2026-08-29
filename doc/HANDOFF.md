@@ -37,11 +37,13 @@ comparte repo o tipo de tarea.
 **24 hipótesis**, una por archivo. Al 2026-08-29, tras las enmiendas 0.3.10 a 0.3.12:
 **23 comprobadas y 1 en contra** — H23 midió bajo validación simulada (orden de Matías) y
 el resultado NO favorece a la escena. Se remidió el 2026-08-29 a la noche contra un
-retenido nuevo (v3: las frases las dictó Matías en el prompt, simulando a un
-desarrollador, y describen el síntoma en el dominio de nightshift mismo): **mermaid 1,
-física 0, ajenos 0-0** — sigue en contra, y ahora ninguno de los dos brazos llega a más de
-un retenido. La medición anterior (mermaid 2, física 1) se hizo contra la v2 del retenido,
-escrita por el agente, y está en el historial de git. El default sigue
+retenido reescrito en **su propio dominio** (v4: registros, store, render — la v3 hablaba
+de hooks y retrieval, que es otro bug, y por eso midió ruido): **mermaid 4, física 0,
+ajenos 0-0**. Es el resultado más nítido que dio H23 y es **en contra de la escena**: el
+brazo físico produce sus 5 proyecciones pero engancha **cero**, porque las escribe sin
+nombrar el dominio (`el corte`, `los elementos`) — que es exactamente lo que H22 le exige.
+La escena paga su invariancia con enganche. Mediciones previas: mermaid 2 / física 1 (v2,
+agente) y mermaid 1 / física 0 (v3), las dos en git. El default sigue
 siendo `fisica` por decisión, no por veredicto, y ADR-007 lo registra con la tabla. El costo del piso en 2 que había dejado a H23 y H24 en contra se pagó con la
 morfología mínima (0.3.11: el plural se pliega) y con los casos de referencia
 recalibrados: el techo a escala quedó entero por primera vez — engancha 6/6, **llega

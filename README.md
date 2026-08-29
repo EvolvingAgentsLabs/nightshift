@@ -11,20 +11,40 @@ A proof of concept, not a product.
 > Everything below runs, and the gate is `make dogfood`: the agent using nightshift on
 > nightshift's own code, checked against the real store.
 >
-> **On 2026-08-27 the benchmark (M4) and the human gates were taken off the critical
-> path** — paused, not closed. So the question M4 was going to answer is still
-> unanswered: **nobody has measured that any of this helps.** `verify` does not exist,
-> nothing reaches `procedure`, and nothing injected is verified.
+> - **M1 (capture) CLOSED** on 2026-08-29: `audit --min-sessions 5` exits 0 over 5 real
+>   sessions with content, 1352 steps, 14310 fields checked, zero leaks.
+> - **M4 (benchmark) paused** since 2026-08-27, along with the human gates — paused, not
+>   closed.
+> - **The pivot's three ideas are implemented:** CTE (the chain of thought is the chain of
+>   execution), forward projection, and ideation — drawing the mechanism before
+>   abstracting it.
+> - **The injection funnel is unblocked:** with ideal material, 6 of 6 paraphrases hook
+>   their case, **6 of 6 reach** the agent, and none of the 4 foreign prompts hook. That
+>   is a **ceiling** measured on author-written material, not transfer.
+>
+> **And none of that says this helps.** That was M4's question and it is still
+> unanswered. `verify` does not exist, nothing reaches `procedure`, and nothing injected
+> is verified.
 
-## What it does
+## What it does, in plain words
 
-It watches while you work. Every command, every error, every correction is stored as a
-**trajectory** — redacted, on your machine, in SQLite. At night a dream consolidates them
-into a **pattern**: what shape the problem had, which signal gave it away, a diagram of
-the mechanism, and a conjecture about which other faces it will come back wearing.
+An agent's native memory is **declarative**: it learns *facts*. "The timeout is 2000ms."
+That already works, and nightshift does not touch it.
 
-Next session, when you describe what is happening to you, it hands that back. Not *"the
-timeout is 2000"* — a declarative memory knows that — but *"this was already tried,
+nightshift adds the other half, the **procedural** one: remembering **how** a problem got
+solved.
+
+1. **It watches your trajectory.** Your commands, your errors, your corrections —
+   redacted, on your machine, in SQLite. Nothing goes over the network.
+2. **At night it dreams about it.** It turns that trajectory into the problem's
+   **mechanism**, drawn as a physical scene — "a funnel that narrows", "a stereo-to-mono
+   downmix" — rather than as technical prose.
+3. **It projects forward.** From that mechanism it writes **symptoms nobody has seen
+   yet**: which other faces the same problem will come back wearing.
+4. **It injects before, not after.** Next session, if you describe a symptom that hooks
+   one of those, the solution reaches you **before** you repeat the same mistakes.
+
+The difference in one line: not *"the timeout is 2000"*, but *"this was already tried,
 someone raised the limit, it got corrected because it papered over the symptom, and that
 discarded path was still right when the limit was genuinely too low."*
 
@@ -250,7 +270,7 @@ that came true twice.
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 against** — H23, measured under simulated validation, did not favor the physical scene — `make experiments` walks them
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 against** — H23, measured under simulated validation, **does not favor the physical scene**: against a 5-symptom held-out set, the `mermaid` arm hooks 4 and the `fisica` arm **0**, with 0 foreign hooks on both. The scene fails to hook because its projections do not name the domain, which is exactly what H22 requires of it. The default stays `fisica` by Matías's decision (ADR-007), not by verdict — `make experiments` walks them
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed
