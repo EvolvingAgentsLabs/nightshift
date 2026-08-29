@@ -47,6 +47,25 @@ HOME_PATH_RE = re.compile(r"(?:/Users|/home|/root)/[A-Za-z0-9_.\-]+(?:/|\b)")
 # condición el auditor marcaba su propio código fuente capturado. La cadena completa sigue
 # pasando por `is_denied` con la misma semántica que usó el redactor al capturar, así que
 # un valor que *es* `.env` se sigue detectando.
+def _puede_ser_una_ruta(value: str) -> bool:
+    """Un valor sobre el que tiene sentido preguntar `is_denied`, que compara con `fnmatch`.
+
+    Dos cosas descalifican a un valor de *ser* una ruta, y las dos se cruzaron el
+    2026-08-29 auditando la propia config de nightshift capturada en una sesión:
+
+    1. **Un salto de línea.** `fnmatch` deja que `*` cruce `\n`, así que un blob
+       multilínea cortado justo en `/.env` matchea `**/.env` como si el valor entero
+       fuera esa ruta. `max_result_summary_chars` corta en 400 y cayó exactamente ahí.
+    2. **Un metacarácter de glob.** `"deny_paths": ["**/.env", "**/.ssh/**"]` es la regla
+       que *evita* la fuga, no una fuga. Una ruta real no lleva `*` ni `?`.
+
+    Descalificar no es dejar de auditar: el valor sigue pasando por la tokenización, que
+    es la que encuentra una ruta real embebida en prosa. Esto sólo impide que un texto
+    que **contiene** rutas se trate como si **fuera** una.
+    """
+    return "\n" not in value and "*" not in value and "?" not in value
+
+
 PATH_TOKEN_RE = re.compile(
     r"~?(?:/[A-Za-z0-9_.\-]+)+/?"                # /a/b/c  ·  ~/a/b
     r"|(?:[A-Za-z0-9_.\-]+/)+[A-Za-z0-9_.\-]*")  # a/b/c relativo
@@ -120,10 +139,19 @@ def scan_value(value, field, *, redactor, home_dir=None):
             add(name, match.start(), len(match.group(0)))
             break
 
-    if redactor.is_denied(value):
+    if _puede_ser_una_ruta(value) and redactor.is_denied(value):
         add("deny_path", 0, len(value))
     else:
         for match in PATH_TOKEN_RE.finditer(value):
+            # Un token pegado a un metacarácter de glob es parte de un **patrón**, no una
+            # ruta. `**/.env` en una lista de `deny_paths` —o en un `.gitignore`— es la
+            # regla que evita la fuga, no la fuga: el tokenizador la ve como `/.env`
+            # porque tiene separador. Sin esto el auditor marca la propia config de
+            # nightshift cada vez que alguien la imprime en una sesión, que es como se
+            # descubrió (2026-08-29). Es el mismo límite que ya fijaba `una mención no es
+            # una ruta`, un paso más adentro.
+            if match.start() and value[match.start() - 1] in "*?":
+                continue
             if redactor.is_denied(match.group(0)):
                 add("deny_path", match.start(), len(match.group(0)))
                 break

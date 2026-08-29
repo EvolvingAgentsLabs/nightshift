@@ -1487,16 +1487,43 @@ multilínea matchearon el glob de una ruta.
 nombre suelto es una **mención**, no una ruta»— pero la rama del valor entero quedó sin
 esa protección.
 
-**El arreglo conservador es una línea:** no correr `is_denied` sobre valores multilínea,
-porque una ruta no contiene `\n`. No afloja ninguna detección real —un valor que *es* una
-ruta denegada sigue siendo de una sola línea— y elimina toda esta clase de falso positivo.
+### Arreglado el 2026-08-29, autorizado por Matías, con test primero
 
-**No lo aplico en esta sesión, y el motivo es el orden.** Tocar el auditor para poner el
-gate en verde, justo después de que el auditor marcó algo, es la maniobra que este
-proyecto no debe normalizar aunque el diagnóstico sea correcto. Lo decide Matías, y si
-dice que sí va con test primero (regla 5): un caso que fije que un blob multilínea
-terminado en `/.env` **no** es un hallazgo, y otro que fije que la ruta `x/.env` **sí** lo
-sigue siendo.
+La condición que faltaba no era una sino dos, y la segunda apareció al escribir el test de
+la primera. Las dos se unificaron en un predicado, `audit._puede_ser_una_ruta`: `is_denied`
+compara con `fnmatch`, así que sólo tiene sentido preguntarlo sobre un valor que **pueda
+ser** una ruta.
 
-**Mientras tanto `make dogfood` queda en rojo**, y eso es el gate diciendo la verdad, no
-un problema a esquivar.
+1. **Sin saltos de línea.** `*` cruza `\n`, así que un blob multilínea cortado en `/.env`
+   matchea `**/.env` como si el valor entero fuera esa ruta.
+2. **Sin metacaracteres de glob.** `"deny_paths": ["**/.env", "**/.ssh/**"]` es la regla
+   que *evita* la fuga, no una fuga. Una ruta real no lleva `*` ni `?`. Lo mismo del lado
+   del tokenizador: un token pegado a un `*` es parte de un patrón.
+
+**No afloja detección, y está medido, no afirmado.** Corriendo el auditor **anterior**
+contra el store de hoy: **12 hallazgos**. El auditor **con el arreglo**, mismo store:
+**6**. Los seis que desaparecen son todos patrones de glob y blobs truncados; ninguna ruta
+real deja de detectarse, y hay dos tests de contrapeso que lo fijan (`x/.env` de una línea
+sigue siendo hallazgo; una ruta negada embebida en prosa también).
+
+Tests primero, y los dos salieron en rojo antes de tocar `audit.py`:
+`test_un_blob_multilinea_no_es_una_ruta` y `test_un_patron_de_glob_no_es_una_ruta`.
+
+### Lo que quedó rojo, y es otra clase
+
+`make dogfood` **sigue en rojo**, y ya no por esto. Los hallazgos que quedan son **la
+prosa de la propia sesión que arregló el bug**: `/.env` y `x/.env` escritos dentro de
+comentarios, docstrings y `print`s de debug, capturados por nightshift mientras se
+trabajaba. Más uno de `secret.assignment` sobre `token=<SECRET>|` — el placeholder del
+propio redactor seguido de un `|`, que `_is_placeholder` no reconoce porque usa
+`fullmatch`.
+
+Es una propiedad incómoda y vale la pena nombrarla: **auditar una sesión que trabaja sobre
+el auditor produce hallazgos de esa sesión.** El gate de dogfooding es
+autorreferencialmente frágil, y crece con cada comando que se corre sobre el tema.
+
+**No lo sigo arreglando, y el motivo es que ya no es un bugfix.** Decidir que `x/.env` es
+una mención y no una ruta **baja sensibilidad real**: una fuga verdadera de esa ruta
+relativa dejaría de detectarse. Eso es una decisión de spec sobre cuánto vale un falso
+negativo contra un falso positivo, y la toma Matías. Lo del placeholder sí es un bugfix
+limpio y chico, y espera junto a esto.

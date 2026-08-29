@@ -121,6 +121,67 @@ class AuditTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_un_blob_multilinea_no_es_una_ruta(self):
+        """El caso que puso `make dogfood` en rojo el 2026-08-29, y no era una fuga.
+
+        `max_result_summary_chars` cortó la salida capturada justo en `"**/.env` —el
+        propio `deny_paths` del config, no el contenido de ningún `.env`— y como
+        `fnmatch` deja que `*` cruce saltos de línea, 400 caracteres de texto
+        multilínea matchearon el glob de una ruta. Ocho caracteres menos y el hallazgo
+        desaparecía, que es la firma de un artefacto de truncado y no de una fuga.
+
+        Hacen falta las dos condiciones para que este caso quede en cero: **una ruta no
+        contiene `\n`** (si no, el valor entero matchea) y **un token pegado a un `*` es
+        un patrón, no una ruta** (si no, el tokenizador saca `/.env` de `"**/.env`). Un
+        valor multilínea puede *contener* una ruta —para eso está la tokenización, y su
+        caso está arriba— pero no *ser* una.
+        """
+        blob = ('nightshift/config.py:75:    "oracle_command": None,\n'
+                '--- config ---\n'
+                '{\n'
+                '  "enabled": true,\n'
+                '  "deny_paths": [\n'
+                '    "**/.env')
+        self.assertTrue(blob.endswith("/.env"), "el caso pierde sentido si no corta ahí")
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary=blob)
+            self.assertEqual(self.audit(conn)["findings"], [])
+        finally:
+            conn.close()
+
+    def test_un_patron_de_glob_no_es_una_ruta(self):
+        """La otra mitad del mismo falso positivo, y la que sobrevivió al primer arreglo.
+
+        `**/.env` en una lista de `deny_paths` —o en un `.gitignore`— **es la regla que
+        evita la fuga**, no una fuga. El tokenizador la ve como el token `/.env` porque
+        tiene separador, así que sin esta condición el auditor marca la propia config de
+        nightshift cada vez que alguien la imprime en una sesión.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary='"deny_paths": ["**/.env", "**/*.pem", "**/.ssh/**"]')
+            self.assertEqual(self.audit(conn)["findings"], [])
+        finally:
+            conn.close()
+
+    def test_una_ruta_negada_de_una_linea_sigue_siendo_hallazgo(self):
+        """El contrapeso del anterior: acotar a una línea no puede aflojar la detección.
+
+        Si el chequeo del valor entero se restringe a valores de una línea, un valor que
+        *es* la ruta negada tiene que seguir cayendo por esa misma rama.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary=DENIED)
+            report = self.audit(conn)
+            self.assertIn("deny_path", self.rules(report))
+            leak = [f for f in report["findings"] if f["rule"] == "deny_path"][0]
+            self.assertEqual(leak["pos"], 0)
+            self.assertEqual(leak["len"], len(DENIED))
+        finally:
+            conn.close()
+
     def test_encuentra_un_secreto_que_el_redactor_dejo_pasar(self):
         conn = store.connect()
         try:
