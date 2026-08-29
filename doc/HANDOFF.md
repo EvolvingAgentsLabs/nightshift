@@ -36,7 +36,12 @@ comparte repo o tipo de tarea.
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
 **24 hipótesis**, una por archivo. Al 2026-08-29, tras las enmiendas 0.3.10 a 0.3.12:
 **23 comprobadas y 1 en contra** — H23 midió bajo validación simulada (orden de Matías) y
-el resultado NO favorece a la escena: mermaid 2, física 1, ajenos 0-0. El default sigue
+el resultado NO favorece a la escena. Se remidió el 2026-08-29 a la noche contra un
+retenido nuevo (v3: las frases las dictó Matías en el prompt, simulando a un
+desarrollador, y describen el síntoma en el dominio de nightshift mismo): **mermaid 1,
+física 0, ajenos 0-0** — sigue en contra, y ahora ninguno de los dos brazos llega a más de
+un retenido. La medición anterior (mermaid 2, física 1) se hizo contra la v2 del retenido,
+escrita por el agente, y está en el historial de git. El default sigue
 siendo `fisica` por decisión, no por veredicto, y ADR-007 lo registra con la tabla. El costo del piso en 2 que había dejado a H23 y H24 en contra se pagó con la
 morfología mínima (0.3.11: el plural se pliega) y con los casos de referencia
 recalibrados: el techo a escala quedó entero por primera vez — engancha 6/6, **llega
@@ -76,7 +81,7 @@ El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 |---|---|---|
 | **M4 — benchmark go/no-go** | **PAUSADO.** Fuera del camino crítico | El runner sigue construido y sigue **negándose a correr**. `bench/PREREG.md` conserva sus `TODO(Matias)` **sin tocar**: pausar el benchmark no es completar el pre-registro, y completarlo sigue siendo una violación |
 | **Gate humano de M0** — revisión de ADR-001 por Ismael | **PAUSADO.** Deja de bloquear | Sigue pendiente y sigue siendo cierto que hay código construido sobre las cinco capacidades que ese ADR decide. No lo des por cerrado: darlo por cerrado es distinto de no esperarlo |
-| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. `nightshift audit --min-sessions 5` y `nightshift schedule status` siguen diciendo la verdad, y la verdad hoy es que ninguno de los dos está cerrado |
+| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. El de **M1 cerró el 2026-08-29**: `nightshift audit --min-sessions 5` sale 0 con 7 sesiones reales, 5 con contenido, 1352 pasos y **cero hallazgos**. El de **M3 no**: `schedule status` muestra corridas, pero no tres noches seguidas sin intervención |
 | **M5 — dream fase 2 (`verify`)** | **SIGUE PROHIBIDO** | Y el motivo cambió: antes esperaba el veredicto de M4, que ya no va a llegar. Ahora lo que lo prohíbe es que nada llega a `procedure` y el dogfooding **no** lo desbloquea. Verificar es lo más caro de construir y nadie midió todavía que valga la pena |
 | **Adapter de OpenCode** | Prohibido, sin cambio | — |
 
@@ -227,7 +232,7 @@ el mismo commit y dejá la fecha.
 
 | Tarea | Estado | Qué la cerró |
 |---|---|---|
-| T1 — `nightshift audit` | ✅ #4 | `audit` recorre todo lo persistido y afirma que no hay fugas. Encontró una de verdad el 2026-08-27 (#41) y está arreglada. `--min-sessions 5` sigue saliendo 1 por conteo de sesiones (ver abajo). |
+| T1 — `nightshift audit` | ✅ #4 | `audit` recorre todo lo persistido y afirma que no hay fugas. Encontró una de verdad el 2026-08-27 (#41) y está arreglada. `--min-sessions 5` **sale 0 desde el 2026-08-29**: 5 sesiones reales con contenido. |
 | T2 — retrieval por tipo de tarea | ✅ #5 | `general` dejó de puntuar como coincidencia de tipo, y el retrieval se rehace en el primer `UserPromptSubmit` clasificado, sin re-inyectar lo ya dicho. Spec §5.7. |
 | T3 — trayectorias huérfanas | ✅ #6 | `SessionStart` cierra las `open` de otras sesiones sin actividad hace más de `orphan_after_hours`. Corte por inactividad, nunca por antigüedad. Spec §5.8. |
 | T4 — M3-a dream `consolidate` | ✅ #7 | Agrupación determinista, modelo local sólo para abstraer, salida validada contra esquema + redactor + auditor. Gate: `make dream-selftest`. |
@@ -285,12 +290,14 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 ### Lo que falta, y de quién es
 
 **Ninguna de estas tres es código pendiente. Son decisiones o evidencia.** Desde el pivot
-(§0-bis) **ninguna bloquea**, y las tres siguen abiertas: dejar de esperar algo no es
-haberlo obtenido.
+(§0-bis) **ninguna bloquea**. La primera **cerró el 2026-08-29**; las otras dos siguen
+abiertas: dejar de esperar algo no es haberlo obtenido.
 
-1. **El gate de M1: dos sesiones más.** `nightshift audit` no encuentra ninguna fuga en
-   el store real, pero hay 3 sesiones distintas capturadas de las 5 que pide el gate.
-   Se cierra usando el plugin, no escribiendo código.
+1. **El gate de M1: CERRADO el 2026-08-29.** `nightshift audit --min-sessions 5` sale 0
+   sobre el store real: 7 sesiones capturadas, **5 con contenido** (2 huecas no cuentan),
+   13 trayectorias, 1352 pasos, 14310 campos revisados y **ninguna fuga**. Las 5 son
+   sesiones reales de Claude Code, no `simulate`. Lo que este gate **no** dice sigue
+   siendo lo de siempre: que la memoria sirva. Eso lo iba a medir M4.
    ```sh
    nightshift audit --min-sessions 5
    ```

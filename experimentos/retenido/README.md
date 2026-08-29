@@ -31,7 +31,7 @@ media oración con la conjetura, está mal escrita.
 | Conjunto | Trayectoria | Quién lo escribe | Estado |
 |---|---|---|---|
 | `cbbd7ff0` | `implement_feature`, 2026-08-27 | Matías, en la sesión del 2026-08-28 | **gastado** — se usó para diagnosticar |
-| `5b3ff97f` | `debug_test_failure`, 2026-08-27 | **el agente**, por excepción autorizada (2026-08-28) | **escrito como techo de autor** — `5b3ff97f.md`; la versión humana sigue pendiente en `PENDIENTE-5b3ff97f.md` |
+| `5b3ff97f` | `debug_test_failure`, 2026-08-27 | **el agente** (v1/v2, excepción autorizada 2026-08-28); **Matías dictando frases simuladas** (v3, 2026-08-29) | **validación simulada** — `5b3ff97f.md`. Ninguna de las tres versiones es un retenido ciego: la v3 la escribió el dueño del proyecto, que ya había leído las conjeturas y el instrumento. La versión humana ciega sigue pendiente en `PENDIENTE-5b3ff97f.md` |
 
 **Y desde el 2026-08-28 hace falta uno más, por el mismo motivo.** ADR-007 agrega un
 segundo medio de ideación —la escena física— y su prompt lo escribió alguien que había
