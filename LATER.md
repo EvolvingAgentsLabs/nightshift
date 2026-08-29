@@ -1514,16 +1514,25 @@ Tests primero, y los dos salieron en rojo antes de tocar `audit.py`:
 `make dogfood` **sigue en rojo**, y ya no por esto. Los hallazgos que quedan son **la
 prosa de la propia sesión que arregló el bug**: `/.env` y `x/.env` escritos dentro de
 comentarios, docstrings y `print`s de debug, capturados por nightshift mientras se
-trabajaba. Más uno de `secret.assignment` sobre `token=<SECRET>|` — el placeholder del
-propio redactor seguido de un `|`, que `_is_placeholder` no reconoce porque usa
-`fullmatch`.
+trabajaba.
 
-Es una propiedad incómoda y vale la pena nombrarla: **auditar una sesión que trabaja sobre
-el auditor produce hallazgos de esa sesión.** El gate de dogfooding es
-autorreferencialmente frágil, y crece con cada comando que se corre sobre el tema.
+**El del placeholder también se arregló** (autorizado el mismo día, con test primero). La
+alternativa `[^\s,;)]{4,}` de `secret.assignment` es golosa y se lleva la puntuación
+pegada, así que `token=<SECRET>|` no daba `fullmatch` y el placeholder del propio redactor
+se marcaba como fuga. Lo que decide ahora no es que el valor *empiece* con un placeholder
+—si alcanzara con eso, esconder un secreto sería prefijarlo— sino que, sacados los
+placeholders, no quede nada que pueda **ser** un valor, con el mismo piso de 4 caracteres
+que usa la regla. Hay contrapeso: `TOKEN=<SECRET>ghp_…` se sigue detectando.
 
-**No lo sigo arreglando, y el motivo es que ya no es un bugfix.** Decidir que `x/.env` es
-una mención y no una ruta **baja sensibilidad real**: una fuga verdadera de esa ruta
-relativa dejaría de detectarse. Eso es una decisión de spec sobre cuánto vale un falso
-negativo contra un falso positivo, y la toma Matías. Lo del placeholder sí es un bugfix
-limpio y chico, y espera junto a esto.
+**Y queda medida la propiedad incómoda, que es lo que vale la pena nombrar:** auditar una
+sesión que trabaja sobre el auditor produce hallazgos de esa sesión. El conteo de esta
+misma sesión, corrida tras corrida: **1 → 6 → 8 → 17**, y lo único que subía era cuánto
+había escrito el agente sobre `.env`. El paso 95 son los hallazgos de la **pregunta que el
+agente le hizo a Matías** para decidir qué hacer con los hallazgos. El gate de dogfooding
+es autorreferencialmente frágil y no converge mientras se lo trabaja.
+
+**Lo que no se arregló, y no es un bugfix.** Decidir que `x/.env` es una mención y no una
+ruta **baja sensibilidad real**: una fuga verdadera de esa ruta relativa dejaría de
+detectarse. Es una decisión de spec sobre cuánto vale un falso negativo contra un falso
+positivo, y la toma Matías. Hasta entonces `make dogfood` queda rojo, y eso es el gate
+diciendo la verdad.

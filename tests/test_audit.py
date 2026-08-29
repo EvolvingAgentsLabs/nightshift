@@ -182,6 +182,35 @@ class AuditTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_un_placeholder_con_puntuacion_pegada_no_es_un_secreto(self):
+        """El otro falso positivo del 2026-08-29, y también sobre texto de la propia sesión.
+
+        La alternativa `[^\\s,;)]{4,}` de `secret.assignment` es golosa: en una línea de
+        código capturada, `token=<SECRET>|` se lleva la barra pegada al placeholder. Como
+        `_is_placeholder` usaba `fullmatch`, `<SECRET>|` dejaba de reconocerse como lo que
+        es —la prueba de que el redactor corrió— y se marcaba como fuga.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="print(idx, f, 'token=<SECRET>| ctx=', repr(v))")
+            self.assertEqual(self.audit(conn)["findings"], [])
+        finally:
+            conn.close()
+
+    def test_un_secreto_pegado_a_un_placeholder_se_sigue_detectando(self):
+        """El contrapeso: reconocer el placeholder no puede volverse una puerta.
+
+        Si alcanzara con que el valor *empiece* con un placeholder, esconder un secreto
+        sería prefijarlo. Lo que decide es si, sacados los placeholders, queda algo que
+        pueda ser un valor — el mismo piso de 4 caracteres que usa la regla.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="TOKEN=<SECRET>%s" % SECRET)
+            self.assertIn("secret.assignment", self.rules(self.audit(conn)))
+        finally:
+            conn.close()
+
     def test_encuentra_un_secreto_que_el_redactor_dejo_pasar(self):
         conn = store.connect()
         try:
