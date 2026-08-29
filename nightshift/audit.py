@@ -117,6 +117,40 @@ def _puede_ser_una_ruta(value: str) -> bool:
     return "\n" not in value and "*" not in value and "?" not in value
 
 
+def _es_una_ubicacion(token: str) -> bool:
+    """True si el token nombra un **lugar** y no menciona un nombre de archivo.
+
+    Decidido por Matías el 2026-08-29, y es una decisión de spec, no un bugfix: **baja
+    sensibilidad**. Una fuga real de `x/.env` embebida en una oración deja de detectarse.
+
+    Se pagó porque el auditor marcaba su propia documentación. Cada comentario, cada
+    docstring y cada mensaje de commit que menciona `.env` producía un token con
+    separador, y `is_denied` lo aceptaba: la sesión que arregló dos falsos positivos del
+    auditor introdujo 45 hallazgos nuevos escribiendo sobre ellos. Un gate que no converge
+    mientras se lo trabaja no es un gate.
+
+    Dos cosas siguen detectándose, y hay un test por cada una:
+
+    - Una ruta **anclada** con al menos un directorio: `~/.ssh/id_rsa`,
+      `/home/x/proj/.env`. Es la forma que tiene una fuga que importa.
+    - Un valor que **es** la ruta, relativa incluida (`args.file_path = "secrets/db.key"`).
+      Lo agarra la comparación del valor entero, que corre cuando la tokenización no
+      encontró nada.
+
+    Lo que se perdona es la mención: un token relativo dentro de prosa, y `/.env`, que es
+    el patrón `**/.env` sin su glob y nombra la raíz del filesystem — donde no vive el
+    archivo de nadie.
+    """
+    norm = token.replace("\\", "/")
+    if norm.startswith("~/"):
+        resto = norm[2:]
+    elif norm.startswith("/"):
+        resto = norm[1:]
+    else:
+        return False                       # relativo: mención
+    return "/" in resto.rstrip("/")        # hay un directorio antes del nombre
+
+
 def _is_placeholder(text) -> bool:
     """True si lo que hay es la marca del redactor y no material sin redactar.
 
@@ -173,6 +207,8 @@ def scan_value(value, field, *, redactor, home_dir=None):
         # alguien la imprime en una sesión, que es como se descubrió (2026-08-29). Es el
         # mismo límite que ya fijaba `una mención no es una ruta`, un paso más adentro.
         if match.start() and value[match.start() - 1] in "*?":
+            continue
+        if not _es_una_ubicacion(match.group(0)):
             continue
         if redactor.is_denied(match.group(0)):
             add("deny_path", match.start(), len(match.group(0)))

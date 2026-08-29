@@ -83,7 +83,7 @@ El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 |---|---|---|
 | **M4 — benchmark go/no-go** | **PAUSADO.** Fuera del camino crítico | El runner sigue construido y sigue **negándose a correr**. `bench/PREREG.md` conserva sus `TODO(Matias)` **sin tocar**: pausar el benchmark no es completar el pre-registro, y completarlo sigue siendo una violación |
 | **Gate humano de M0** — revisión de ADR-001 por Ismael | **PAUSADO.** Deja de bloquear | Sigue pendiente y sigue siendo cierto que hay código construido sobre las cinco capacidades que ese ADR decide. No lo des por cerrado: darlo por cerrado es distinto de no esperarlo |
-| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. El de **M1 llegó a 0 el 2026-08-29** —7 sesiones reales, 5 con contenido, 1352 pasos, cero hallazgos— y **volvió a rojo la misma jornada**: 45 hallazgos, todos de la sesión que trabajó sobre el auditor (falsos positivos, `LATER.md`). No está cerrado. El de **M3 no**: `schedule status` muestra corridas, pero no tres noches seguidas sin intervención |
+| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. El de **M1 CERRÓ el 2026-08-29**: `audit --min-sessions 5` sale 0 con 5 sesiones reales con contenido y **cero hallazgos**, y `make dogfood` sale 0. Llegó a 0, volvió a rojo con 45 falsos positivos el mismo día, y cerró tras tres arreglos del auditor — el tercero **baja sensibilidad por decisión de Matías** y está escrito así en `LATER.md`. El de **M3 no**: `schedule status` muestra corridas, pero no tres noches seguidas sin intervención |
 | **M5 — dream fase 2 (`verify`)** | **SIGUE PROHIBIDO** | Y el motivo cambió: antes esperaba el veredicto de M4, que ya no va a llegar. Ahora lo que lo prohíbe es que nada llega a `procedure` y el dogfooding **no** lo desbloquea. Verificar es lo más caro de construir y nadie midió todavía que valga la pena |
 | **Adapter de OpenCode** | Prohibido, sin cambio | — |
 
@@ -295,13 +295,23 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 (§0-bis) **ninguna bloquea**. La primera **cerró el 2026-08-29**; las otras dos siguen
 abiertas: dejar de esperar algo no es haberlo obtenido.
 
-1. **El gate de M1: las sesiones están, el gate no.** El 2026-08-29 `nightshift audit
-   --min-sessions 5` salió 0 por primera vez: 7 sesiones capturadas, **5 con contenido**
-   (2 huecas no cuentan), 1352 pasos y **ninguna fuga**. Las 5 son sesiones reales de
-   Claude Code, no `simulate`, y eso ya no se pierde. Lo que sí volvió atrás es el gate:
-   la misma sesión que arregló dos falsos positivos del auditor introdujo 45 hallazgos
-   nuevos escribiendo `.env` en sus propios comentarios. Son falsos positivos de una
-   clase que **no** se arregló (`LATER.md`), porque arreglarla baja sensibilidad real.
+1. **El gate de M1: CERRADO el 2026-08-29.** `nightshift audit --min-sessions 5` sale 0
+   sobre el store real: 7 sesiones capturadas, **5 con contenido** (2 huecas no cuentan),
+   ~1500 pasos y **ninguna fuga**. Las 5 son sesiones reales de Claude Code, no
+   `simulate`. `make dogfood` también sale 0.
+
+   **Cómo cerró, que importa más que que haya cerrado.** El mismo día llegó a 0, volvió a
+   rojo con 45 hallazgos —la sesión que trabajaba sobre el auditor marcaba su propia
+   documentación cada vez que escribía `.env`— y cerró tras tres arreglos, los tres con
+   test primero. Los dos primeros son bugfixes y están medidos: el auditor viejo daba 12
+   hallazgos sobre el mismo store y el nuevo 6, sin perder detección. **El tercero no es
+   un bugfix: baja sensibilidad.** Matías decidió que `x/.env` en prosa es mención y no
+   ruta, así que una fuga real de esa forma embebida en una oración ya no se detecta. Lo
+   que sí se sigue detectando tiene un test cada uno: una ruta anclada (`~/.ssh/id_rsa`)
+   y un valor que *es* la ruta, relativa incluida. Está escrito con ese costo en
+   `LATER.md`, y **no cuenta como relajar el gate por no entenderlo** (ver la regla al
+   final de este documento): se entendió, se midió y lo decidió el dueño.
+
    Lo que este gate **no** dice sigue siendo lo de siempre: que la memoria sirva.
    ```sh
    nightshift audit --min-sessions 5
@@ -621,6 +631,14 @@ qué quedó afuera.
 Si el gate no pasa y no sabés por qué, **no lo relajes**. Los checks de `lint-code` no
 son estilo: cada uno defiende una prohibición del proyecto. Un check que molesta es
 casi siempre un check que está haciendo su trabajo.
+
+La regla no prohíbe bajar sensibilidad; prohíbe bajarla **sin saber por qué**. El
+2026-08-29 se bajó una vez, y así se ve cuando está bien hecho: se diagnosticó el falso
+positivo hasta la línea, se arregló primero lo que era bug —midiendo que no se perdía
+detección: 12 hallazgos con el auditor viejo, 6 con el nuevo, sobre el mismo store—, se
+paró antes de tocar lo que no era bug, se le preguntó al dueño, y lo que se aflojó quedó
+escrito con el nombre de lo que cuesta: una fuga real de `x/.env` en prosa ya no se
+detecta. Aflojar sin las cinco cosas sigue prohibido.
 
 ---
 

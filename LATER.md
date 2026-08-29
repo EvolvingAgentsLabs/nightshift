@@ -1531,8 +1531,30 @@ había escrito el agente sobre `.env`. El paso 95 son los hallazgos de la **preg
 agente le hizo a Matías** para decidir qué hacer con los hallazgos. El gate de dogfooding
 es autorreferencialmente frágil y no converge mientras se lo trabaja.
 
-**Lo que no se arregló, y no es un bugfix.** Decidir que `x/.env` es una mención y no una
-ruta **baja sensibilidad real**: una fuga verdadera de esa ruta relativa dejaría de
-detectarse. Es una decisión de spec sobre cuánto vale un falso negativo contra un falso
-positivo, y la toma Matías. Hasta entonces `make dogfood` queda rojo, y eso es el gate
-diciendo la verdad.
+### Y la tercera sí bajó sensibilidad, por decisión de Matías (2026-08-29)
+
+**`x/.env` en prosa es mención, no ruta.** Lo decidió Matías, y no es un bugfix: es una
+decisión de spec sobre cuánto vale un falso negativo contra un falso positivo. **Lo que
+cuesta, dicho con todas las letras: una fuga real de una ruta relativa embebida en una
+oración ya no se detecta.**
+
+Se pagó porque el gate no convergía mientras se lo trabajaba. La regla nueva
+(`audit._es_una_ubicacion`) es que un token nombra un **lugar** sólo si está anclado —`/…`
+o `~/…`— y tiene al menos un directorio antes del nombre. Entonces:
+
+| token | antes | ahora | por qué |
+|---|---|---|---|
+| `/home/x/proj/.env` | hallazgo | hallazgo | es un lugar |
+| `~/.ssh/id_rsa` | hallazgo | hallazgo | anclado, con directorio |
+| `x/.env` en prosa | hallazgo | **mención** | relativo: lo que se decidió perdonar |
+| `/.env` | hallazgo | **mención** | es `**/.env` sin su glob, y nombra la raíz |
+| `args.file_path = "secrets/db.key"` | hallazgo | hallazgo | la rama del valor entero lo agarra igual |
+
+Las dos últimas filas son las que impiden que la decisión sea más ancha de lo acordado, y
+hay un test por cada una.
+
+**Con esto el gate de M1 cerró:** `audit --min-sessions 5` sale 0 con cero hallazgos y
+`make dogfood` sale 0. Vale registrar cómo cerró, porque el orden es el punto: se arregló
+primero lo que era bug —midiendo que no se perdiera detección—, se paró antes de tocar lo
+que no era bug, se preguntó, y recién entonces se aflojó, dejando escrito el costo. Cerrar
+el gate aflojando el auditor sin ese orden habría sido fabricar un verde.

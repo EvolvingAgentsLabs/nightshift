@@ -141,6 +141,61 @@ class AuditTest(IsolatedStoreTest):
         finally:
             conn.close()
 
+    def test_una_ruta_relativa_en_prosa_es_una_mencion(self):
+        """Decisión de Matías, 2026-08-29: `x/.env` en prosa es mención, no ruta.
+
+        Es una decisión de spec y no un bugfix, porque **baja sensibilidad**: una fuga
+        real de esa ruta relativa embebida en una oración deja de detectarse. Se pagó
+        porque el auditor marcaba su propia documentación —cada comentario y cada
+        docstring que menciona `.env`— y un gate que no converge mientras se lo trabaja
+        no es un gate.
+
+        Lo que **no** se paga está en los dos contrapesos de abajo: un valor que *es* la
+        ruta relativa se sigue detectando entero, y una ruta anclada al home también.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="el comentario dice que x/.env es de ejemplo")
+            self.assertEqual(self.audit(conn)["findings"], [])
+        finally:
+            conn.close()
+
+    def test_una_ruta_de_raiz_sin_directorio_es_una_mencion(self):
+        """`/.env` es el patrón `**/.env` sin su glob, no un lugar.
+
+        Aparece cada vez que alguien escribe sobre `deny_paths`, y nombra la raíz del
+        filesystem, que no es donde vive el archivo de nadie.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="la cadena termina en `/.env` y por eso matchea")
+            self.assertEqual(self.audit(conn)["findings"], [])
+        finally:
+            conn.close()
+
+    def test_una_ruta_anclada_al_home_en_prosa_se_sigue_detectando(self):
+        """El contrapeso que impide que la decisión se coma las fugas que importan."""
+        conn = store.connect()
+        try:
+            self.seed(conn, result_summary="abrí ~/.ssh/id_rsa y pegué la clave acá")
+            self.assertIn("deny_path", self.rules(self.audit(conn)))
+        finally:
+            conn.close()
+
+    def test_un_valor_que_es_una_ruta_relativa_negada_se_sigue_detectando(self):
+        """La mención se perdona en prosa; el valor que **es** la ruta, no.
+
+        La rama del valor entero corre cuando la tokenización no encontró nada, así que
+        `args.file_path = "secrets/db.key"` sigue siendo hallazgo aunque el mismo token
+        dentro de una oración ya no lo sea.
+        """
+        conn = store.connect()
+        try:
+            self.seed(conn, args={"file_path": "secrets/db.key"})
+            self.assertIn("deny_path", self.rules(self.audit(conn)))
+        finally:
+            conn.close()
+
     def test_un_valor_que_es_la_ruta_negada_se_detecta_igual(self):
         conn = store.connect()
         try:
