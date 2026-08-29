@@ -34,10 +34,13 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 comparte repo o tipo de tarea.
 
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
-**24 hipótesis**, una por archivo. Al 2026-08-28, tras la enmienda 0.3.10: **22
-comprobadas y 2 en contra — H23 y H24, el costo medido del piso en 2.** H17 pasó a favor
-bajo el tratamiento nuevo (2 de 3 contra 0, ajenos 0), con su asterisco: el retenido de
-`cbbd7ff0` está gastado.
+**24 hipótesis**, una por archivo. Al 2026-08-29, tras las enmiendas 0.3.10 y 0.3.11:
+**23 comprobadas y 1 esperando material** — H23, que sólo puede decidirla un retenido
+humano. El costo del piso en 2 que había dejado a H23 y H24 en contra se pagó con la
+morfología mínima (0.3.11: el plural se pliega) y con los casos de referencia
+recalibrados: el techo a escala quedó entero por primera vez — engancha 6/6, **llega
+6/6**, ajenos 0. H17 pasó a favor bajo el tratamiento nuevo (2 de 3 contra 0, ajenos 0),
+con su asterisco: el retenido de `cbbd7ff0` está gastado.
 
 La que falla es H17, y no por código faltante — se corrió el control de ADR-004 y **el
 resultado no sostiene idear** (`LATER.md`): el brazo ideado engancha un síntoma retenido más

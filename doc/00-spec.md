@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007 |
-| Revisión | 0.3.10 — las decisiones de Matías: la compuerta, el piso y el default físico |
+| Revisión | 0.3.11 — la morfología mínima: el plural se pliega y el techo llega entero |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -1045,3 +1045,22 @@ literalmente el tratamiento — y queda escrito acá por la misma razón que en 
 0.3.7: el pre-registro sigue en BORRADOR, así que el cambio es legítimo, y silencioso
 sería el error ya documentado. **Los números «llega» publicados antes de esta enmienda se
 midieron con la compuerta vieja y no son comparables con los de después.**
+
+### Enmiendas 0.3.11 (la morfología mínima)
+
+El costo de la 0.3.10 quedó medido el mismo día: con el piso en 2, la mitad de las
+paráfrasis que dejaban de enganchar compartían **la palabra justa en el número
+equivocado** — `clave`/`claves`, `cambio`/`cambios`. Eso no es sinónimo (lo que `difflib`
+y el prefijo no compraron, LATER.md): es morfología, y tiene arreglo determinista.
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.10 | Los tokens se comparan en **forma canónica**: se pliega el plural regular (`-s`, `-e` final, en ese orden, sobre palabras de 5+ letras). La forma canónica no tiene que ser una palabra real: tiene que ser la misma para el singular y el plural (`clave→clav←claves`, `error→error←errores`) | Con el piso en 2, `clave`/`claves` costaba el enganche entero. Medido en `15`: el plegado solo subió el techo de 3/6 a 4/6; con los casos recalibrados, 6/6 — y los ajenos siguieron en 0 |
+| 5.10 | Los predicados de fallo se comparan también en forma canónica | Un `rompe` plegado que escapara de la lista cruda volvería a sostener enganches él solo |
+| — | Los casos de referencia (`experimentos/casos_de_ideacion.py`) quedan **calibrados a la regla vigente**, y lo dicen: cuando la regla cambie, se recalibran con la enmienda al lado | Una referencia que no pasa la regla que ilustra no es una referencia |
+| — | H23 distingue **procedencia**: contra un retenido escrito por el agente registra el número y queda `BLOCKED`; un veredicto (PASS o FAIL) sólo puede salir de un retenido humano | Contra material del propio autor no hay veredicto de transferencia posible en ninguna dirección: un PASS se mediría a sí mismo y un FAIL castigaría un criterio de redacción que una persona real no aplica |
+
+Con esto, el techo a escala del `15` quedó entero por primera vez: **engancha 6/6, LLEGA
+6/6, ajenos 0/4, cruces 2/6**. Lo que sigue sin resolver, y sigue siendo de sinónimos, no
+de morfología: `resumen`/`memoria consolidada` no se pliegan con ninguna regla barata —
+necesita embeddings, que chocan con ADR-003, y está en `LATER.md` desde antes.

@@ -243,7 +243,7 @@ cumplió dos veces tampoco.
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el alcance, y el benchmark (pausado)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-28: **22 comprobadas y 2 en contra** — el costo medido del piso nuevo de discriminación (enmienda 0.3.10) — `make experiments` las recorre
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-29: **23 comprobadas y 1 esperando material** — la que queda sólo puede decidirla un retenido escrito por una persona — `make experiments` las recorre
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado
