@@ -9,7 +9,10 @@ de M2 y la condición de éxito 3 de la spec.
 from __future__ import annotations
 
 import json
+import math
 import re
+import shlex
+import subprocess
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
@@ -63,6 +66,13 @@ W_PRECONDITION_MATCH = 1.0
 W_LOGOGRAM_MATCH = 1.5
 MIN_TOKENS_LOGOGRAMA = 2
 
+# El fallback semántico (enmienda de ADR-003, 2026-08-29, decidida por Matías) pesa lo
+# mismo que una conjetura: una similitud inferida por un modelo de embeddings no es una
+# palabra que el usuario escribió, y la jerarquía observado > inferido > conjeturado
+# también ordena los enganches. Sólo corre cuando la pasada léxica no encontró nada en
+# esa fila y hay `embedding_command` configurado.
+W_SEMANTIC_MATCH = 0.75
+
 # Cuántas palabras de contenido tienen que coincidir para llamarlo enganche.
 #
 # **Son dos pisos y no uno, y la diferencia se midió** (enmienda 0.3.6; el experimento es
@@ -115,7 +125,7 @@ MIN_TOKENS_CRUDO = 2
 # del error no proyectó nada.
 MOTIVOS_DE_ENGANCHE = frozenset(
     ("signal_match", "projected_match", "precondition_match", "failure_match",
-     "logogram_match"))
+     "logogram_match", "semantic_match"))
 
 # Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
 # puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
@@ -290,6 +300,100 @@ def _age_days(created_at: str) -> float:
     return max(0.0, (datetime.now(timezone.utc) - then).total_seconds() / 86400.0)
 
 
+# --------------------------------------------- el fallback semántico (ADR-003, enmienda)
+#
+# El problema que resuelve está en LATER.md desde la enmienda 0.3.6: `resumen` y `memoria
+# consolidada` no comparten ni una palabra, y ninguna regla barata los pliega. La decisión
+# de Matías del 2026-08-29 mete embeddings — y la restricción que ordena el diseño es la
+# de siempre (ADR-006): **el embedding es un comando, no un servicio.** nightshift no
+# habla con la red nunca; el comando del usuario hace lo que el usuario quiera, con su
+# riesgo. `tools/embed-ollama.sh` envuelve al ollama local.
+#
+# Contrato del comando: lee `{"texts": [...]}` por stdin, escribe `{"vectors": [...]}`
+# por stdout. Cualquier fallo —comando ausente, timeout, salida malformada— apaga la
+# pasada en silencio: esto corre dentro de un hook, y un hook roto tiene que ser
+# indistinguible de un hook apagado (spec §7.2).
+
+def _vectores(cfg, textos):
+    """Los embeddings de estos textos, por el comando del usuario. None si no se pudo."""
+    comando = cfg.get("embedding_command")
+    if not comando or not textos:
+        return None
+    if isinstance(comando, str):
+        comando = shlex.split(comando)
+    try:
+        out = subprocess.run(comando, input=json.dumps({"texts": textos}),
+                             capture_output=True, text=True,
+                             timeout=cfg.get("embedding_timeout_seconds", 20))
+        if out.returncode != 0:
+            return None
+        vectores = json.loads(out.stdout).get("vectors")
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    if not isinstance(vectores, list) or len(vectores) != len(textos):
+        return None
+    return vectores
+
+
+def _coseno(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _superficies_de(conn, row):
+    """Los mismos textos contra los que engancha la pasada léxica. Ni uno más.
+
+    Darle al fallback una superficie que las palabras no miran —`pattern`, los pasos—
+    sería cambiar el tratamiento por la puerta de atrás: el semántico relaja el CÓMO se
+    compara, nunca el QUÉ.
+    """
+    textos = []
+    if row["abstraction_json"]:
+        abstraccion = json.loads(row["abstraction_json"])
+        textos.extend(abstraccion.get("signals") or [])
+        if abstraccion.get("decisive_signal"):
+            textos.append(abstraccion["decisive_signal"])
+        textos.extend(c.get("condition", "") for c in
+                      json.loads(row["valid_when_json"] or "[]")
+                      if isinstance(c, dict))
+        abiertas, confirmadas, _ = _proyectadas(conn, row)
+        textos.extend(abiertas + confirmadas)
+    if "logogram" in row.keys() and row["logogram"]:
+        textos.append(row["logogram"])
+    return [t for t in textos if t]
+
+
+def _pasada_semantica(conn, prompt, items, cfg):
+    """Marca `semantic_match` en las filas que el coseno alcanza. Muta `items` in place.
+
+    Una sola llamada al comando por retrieval: el prompt más todas las superficies de
+    todas las filas sin enganche, en tanda. El peso es el de una conjetura
+    (`W_PROJECTED_MATCH`): una similitud inferida por un modelo no es una palabra que el
+    usuario escribió, y la jerarquía observado > inferido > conjeturado también ordena
+    los enganches.
+    """
+    piso = float(cfg.get("semantic_threshold", 0.40))
+    superficies_por_item = [_superficies_de(conn, item[2]) for item in items]
+    textos = [prompt]
+    for superficies in superficies_por_item:
+        textos.extend(superficies)
+    vectores = _vectores(cfg, textos)
+    if vectores is None:
+        return
+    v_prompt, resto = vectores[0], vectores[1:]
+    i = 0
+    for item, superficies in zip(items, superficies_por_item):
+        mejor = 0.0
+        for _ in superficies:
+            mejor = max(mejor, _coseno(v_prompt, resto[i]))
+            i += 1
+        if mejor >= piso:
+            item[0] += W_SEMANTIC_MATCH * float(item[2]["injection_weight"] or 0.3)
+            item[1].append("semantic_match")
+
+
 def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, prompt=None):
     lookback = cfg.get("retrieval_lookback_days", 30)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -385,18 +489,33 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
 
         if score <= 0:
             continue
-        scored.append((score, ",".join(reasons) or "recent", row))
+        scored.append([score, reasons, row])
 
+    # Fallback semántico (enmienda de ADR-003, 2026-08-29). Sólo para las filas que las
+    # palabras NO alcanzaron, y sólo si el usuario enchufó un `embedding_command`: sin
+    # comando, esto no corre y el ranking es letra por letra el de antes. Es la respuesta
+    # al problema de los sinónimos de LATER.md — `resumen`/`memoria consolidada` no se
+    # pliegan con ninguna regla barata — y su alcance está medido en la calibración de
+    # `config.py`: sinónimos de registro parecido sí; síntoma contra mecanismo abstracto,
+    # no.
+    if prompt and cfg.get("embedding_command"):
+        sin_enganche = [item for item in scored
+                        if not (MOTIVOS_DE_ENGANCHE & set(item[1]))]
+        if sin_enganche:
+            _pasada_semantica(conn, prompt, sin_enganche, cfg)
+
+    empaquetadas = [(score, ",".join(reasons) or "recent", row)
+                    for score, reasons, row in scored]
     # Primero las que enganchan por logograma (enmienda 0.3.10: es el signo entero, la
     # coincidencia más específica que la consolidación produce), después cualquier otro
     # enganche, después el puntaje. Sin prompt no engancha nada y el orden es exactamente
     # el de antes: `SessionStart` corre antes de que el usuario escriba, y ahí nada de
     # esto cambia una sola fila.
-    scored.sort(key=lambda item: (
+    empaquetadas.sort(key=lambda item: (
         0 if "logogram_match" in (item[1] or "").split(",")
         else (1 if _engancha(item[1]) else 2),
         -item[0], item[2]["created_at"]))
-    return scored
+    return empaquetadas
 
 
 def _recortar(texto, limite=MAX_IDEACION_CHARS):

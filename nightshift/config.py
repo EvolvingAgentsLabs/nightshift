@@ -74,6 +74,20 @@ DEFAULTS = {
     # `None` es el default y significa que el único oráculo es una persona.
     "oracle_command": None,
     "oracle_timeout_seconds": 30,
+    # Embeddings para el fallback semántico del retrieval (enmienda de ADR-003,
+    # 2026-08-29, decidida por Matías). El mismo contrato que todo lo externo: un
+    # **comando** que lee JSON {"texts": [...]} por stdin y escribe {"vectors": [...]}
+    # por stdout — nightshift no habla con la red nunca; lo que haga el comando del
+    # usuario es del usuario (ADR-006). `tools/embed-ollama.sh` es el que envuelve al
+    # ollama local. `None` apaga el fallback y el retrieval queda exactamente como antes.
+    "embedding_command": None,
+    "embedding_timeout_seconds": 20,
+    # Umbral de coseno del fallback. Calibrado el 2026-08-29 contra `embeddinggemma`
+    # local: los dos pares de sinónimos documentados en LATER.md dan 0.48 y 0.44, y el
+    # máximo de cuatro pares ajenos da 0.33. Lo que el modelo NO separa —y queda medido—
+    # es síntoma contra mecanismo abstracto (0.24–0.28, por debajo de los ajenos): esto
+    # resuelve sinónimos de registro parecido, no comprensión.
+    "semantic_threshold": 0.40,
     "dream_lookback_days": 7,
     "dream_timeout_seconds": 180,
     # Tope de grupos por corrida. Cada grupo es una llamada al modelo y, con el backend

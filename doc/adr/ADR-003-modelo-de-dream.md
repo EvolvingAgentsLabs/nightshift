@@ -84,3 +84,33 @@ que no haya `socket`, `urllib` ni `http` en `nightshift/`.
 4. **Híbrido por repositorio** — local para los marcados como sensibles, Claude Code para
    el resto. **No implementado.** Es la evolución natural de esta decisión: hoy el backend
    se elige por instalación, no por repo. Va a `LATER.md`.
+
+## Enmienda 2026-08-29 — embeddings para el retrieval, como comando
+
+**Decidida por Matías, con autorización explícita.** El problema que la motiva está en
+`LATER.md` desde la enmienda 0.3.6: `resumen` y `memoria consolidada` no comparten ni una
+palabra, ninguna regla barata los pliega (el prefijo y `difflib` se probaron y no compran
+nada; la morfología de la 0.3.11 pliega el plural y nada más), y este ADR era lo que
+bloqueaba la única salida conocida.
+
+**Se autorizan embeddings, exclusivamente para el retrieval**, y la restricción que
+ordena el diseño es la de ADR-006, no una nueva: **el embedding es un comando, no un
+servicio.** `embedding_command` lee `{"texts": [...]}` por stdin y escribe
+`{"vectors": [...]}` por stdout. `nightshift/` sigue sin importar un solo módulo de red y
+`lint-code.sh` **no se relajó** — se pidió relajarlo "si es necesario" y no fue necesario:
+la red la habla el comando del usuario (`tools/embed-ollama.sh` envuelve al ollama local),
+con su riesgo y su credencial si la tuviera.
+
+Los límites, medidos antes de escribir el código (calibración contra `embeddinggemma`
+local, 2026-08-29):
+
+- Los dos pares de sinónimos documentados dan **0.48 y 0.44** de coseno; el máximo de
+  cuatro pares ajenos, **0.33**. El umbral por defecto es 0.40.
+- Lo que el modelo **no** separa, y queda dicho para que nadie lo estire: síntoma contra
+  mecanismo abstracto da 0.24–0.28, **por debajo** de los ajenos. Esto resuelve sinónimos
+  de registro parecido; no es comprensión.
+- El fallback corre **sólo** donde la pasada léxica no encontró nada, contra las mismas
+  superficies (nunca `pattern`), pesa como una conjetura (`W_SEMANTIC_MATCH = 0.75`:
+  observado > inferido > conjeturado también ordena los enganches), deja motivo propio
+  (`semantic_match`) para que `why` lo audite, y **apagado es el default**: sin
+  `embedding_command`, el ranking es letra por letra el de antes.
