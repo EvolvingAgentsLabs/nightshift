@@ -241,7 +241,7 @@ that came true twice.
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-28: **22 verified, 2 against** — the measured cost of the new discrimination floor (spec amendment 0.3.10) — `make experiments` walks them
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 waiting on material** — the one left can only be decided by a human-written held-out set — `make experiments` walks them
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed

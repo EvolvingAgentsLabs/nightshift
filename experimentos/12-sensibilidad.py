@@ -130,8 +130,8 @@ def main():
             print("Y LO QUE LLEGA AL AGENTE: %d de %d — los que además pasan la compuerta"
                   % (llegadas, len(respondidas)))
             print("del clasificador (`classify_task` distinto de `general`).")
-            print("Referencia: el retenido de `cbbd7ff0`, con el prompt viejo, dio 27%% de")
-            print("ranking y 0%% de llegada.")
+            print("Referencia: el retenido de `cbbd7ff0`, con el prompt viejo, dio 27% de")
+            print("ranking y 0% de llegada.")
             print("Es una comparación entre corpus distintos, así que no es un antes/después")
             print("limpio: dice el orden de magnitud, no la mejora.")
         print("=" * 78)

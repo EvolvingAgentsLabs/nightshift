@@ -180,17 +180,47 @@ rompe rompio roto rompen anda andaba funciona funcionaba
 """.split())
 
 
+def _canonica(palabra):
+    """El plural del castellano, plegado a una forma canónica. Determinista.
+
+    Enmienda 0.3.11. No es un stemmer: son las dos letras del plural regular y nada más.
+    Lo que ya se probó y NO compra nada es el prefijo y `difflib` (LATER.md, "el enganche
+    no sabe de sinónimos") — eso era sinónimo. Esto es morfología: `clave` y `claves` son
+    la misma palabra, y con el piso en 2 esa diferencia costaba el enganche entero.
+
+    La forma canónica **no tiene que ser una palabra real**: tiene que ser LA MISMA para
+    el singular y el plural. `clave→clav ← claves` y `error→error ← errores` no salen con
+    una sola regla de recorte, pero sí con dos aplicadas a los dos lados: sacar la `s`
+    final, y después la `e` final. Los dos textos se pliegan igual, y eso es lo único que
+    la coincidencia necesita.
+    """
+    if len(palabra) >= 5 and palabra.endswith("s"):
+        palabra = palabra[:-1]
+    if len(palabra) >= 5 and palabra.endswith("e"):
+        palabra = palabra[:-1]
+    return palabra
+
+
 def _tokens(texto):
     """Palabras de contenido, normalizadas. Determinista y sin dependencias.
 
     Se sacan los acentos porque "análisis" y "analisis" son la misma palabra para esto, y
-    una coincidencia que depende de cómo alguien escribió una tilde no es estructural.
+    una coincidencia que depende de cómo alguien escribió una tilde no es estructural. El
+    plural se pliega por el mismo motivo (0.3.11): "clave" y "claves" difieren en cómo se
+    contó, no en de qué se habla. Se pliega a **una** forma canónica y no se agregan las
+    dos: con las dos en el conjunto, una sola palabra en plural contaría como dos
+    coincidencias y bajaría el piso de facto a 1.
     """
     if not texto:
         return frozenset()
     plano = unicodedata.normalize("NFKD", texto.lower())
     plano = "".join(c for c in plano if not unicodedata.combining(c))
-    return frozenset(t for t in _PALABRA_RE.findall(plano) if t not in _VACIAS)
+    return frozenset(_canonica(t) for t in _PALABRA_RE.findall(plano)
+                     if t not in _VACIAS)
+
+
+# La lista cruda, plegada con la misma regla que los tokens contra los que se compara.
+_PREDICADOS_CANONICOS = frozenset(_canonica(w) for w in _PREDICADOS_DE_FALLO)
 
 
 def _enganche(tokens_prompt, frases, piso=MIN_TOKENS_CRUDO):
@@ -210,8 +240,10 @@ def _enganche(tokens_prompt, frases, piso=MIN_TOKENS_CRUDO):
         comunes = tokens_prompt & _tokens(frase)
         # Un enganche que se apoya sólo en predicados de fallo no dice de qué se habla:
         # "algo falla" es cierto en cualquier prompt de debugging. Tiene que quedar al
-        # menos una palabra que nombre la cosa.
-        if not (comunes - _PREDICADOS_DE_FALLO):
+        # menos una palabra que nombre la cosa. Contra la forma canónica (0.3.11): los
+        # tokens ya vienen plegados, y un `rompe` plegado que escapara de la lista cruda
+        # volvería a sostener enganches él solo.
+        if not (comunes - _PREDICADOS_CANONICOS):
             continue
         if len(comunes) > mejor:
             mejor = len(comunes)

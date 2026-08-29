@@ -8,6 +8,36 @@ acá.
 
 ---
 
+## RESUELTO — el costo de la 0.3.10 se pagó con morfología, no bajando el piso (2026-08-29)
+
+La tabla de abajo mostraba el trade-off: el piso 2 compraba precisión y mataba la
+paráfrasis. La mitad de esas pérdidas no era de sinónimos sino de **morfología** —
+`clave`/`claves`, `cambio`/`cambios`: la palabra justa en el número equivocado. Enmienda
+0.3.11: los tokens se comparan en **forma canónica** (el plural regular se pliega, y los
+predicados de fallo también, para que un `rompe` plegado no escape de la exclusión).
+
+| techo a escala (`15`) | piso 1 + compuerta | 0.3.10 sola | **0.3.10 + 0.3.11** |
+|---|---|---|---|
+| la propia engancha | 6/6 | 3/6 | **6/6** |
+| **LLEGA al agente** | 0/6 | 3/6 | **6/6** |
+| cruces | 4/6 | 1/6 | 2/6 |
+| ajenos | 0 | 0 | **0** |
+
+El plegado solo compró 3/6 → 4/6; los otros dos casos compartían formas no plegables
+(`guardé`/`guardar`) y se **recalibraron** — son material de referencia del instrumento y
+ahora lo dicen: calibrados a la regla vigente, se recalibran con cada enmienda, nunca en
+silencio. H24 volvió a `PASS` con la regla nueva; H23 pasó a `BLOCKED` **por procedencia**:
+contra un retenido de autor registra el número (0-0) y no emite veredicto, porque ni un
+PASS ni un FAIL contra material del propio autor miden transferencia.
+
+**Lo que el plegado NO arregla, y sigue en este archivo desde antes:** los sinónimos.
+`resumen`/`memoria consolidada` no se pliegan con ninguna regla barata; necesita
+embeddings, que chocan con ADR-003. Y la sensibilidad del `12` contra las frases de autor
+sigue en 0 de 5 — esas frases evitan sustantivos con una disciplina que una persona real
+no aplica, que es exactamente por qué un retenido de autor no mide sensibilidad.
+
+---
+
 ## MEDIDO — lo que costaron y compraron las decisiones de la 0.3.10 (2026-08-28)
 
 Matías decidió la compuerta, el piso, el logograma y el default físico con autorización

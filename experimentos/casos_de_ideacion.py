@@ -21,6 +21,11 @@ conjunto retenido escrito por otra persona (`retenido/README.md`), y estos casos
 reemplazan: lo que sí hacen es separar "el instrumento no puede" de "el material no
 alcanza", que es la distinción que el `08` compró para el brazo Mermaid.
 
+**Los casos están calibrados a la regla vigente** (piso 2 + plegado de plural,
+enmiendas 0.3.10/0.3.11): son material de referencia del instrumento, y una referencia
+que no pasa la regla que ilustra no es una referencia. Cuando la regla cambie, se
+recalibran — con la enmienda al lado, nunca en silencio.
+
 **Y lo que estos casos NO son:** ejemplos few-shot para el prompt de consolidación.
 Meterlos ahí cambiaría el brazo (PREREG §2) y ensuciaría cualquier medición futura: el
 modelo estaría copiando los casos contra los que después se lo mide. Son material del
@@ -52,7 +57,7 @@ CASOS = [
                    "refresca cuando la fuente cambia: las lecturas siguen siendo "
                    "coherentes entre sí, así que ninguna etapa protesta, y la diferencia "
                    "sólo aparece al comparar contra la fuente, al final.",
-        "signals": ["el valor que acabo de guardar no es el que aparece al leerlo",
+        "signals": ["la pantalla muestra el valor viejo, no el que acabo de guardar",
                     "los cambios recién se ven después de reiniciar",
                     "dos lecturas del mismo dato dan distinto según por dónde se entra"],
         "valid_when": ["Hay una copia derivada de la fuente que se consulta en su lugar.",
@@ -83,7 +88,7 @@ CASOS = [
                    "sólo uno pasó por la normalización, y el dato buscado existe pero no "
                    "se encuentra.",
         "signals": ["dos claves que se ven idénticas no coinciden",
-                    "lo que acabo de guardar no aparece cuando lo busco",
+                    "busco una clave que existe en el índice y no aparece",
                     "anda con unos datos y se rompe con otros que parecen iguales"],
         "valid_when": ["La clave pasa por una limpieza o normalización en un solo lado "
                        "del recorrido.",

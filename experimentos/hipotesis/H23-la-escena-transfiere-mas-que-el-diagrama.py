@@ -78,24 +78,34 @@ def correr():
         marcadores[modo] = camino_real.medir(data, proyecciones, retenidos, AJENOS)
 
     c, i = marcadores["mermaid"], marcadores["fisica"]
-    resumen = ("  retenidos (%d): mermaid %d, fisica %d.\n"
-               "  control negativo (%d): mermaid %d, fisica %d.\n"
-               "  ADVERTENCIA: el retenido lo escribio el agente — esto es un techo de\n"
-               "  autor, no transferencia a una persona. La version humana sigue\n"
-               "  pendiente y es la unica que cierra esta hipotesis de verdad."
+    numeros = ("  retenidos (%d): mermaid %d, fisica %d.\n"
+               "  control negativo (%d): mermaid %d, fisica %d."
                % (len(retenidos), c["retenidos"], i["retenidos"],
                   len(AJENOS), c["ajenos"], i["ajenos"]))
 
+    # La procedencia decide qué clase de veredicto puede salir de acá. Contra un retenido
+    # escrito por el agente —el mismo autor del retrieval, de los prompts de los dos
+    # brazos y de este instrumento— NO hay veredicto de transferencia posible: ni un PASS
+    # (se estaria midiendo a si mismo) ni un FAIL (sus frases evitan sustantivos con un
+    # criterio que una persona real no aplica). El numero se registra y la hipotesis
+    # ESPERA el material que si puede decidirla. Eso es BLOCKED, no FAIL: confundirlos
+    # convierte una espera en un fracaso, y este repo ya pago esa confusion.
+    de_autor = "agente" in retenido.read_text(encoding="utf-8")[:1200].lower()
+    if de_autor:
+        return BLOCKED, ("el unico retenido disponible lo escribio el agente (techo de\n"
+                         "autor): con el se registra el numero y no un veredicto.\n"
+                         + numeros + "\n"
+                         "La version humana sigue pendiente en\n"
+                         "`retenido/PENDIENTE-5b3ff97f.md`, y es la unica que puede\n"
+                         "decidir esta hipotesis.")
+
     if i["retenidos"] > c["retenidos"] and i["ajenos"] == 0:
-        return PASS, ("la escena engancha mas que el diagrama sin comprar ajenos —\n"
-                      "EN EL TECHO DE AUTOR.\n" + resumen)
+        return PASS, ("la escena engancha mas que el diagrama sin comprar ajenos.\n"
+                      + numeros)
     if i["retenidos"] == 0 and c["retenidos"] == 0:
-        return FAIL, ("NINGUNO de los dos brazos engancha ni un retenido. Con el piso\n"
-                      "en 2 (enmienda 0.3.10), ni el material del propio autor comparte\n"
-                      "dos palabras de contenido con una parafrasis: el costo del piso\n"
-                      "nuevo, medido. No dice cual medio es mejor: dice que ninguno\n"
-                      "llega, que es otra cosa y es peor.\n" + resumen)
-    return FAIL, ("el resultado NO favorece a la escena:\n" + resumen)
+        return FAIL, ("NINGUNO de los dos brazos engancha ni un retenido: antes de\n"
+                      "comparar medios hay que llegar, y ninguno llega.\n" + numeros)
+    return FAIL, ("el resultado NO favorece a la escena:\n" + numeros)
 
 
 if __name__ == "__main__":

@@ -754,18 +754,19 @@ store, y el `13` midió que la discriminación se degrada al crecer.
 
 ### Lo que dio (2026-08-28, sin modelo)
 
-| | piso 1 + compuerta (original) | **piso 2, sin compuerta (0.3.10)** |
-|---|---|---|
-| la propia engancha | 6 de 6 | **3 de 6** |
-| la propia queda entre las elegidas | 6 de 6 | **3 de 6** |
-| prompts ajenos que enganchan | 0 de 4 | **0 de 4** |
-| paráfrasis que cruzan con casos ajenos | 4 de 6 | **1 de 6** |
-| **LLEGA al agente en una sesión real** | **0 de 6** | **3 de 6** |
+| | piso 1 + compuerta | 0.3.10 sola | **0.3.10 + 0.3.11 (vigente)** |
+|---|---|---|---|
+| la propia engancha | 6 de 6 | 3 de 6 | **6 de 6** |
+| la propia queda entre las elegidas | 6 de 6 | 3 de 6 | **6 de 6** |
+| prompts ajenos que enganchan | 0 de 4 | 0 de 4 | **0 de 4** |
+| paráfrasis que cruzan con casos ajenos | 4 de 6 | 1 de 6 | 2 de 6 |
+| **LLEGA al agente en una sesión real** | **0 de 6** | 3 de 6 | **6 de 6** |
 
-La columna nueva es de después de la enmienda 0.3.10 (las decisiones de Matías): la
-compuerta ya no bloquea, así que lo que engancha llega — y el piso en 2 dejó afuera a la
-mitad de lo que enganchaba. El trade-off entero está en `LATER.md`; H24 quedó en `FAIL` a
-propósito, porque ese costo tiene que doler en el tablero y no en una nota al pie.
+Las tres columnas cuentan la historia entera: la compuerta bloqueaba todo lo que
+enganchaba; sacarla y subir el piso (0.3.10) hizo llegar la mitad; y la morfología mínima
+(0.3.11: el plural se pliega a forma canónica) más los casos recalibrados dejaron el techo
+entero — **por primera vez, todo lo que engancha llega, y ningún ajeno engancha**. El
+detalle del trade-off y lo que el plegado NO arregla (sinónimos) está en `LATER.md`.
 
 Tres lecturas, en orden de importancia:
 

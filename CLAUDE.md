@@ -58,13 +58,14 @@ estructurales sólo inyectan lo que engancha—, el piso de discriminación es *
 las superficies, el **logograma** es superficie de búsqueda con prioridad de orden, y el
 default de ideación es **`fisica`** (ADR-007, enmienda). Ninguna de las cuatro está
 sostenida por una medición de beneficio: son decisiones del dueño del proyecto, y la spec
-las registra con esa procedencia. Bajo el tratamiento nuevo H17 pasó a favor (2 de 3
-contra 0, ajenos 0 — evidencia débil: su retenido está gastado), y el costo quedó medido
-en H23 y H24, los dos en contra: con el piso en 2, la sensibilidad a la paráfrasis cayó a
-0 de 5 sobre el retenido de `5b3ff97f`, y el techo a escala bajó de 6/6 a 3/6 — aunque lo
-que sí engancha ahora **llega** (3/6 contra 0/6 con la compuerta vieja). El retenido de
-`5b3ff97f` lo escribió el agente por autorización expresa: lo que mide es un techo de
-autor, no sensibilidad.
+las registra con esa procedencia. El costo del piso quedó medido y se pagó el 2026-08-29
+con la **morfología mínima** (enmienda 0.3.11: los tokens se comparan en forma canónica,
+el plural se pliega): el techo a escala del `15` quedó entero por primera vez — engancha
+6/6, **llega 6/6**, ajenos 0. H17 pasó a favor bajo el tratamiento nuevo (evidencia
+débil: su retenido está gastado) y H23 espera lo único que puede decidirla: un retenido
+**humano**. El de `5b3ff97f` lo escribió el agente por autorización expresa y es un techo
+de autor, no sensibilidad — contra material de autor H23 registra el número y no emite
+veredicto.
 
 ## Milestone de referencia: M3 — dream `consolidate` + scheduler
 
