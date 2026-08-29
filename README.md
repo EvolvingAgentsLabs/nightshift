@@ -214,10 +214,19 @@ mostly harness scaffolding. Split in two, plus a rule that a match can never res
 words that say *that* something broke rather than *what*: **4 out of 6**, with the negative
 control at zero both times.
 
-Two still fail, and they are not fixable this way — `resumen`/`memoria consolidada`,
-`métrica`/`contador de cobertura` share no word at all. That is synonymy, not morphology;
-`difflib` and prefix matching were measured and buy nothing. It needs embeddings, which
-collide with [ADR-003](doc/adr/ADR-003-modelo-de-dream.md). It waits.
+The story since then, each step measured: the floor went up to 2 across every surface and
+the classifier gate stopped blocking injection (amendment 0.3.10 — Matías's call), regular
+plurals now fold to a canonical form (0.3.11), and the last two cases —
+`resumen`/`memoria consolidada`, `métrica`/`contador de cobertura`, which share no word at
+all — got a **semantic fallback** (ADR-003, amended 2026-08-29). It is a *command*, not a
+service: `embedding_command` reads texts on stdin and writes vectors on stdout, the
+network is spoken by the user's own script (`tools/embed-ollama.sh` wraps local ollama),
+and `nightshift/` still imports no network module. Calibrated against real
+`embeddinggemma` before writing the code: the two documented synonym pairs score 0.48 and
+0.44 cosine against a 0.33 maximum for unrelated pairs. What it does **not** do, measured
+and written down: bridge a symptom to an abstract mechanism (0.24–0.28, *below* the
+unrelated pairs). It resolves same-register synonymy, not understanding. Off by default —
+without the command, the ranking is byte-for-byte the lexical one.
 
 Reproduce it: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas`
 
@@ -241,7 +250,7 @@ that came true twice.
 - [`doc/00-spec.md`](doc/00-spec.md) — the spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — what each of the three ideas is still missing
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — the scope, and the benchmark (paused)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 waiting on material** — the one left can only be decided by a human-written held-out set — `make experiments` walks them
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — one hypothesis per file: **24 hypotheses**. As of 2026-08-29: **23 verified, 1 against** — H23, measured under simulated validation, did not favor the physical scene — `make experiments` walks them
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
 - [`LATER.md`](LATER.md) — everything found and not fixed

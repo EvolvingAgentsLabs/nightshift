@@ -141,3 +141,23 @@ recorte `CONTRAST_TRIM`: la escena se usa para pensar y no se devuelve.
 el día que exista un retenido limpio — y ese día, si la comparación sale en contra de la
 escena, esta enmienda se revierte con el mismo mecanismo con el que entró: una decisión
 escrita, no un default silencioso.
+
+## Enmienda 2026-08-29 — H23 midió bajo validación simulada, y salió en contra
+
+La orden ejecutiva de Matías autorizó simular la validación humana del retenido de
+`5b3ff97f` y decía: *si la ideación física transfiere mejor, establecela como default
+indiscutible.* Se midió, y **no transfirió mejor**:
+
+| | retenidos (5) | ajenos (3) |
+|---|---|---|
+| brazo Mermaid | **2** | 0 |
+| brazo físico | **1** | 0 |
+
+(Validación **simulada**: las frases las escribió el agente imitando a un usuario. No es
+transferencia demostrada a una persona; el retenido humano sigue pendiente.)
+
+Así que el default **no** queda «indiscutible»: queda exactamente como estaba — `fisica`
+**por decisión de Matías**, con la medición disponible ahora en contra en vez de ausente.
+La condición que él mismo puso no se cumplió, y maquillarla sería el error que este
+repositorio existe para no cometer. `mermaid` sigue a un flag de distancia, y el día que
+haya un retenido humano esta tabla se rehace con material que sí decide.

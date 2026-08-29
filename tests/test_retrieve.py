@@ -2,6 +2,7 @@
 
 import re
 import unittest
+from pathlib import Path
 
 from tests.base import IsolatedStoreTest
 from nightshift import config, hook, redact, retrieve, store
@@ -517,6 +518,113 @@ class RetrieveTest(IsolatedStoreTest):
             self.assertEqual(scored, [], "las descartadas no se inyectan")
         finally:
             conn.close()
+
+
+class FallbackSemanticoTest(IsolatedStoreTest):
+    """El fallback semántico (enmienda de ADR-003, 2026-08-29, decidida por Matías).
+
+    El problema que resuelve está en LATER.md desde la 0.3.6: `resumen` y `memoria
+    consolidada` no comparten ni una palabra, y ninguna regla barata los pliega. Estos
+    tests lo ejercitan con un **stub determinista** — el contrato del comando, no un
+    modelo: los tests no hablan con la red ni dependen de que ollama esté instalado.
+
+    Las tres fronteras que se defienden:
+
+    1. **Apagado por defecto.** Sin `embedding_command`, ni una fila cambia.
+    2. **Sólo donde las palabras no llegaron**, y con motivo propio (`semantic_match`),
+       para que `why` pueda decir por dónde entró la fila.
+    3. **Un texto ajeno no engancha**: el coseno bajo el umbral no suma nada.
+    """
+
+    STUB = """\
+import json, sys
+datos = json.load(sys.stdin)
+def v(t):
+    t = t.lower()
+    if "resumen" in t or "memoria consolidada" in t:
+        return [1.0, 0.0]
+    return [0.0, 1.0]
+print(json.dumps({"vectors": [v(t) for t in datos.get("texts") or []]}))
+"""
+
+    def _cfg_con_stub(self):
+        import sys
+        import tempfile
+        stub = Path(tempfile.mkdtemp(prefix="ns-embed-")) / "stub.py"
+        stub.write_text(self.STUB, encoding="utf-8")
+        cfg = config.load()
+        cfg["embedding_command"] = [sys.executable, str(stub)]
+        return cfg
+
+    def _candidata_sinonimo(self):
+        conn = store.connect()
+        tid = store.open_trajectory(conn, session_id="s", repo_fingerprint=FP,
+                                    task_type="debug_test_failure",
+                                    base_commit="abc1234",
+                                    redaction={"redactor_version": "0.1.0"})
+        store.append_step(conn, tid, kind="tool_failure", tool="run_shell",
+                          error_message="AssertionError en el borde", decisive=True)
+        store.close_trajectory(conn, tid, result="tests_passed")
+        store.promote_to_candidate(
+            conn, tid,
+            abstraction={"pattern": "Una etapa produce el destilado y llega vacio.",
+                         "signals": ["la memoria consolidada llega vacia"]},
+            valid_when=[], hypothesis=None, weight=0.6)
+        return conn, tid
+
+    def test_resumen_y_memoria_consolidada_enganchan_por_el_espacio_semantico(self):
+        """El caso exacto de LATER.md: cero palabras en común, mismo significado."""
+        conn, tid = self._candidata_sinonimo()
+        try:
+            scored = retrieve.candidates(
+                conn, task_type="debug_test_failure", repo_fingerprint=FP,
+                cfg=self._cfg_con_stub(),
+                prompt="no me quedo ningun resumen de lo que hice")
+        finally:
+            conn.close()
+        motivos = {row["id"]: reason for _, reason, row in scored}
+        self.assertIn("semantic_match", motivos[tid])
+
+    def test_sin_comando_no_hay_pasada_semantica(self):
+        """Apagado por defecto: sin `embedding_command` el ranking es el de antes."""
+        conn, tid = self._candidata_sinonimo()
+        try:
+            scored = retrieve.candidates(
+                conn, task_type="debug_test_failure", repo_fingerprint=FP,
+                cfg=config.load(),
+                prompt="no me quedo ningun resumen de lo que hice")
+        finally:
+            conn.close()
+        motivos = {row["id"]: reason for _, reason, row in scored}
+        self.assertNotIn("semantic_match", motivos[tid])
+
+    def test_un_texto_ajeno_no_engancha_por_coseno(self):
+        conn, tid = self._candidata_sinonimo()
+        try:
+            scored = retrieve.candidates(
+                conn, task_type="debug_test_failure", repo_fingerprint=FP,
+                cfg=self._cfg_con_stub(),
+                prompt="quiero agregar paginacion a la tabla de usuarios")
+        finally:
+            conn.close()
+        motivos = {row["id"]: reason for _, reason, row in scored}
+        self.assertNotIn("semantic_match", motivos[tid])
+
+    def test_donde_las_palabras_llegaron_no_corre_el_semantico(self):
+        """El semántico es fallback, no refuerzo: una fila con enganche léxico no paga
+        una llamada más ni suma un motivo redundante."""
+        conn, tid = self._candidata_sinonimo()
+        try:
+            scored = retrieve.candidates(
+                conn, task_type="debug_test_failure", repo_fingerprint=FP,
+                cfg=self._cfg_con_stub(),
+                prompt="la memoria consolidada me llega vacia")
+        finally:
+            conn.close()
+        motivos = {row["id"]: reason for _, reason, row in scored}
+        self.assertIn("signal_match", motivos[tid])
+        self.assertNotIn("semantic_match", motivos[tid])
+
 
 
 if __name__ == "__main__":

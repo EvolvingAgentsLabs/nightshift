@@ -34,9 +34,10 @@ Las tres se implementan en un solo lugar: `dream.consolidate`, que ahora idea si
 comparte repo o tipo de tarea.
 
 **Qué le falta a cada una está medido, y es un script:** `nightshift experiments` recorre
-**24 hipótesis**, una por archivo. Al 2026-08-29, tras las enmiendas 0.3.10 y 0.3.11:
-**23 comprobadas y 1 esperando material** — H23, que sólo puede decidirla un retenido
-humano. El costo del piso en 2 que había dejado a H23 y H24 en contra se pagó con la
+**24 hipótesis**, una por archivo. Al 2026-08-29, tras las enmiendas 0.3.10 a 0.3.12:
+**23 comprobadas y 1 en contra** — H23 midió bajo validación simulada (orden de Matías) y
+el resultado NO favorece a la escena: mermaid 2, física 1, ajenos 0-0. El default sigue
+siendo `fisica` por decisión, no por veredicto, y ADR-007 lo registra con la tabla. El costo del piso en 2 que había dejado a H23 y H24 en contra se pagó con la
 morfología mínima (0.3.11: el plural se pliega) y con los casos de referencia
 recalibrados: el techo a escala quedó entero por primera vez — engancha 6/6, **llega
 6/6**, ajenos 0. H17 pasó a favor bajo el tratamiento nuevo (2 de 3 contra 0, ajenos 0),

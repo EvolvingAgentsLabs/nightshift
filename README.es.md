@@ -216,10 +216,20 @@ de error es casi todo andamiaje del harness. Partido en dos, más una regla de q
 coincidencia puede apoyarse sólo en palabras que dicen *que* algo se rompió y no *qué*:
 **4 de 6**, con el control negativo en cero las dos veces.
 
-Dos siguen fallando y no se arreglan por acá: `resumen`/`memoria consolidada`,
-`métrica`/`contador de cobertura` no comparten una sola palabra. Eso es sinónimo, no
-morfología; `difflib` y el emparejado por prefijo se midieron y no compran nada. Necesita
-embeddings, que chocan con [ADR-003](doc/adr/ADR-003-modelo-de-dream.md). Espera.
+La historia desde entonces, cada paso medido: el piso subió a 2 en todas las superficies
+y la compuerta del clasificador dejó de bloquear la inyección (enmienda 0.3.10 — decisión
+de Matías), el plural regular se pliega a forma canónica (0.3.11), y los dos casos que
+quedaban —`resumen`/`memoria consolidada`, `métrica`/`contador de cobertura`, que no
+comparten una sola palabra— tienen un **fallback semántico** (ADR-003, enmendado el
+2026-08-29). Es un *comando*, no un servicio: `embedding_command` lee textos por stdin y
+escribe vectores por stdout, la red la habla el script del usuario
+(`tools/embed-ollama.sh` envuelve al ollama local), y `nightshift/` sigue sin importar un
+solo módulo de red. Calibrado contra `embeddinggemma` real antes de escribir el código:
+los dos pares de sinónimos documentados dan 0.48 y 0.44 de coseno contra un máximo de
+0.33 en pares ajenos. Lo que **no** hace, medido y escrito: unir un síntoma con un
+mecanismo abstracto (0.24–0.28, *por debajo* de los ajenos). Resuelve sinónimos de
+registro parecido, no comprensión. Apagado por defecto — sin el comando, el ranking es
+letra por letra el léxico.
 
 Reproducilo: `python3 experimentos/05-enganche-por-parafrasis.py --alternativas`
 
@@ -243,7 +253,7 @@ cumplió dos veces tampoco.
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
 - [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
 - [`doc/PLAN-v0.3.md`](doc/PLAN-v0.3.md) · [`doc/PLAN-M4.md`](doc/PLAN-M4.md) — el alcance, y el benchmark (pausado)
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-29: **23 comprobadas y 1 esperando material** — la que queda sólo puede decidirla un retenido escrito por una persona — `make experiments` las recorre
+- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. Al 2026-08-29: **23 comprobadas y 1 en contra** — H23, medida bajo validación simulada, no favoreció a la escena física — `make experiments` las recorre
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren solos, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado

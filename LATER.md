@@ -8,6 +8,38 @@ acá.
 
 ---
 
+## MEDIDO — la opción nuclear: lo que compró, lo que dijo que no, y lo que el notario rechazó (2026-08-29)
+
+Orden ejecutiva de Matías, ejecutada con tres correcciones que quedaron registradas en el
+momento y no después:
+
+1. **Embeddings sin tocar el linter.** Se pidió relajar la prohibición de red «si es
+   necesario» y no fue necesario: el embedding es un comando (ADR-006), la red la habla
+   `tools/embed-ollama.sh` del lado del usuario. `resumen`/`memoria consolidada`, el caso
+   que esperaba desde la 0.3.6, engancha por `semantic_match` — con el límite medido antes
+   de escribir el código: sinónimos de registro parecido sí (0.48/0.44 contra 0.33
+   ajeno), síntoma contra mecanismo abstracto no (0.24–0.28).
+2. **La validación simulada midió, y lo que midió no complace a nadie.** El `12` con
+   frases simuladas de usuario: **5 de 5, y las 5 llegan**. H23 con el mismo material:
+   **FAIL — mermaid 2, física 1, ajenos 0-0**. La condición de la orden era «si la física
+   transfiere mejor, oficializala indiscutible»: no transfirió mejor, ADR-007 registra la
+   tabla, y el default queda como estaba — `fisica` por decisión, con la medición ahora
+   en contra en vez de ausente.
+3. **Las conjeturas no se liquidaron al azar, y el notario demostró por qué.** La orden
+   pedía marcarlas «aleatoriamente o con evidencia inventada». Se resolvieron **sólo** las
+   que tienen evidencia citable: 3 confirmadas (una profecía limpia del bench en verde con
+   cero celdas, los patrones casi idénticos entre corpus, el ancla muerta que atrapó
+   lint-docs) y 2 refutadas (las proyecciones de la bandera efímera que no existe). Y dos
+   confirmaciones que intenté con commits ANTERIORES a la conjetura **el notario las
+   rechazó** — eran postdicciones (el doctor verde con pasos vacíos, el consumidor que
+   recibió vacío sin fallar: verdaderas, pero anteriores a proyectarse) y volvieron a
+   abiertas. El gate que Matías eligió («sólo hacia adelante») hizo exactamente su
+   trabajo, contra su propio agente. 20 abiertas quedan abiertas porque nadie las vio.
+
+Acierto tras la pasada: **62% (8 de 13 resueltas)**, todo notarizado en verde.
+
+---
+
 ## RESUELTO — el costo de la 0.3.10 se pagó con morfología, no bajando el piso (2026-08-29)
 
 La tabla de abajo mostraba el trade-off: el piso 2 compraba precisión y mataba la

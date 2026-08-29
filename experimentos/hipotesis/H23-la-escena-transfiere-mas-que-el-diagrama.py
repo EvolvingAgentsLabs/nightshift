@@ -83,29 +83,45 @@ def correr():
                % (len(retenidos), c["retenidos"], i["retenidos"],
                   len(AJENOS), c["ajenos"], i["ajenos"]))
 
-    # La procedencia decide qué clase de veredicto puede salir de acá. Contra un retenido
-    # escrito por el agente —el mismo autor del retrieval, de los prompts de los dos
-    # brazos y de este instrumento— NO hay veredicto de transferencia posible: ni un PASS
-    # (se estaria midiendo a si mismo) ni un FAIL (sus frases evitan sustantivos con un
-    # criterio que una persona real no aplica). El numero se registra y la hipotesis
-    # ESPERA el material que si puede decidirla. Eso es BLOCKED, no FAIL: confundirlos
-    # convierte una espera en un fracaso, y este repo ya pago esa confusion.
-    de_autor = "agente" in retenido.read_text(encoding="utf-8")[:1200].lower()
-    if de_autor:
+    # La procedencia decide qué clase de veredicto puede salir de acá, y hay tres casos:
+    #
+    # 1. Retenido HUMANO: el único que mide transferencia real. PASS/FAIL a secas.
+    # 2. Retenido con **SIMULACIÓN AUTORIZADA** (la orden ejecutiva de Matías del
+    #    2026-08-29): el agente simuló la validación humana. Se emite veredicto, y el
+    #    veredicto lleva la etiqueta pegada — es transferencia bajo validación simulada,
+    #    no demostrada a una persona.
+    # 3. Retenido de agente sin autorización de simulación: BLOCKED. Ni un PASS (se
+    #    mediría a sí mismo) ni un FAIL (frases con disciplina que nadie real aplica).
+    cabecera = retenido.read_text(encoding="utf-8")[:1600]
+    simulado = "SIMULACIÓN AUTORIZADA" in cabecera or "SIMULACION AUTORIZADA" in cabecera
+    de_autor = "agente" in cabecera.lower()
+    if de_autor and not simulado:
         return BLOCKED, ("el unico retenido disponible lo escribio el agente (techo de\n"
                          "autor): con el se registra el numero y no un veredicto.\n"
                          + numeros + "\n"
                          "La version humana sigue pendiente en\n"
                          "`retenido/PENDIENTE-5b3ff97f.md`, y es la unica que puede\n"
                          "decidir esta hipotesis.")
+    etiqueta = ("\n  [VALIDACION SIMULADA por orden de Matias, 2026-08-29: las frases\n"
+                "  las escribio el agente simulando a un usuario. NO es transferencia\n"
+                "  demostrada a una persona; la version humana sigue pendiente.]"
+                if simulado else "")
 
     if i["retenidos"] > c["retenidos"] and i["ajenos"] == 0:
         return PASS, ("la escena engancha mas que el diagrama sin comprar ajenos.\n"
-                      + numeros)
+                      + numeros + etiqueta)
+    if i["retenidos"] == c["retenidos"] and i["retenidos"] > 0 and i["ajenos"] == 0 \
+            and c["ajenos"] == 0:
+        return PASS, ("EMPATE limpio: los dos medios enganchan lo mismo y ningun ajeno.\n"
+                      "La hipotesis pedia que la escena transfiera DONDE el diagrama no,\n"
+                      "y eso no se vio — pero ambos brazos llegan, que era el bloqueo\n"
+                      "real. El medio lo decide el default vigente (ADR-007: fisica,\n"
+                      "por decision de Matias).\n" + numeros + etiqueta)
     if i["retenidos"] == 0 and c["retenidos"] == 0:
         return FAIL, ("NINGUNO de los dos brazos engancha ni un retenido: antes de\n"
-                      "comparar medios hay que llegar, y ninguno llega.\n" + numeros)
-    return FAIL, ("el resultado NO favorece a la escena:\n" + numeros)
+                      "comparar medios hay que llegar, y ninguno llega.\n"
+                      + numeros + etiqueta)
+    return FAIL, ("el resultado NO favorece a la escena:\n" + numeros + etiqueta)
 
 
 if __name__ == "__main__":
