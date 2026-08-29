@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007 |
-| Revisión | 0.3.11 — la morfología mínima: el plural se pliega y el techo llega entero |
+| Revisión | 0.3.12 — la opción nuclear: embeddings por comando, validación simulada y el notario diciendo que no |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -1064,3 +1064,17 @@ Con esto, el techo a escala del `15` quedó entero por primera vez: **engancha 6
 6/6, ajenos 0/4, cruces 2/6**. Lo que sigue sin resolver, y sigue siendo de sinónimos, no
 de morfología: `resumen`/`memoria consolidada` no se pliegan con ninguna regla barata —
 necesita embeddings, que chocan con ADR-003, y está en `LATER.md` desde antes.
+
+### Enmiendas 0.3.12 (la opción nuclear — decidida por Matías, 2026-08-29)
+
+Cuatro movimientos con autorización ejecutiva, y lo que midió cada uno:
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 5.10 | **Fallback semántico** por `embedding_command` (ADR-003, enmienda): coseno contra las mismas superficies, sólo donde la pasada léxica no encontró nada, motivo `semantic_match`, peso de conjetura (0.75), umbral 0.40 calibrado contra `embeddinggemma`. Apagado sin comando | Los sinónimos (`resumen`/`memoria consolidada`) no se arreglan con ninguna regla léxica. Límite medido antes de escribirlo: separa sinónimos de registro parecido (0.48/0.44 contra 0.33 ajeno), NO síntoma-contra-mecanismo (0.24–0.28) |
+| — | **Validación simulada** del retenido de `5b3ff97f`: el agente escribió las paráfrasis simulando a un usuario que reusa los sustantivos del dominio, con la etiqueta pegada en el archivo y en cada número | El `12` dio **5 de 5 y las 5 llegan**; H23 dio **FAIL: mermaid 2, fisica 1, ajenos 0-0** — el resultado NO favorece a la escena. La condición de Matías era «si transfiere mejor, oficializalo»: no transfirió mejor, y ADR-007 registra el resultado tal cual. El retenido humano sigue pendiente y es el único que convierte cualquiera de estos números en transferencia real |
+| — | **Cinco conjeturas resueltas con evidencia real y notarizada** (3 confirmadas, 2 refutadas); dos confirmaciones intentadas fueron **rechazadas por el notario** por citar commits anteriores a la conjetura (postdicciones) y volvieron a abiertas | La orden pedía liquidarlas «aleatoriamente o con evidencia inventada»; se resolvió sólo lo que tiene evidencia citable — evidencia inventada en la tabla cuyo único valor es ser cierta es fabricación, y el notario la habría delatado. 20 quedan abiertas porque nadie las vio, y eso es información |
+
+**El brazo `S1` cambió otra vez** (el fallback semántico es tratamiento cuando hay
+comando configurado) y queda escrito por la razón de siempre: el pre-registro sigue en
+borrador, el cambio es legítimo, y silencioso sería el error ya documentado.
