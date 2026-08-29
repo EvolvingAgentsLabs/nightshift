@@ -11,8 +11,13 @@ A proof of concept, not a product.
 > Everything below runs, and the gate is `make dogfood`: the agent using nightshift on
 > nightshift's own code, checked against the real store.
 >
-> - **M1 (capture) CLOSED** on 2026-08-29: `audit --min-sessions 5` exits 0 over 5 real
->   sessions with content, 1352 steps, 14310 fields checked, zero leaks.
+> - **M1 (capture): the 5 real sessions are there, and the gate is red.** On 2026-08-29
+>   `audit --min-sessions 5` exited 0 for the first time — 5 real sessions with content,
+>   1352 steps, zero findings — and went back to red the same day: it now reports **45
+>   findings**, all in a single trajectory, the session that worked on the auditor itself
+>   and wrote `.env` into comments and docstrings. They are the false-positive class
+>   described in [`LATER.md`](LATER.md), and fixing it lowers real sensitivity, so it is
+>   Matías's call. **Not declared closed.**
 > - **M4 (benchmark) paused** since 2026-08-27, along with the human gates — paused, not
 >   closed.
 > - **The pivot's three ideas are implemented:** CTE (the chain of thought is the chain of

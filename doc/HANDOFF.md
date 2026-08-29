@@ -83,7 +83,7 @@ El plan está en [`PLAN-TRES-IDEAS.md`](PLAN-TRES-IDEAS.md).
 |---|---|---|
 | **M4 — benchmark go/no-go** | **PAUSADO.** Fuera del camino crítico | El runner sigue construido y sigue **negándose a correr**. `bench/PREREG.md` conserva sus `TODO(Matias)` **sin tocar**: pausar el benchmark no es completar el pre-registro, y completarlo sigue siendo una violación |
 | **Gate humano de M0** — revisión de ADR-001 por Ismael | **PAUSADO.** Deja de bloquear | Sigue pendiente y sigue siendo cierto que hay código construido sobre las cinco capacidades que ese ADR decide. No lo des por cerrado: darlo por cerrado es distinto de no esperarlo |
-| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. El de **M1 cerró el 2026-08-29**: `nightshift audit --min-sessions 5` sale 0 con 7 sesiones reales, 5 con contenido, 1352 pasos y **cero hallazgos**. El de **M3 no**: `schedule status` muestra corridas, pero no tres noches seguidas sin intervención |
+| **Gate de M1** (5 sesiones) y **gate de M3** (3 noches) | Dejan de bloquear | Siguen siendo evidencia real cuando ocurran. El de **M1 llegó a 0 el 2026-08-29** —7 sesiones reales, 5 con contenido, 1352 pasos, cero hallazgos— y **volvió a rojo la misma jornada**: 45 hallazgos, todos de la sesión que trabajó sobre el auditor (falsos positivos, `LATER.md`). No está cerrado. El de **M3 no**: `schedule status` muestra corridas, pero no tres noches seguidas sin intervención |
 | **M5 — dream fase 2 (`verify`)** | **SIGUE PROHIBIDO** | Y el motivo cambió: antes esperaba el veredicto de M4, que ya no va a llegar. Ahora lo que lo prohíbe es que nada llega a `procedure` y el dogfooding **no** lo desbloquea. Verificar es lo más caro de construir y nadie midió todavía que valga la pena |
 | **Adapter de OpenCode** | Prohibido, sin cambio | — |
 
@@ -295,11 +295,14 @@ agrupados por lo que desbloquea cada uno, el tamaño real de la corrida de M4 (1
 (§0-bis) **ninguna bloquea**. La primera **cerró el 2026-08-29**; las otras dos siguen
 abiertas: dejar de esperar algo no es haberlo obtenido.
 
-1. **El gate de M1: CERRADO el 2026-08-29.** `nightshift audit --min-sessions 5` sale 0
-   sobre el store real: 7 sesiones capturadas, **5 con contenido** (2 huecas no cuentan),
-   13 trayectorias, 1352 pasos, 14310 campos revisados y **ninguna fuga**. Las 5 son
-   sesiones reales de Claude Code, no `simulate`. Lo que este gate **no** dice sigue
-   siendo lo de siempre: que la memoria sirva. Eso lo iba a medir M4.
+1. **El gate de M1: las sesiones están, el gate no.** El 2026-08-29 `nightshift audit
+   --min-sessions 5` salió 0 por primera vez: 7 sesiones capturadas, **5 con contenido**
+   (2 huecas no cuentan), 1352 pasos y **ninguna fuga**. Las 5 son sesiones reales de
+   Claude Code, no `simulate`, y eso ya no se pierde. Lo que sí volvió atrás es el gate:
+   la misma sesión que arregló dos falsos positivos del auditor introdujo 45 hallazgos
+   nuevos escribiendo `.env` en sus propios comentarios. Son falsos positivos de una
+   clase que **no** se arregló (`LATER.md`), porque arreglarla baja sensibilidad real.
+   Lo que este gate **no** dice sigue siendo lo de siempre: que la memoria sirva.
    ```sh
    nightshift audit --min-sessions 5
    ```
