@@ -66,6 +66,22 @@ W_PRECONDITION_MATCH = 1.0
 W_LOGOGRAM_MATCH = 1.5
 MIN_TOKENS_LOGOGRAMA = 2
 
+# La expansión asimétrica (enmienda 0.3.13, decidida por Matías el 2026-08-30). El
+# consolidador traduce de noche el mecanismo al idioma de quien lo sufre, y esta es la
+# superficie contra la que esa traducción se busca.
+#
+# **Pesa como una señal observada y no más.** La tentación era ponerla arriba —es la
+# superficie escrita para enganchar— y sería un error de la misma clase que ya se cometió:
+# `colloquial_queries` no es algo que se observó, es algo que el modelo **imaginó que
+# alguien diría**. Está más cerca de una conjetura que de un fallo capturado. Se le da el
+# peso de una señal porque describe el mismo mecanismo observado, no más porque el motivo
+# por el que se agregó sea querer que enganche.
+#
+# Lo que motiva el campo está medido y no es una intuición: `RESULTADOS-DOMINIOS.md`, seis
+# dominios, 2 de 12 síntomas retenidos enganchan, y 10 de los 12 comparten **una palabra
+# de contenido o ninguna** con una superficie que habla exactamente de su mecanismo.
+W_COLLOQUIAL_MATCH = 1.5
+
 # El fallback semántico (enmienda de ADR-003, 2026-08-29, decidida por Matías) pesa lo
 # mismo que una conjetura: una similitud inferida por un modelo de embeddings no es una
 # palabra que el usuario escribió, y la jerarquía observado > inferido > conjeturado
@@ -125,7 +141,7 @@ MIN_TOKENS_CRUDO = 2
 # del error no proyectó nada.
 MOTIVOS_DE_ENGANCHE = frozenset(
     ("signal_match", "projected_match", "precondition_match", "failure_match",
-     "logogram_match", "semantic_match"))
+     "logogram_match", "semantic_match", "colloquial_match"))
 
 # Cuántos fallos de una trayectoria se miran. Una trayectoria de 400 pasos tiene un
 # puñado de fallos, no cuatrocientos, y el ranking corre dentro de un hook: el tope es
@@ -353,6 +369,7 @@ def _superficies_de(conn, row):
     if row["abstraction_json"]:
         abstraccion = json.loads(row["abstraction_json"])
         textos.extend(abstraccion.get("signals") or [])
+        textos.extend(abstraccion.get("colloquial_queries") or [])
         if abstraccion.get("decisive_signal"):
             textos.append(abstraccion["decisive_signal"])
         textos.extend(c.get("condition", "") for c in
@@ -478,6 +495,17 @@ def candidates(conn, *, task_type, repo_fingerprint, cfg, exclude_id=None, promp
             if _enganche(tokens_prompt, abiertas + confirmadas, MIN_TOKENS_DESTILADO):
                 score += W_PROJECTED_MATCH
                 reasons.append("projected_match")
+            # La traducción al idioma de quien sufre (enmienda 0.3.13). Es su propio
+            # motivo y no se disfraza de `signal_match`: `why` tiene que poder decir por
+            # dónde entró la fila, y una atribución falsa en la explicación es peor que
+            # un enganche de menos. El piso es el de lo destilado, como el resto: la
+            # superficie nueva no trae una regla de enganche más floja que las que ya
+            # existen — si lo hiciera, el aumento de enganche no se podría separar de
+            # haber aflojado el umbral.
+            coloquiales = list(abstraccion.get("colloquial_queries") or [])
+            if _enganche(tokens_prompt, coloquiales, MIN_TOKENS_DESTILADO):
+                score += W_COLLOQUIAL_MATCH
+                reasons.append("colloquial_match")
         # El logograma (ADR-007, enmienda 0.3.10). Vive en su columna y no en el JSON: se
         # chequea aparte, y su piso exige casi el signo entero.
         if tokens_prompt and "logogram" in row.keys() and row["logogram"]:

@@ -34,7 +34,11 @@
   "abstraction": {
     "pattern": "Una transformación de borde aplica una conversión que una capa anterior ya aplicó. El síntoma aparece lejos del borde, en la primera operación que asume el tipo original.",
     "signals": ["excepción de tipo o encoding en una capa interna", "el input cambió de origen recientemente"],
-    "decisive_signal": "inspeccionar el tipo real en el borde, no el declarado"
+    "decisive_signal": "inspeccionar el tipo real en el borde, no el declarado",
+    "colloquial_queries": [
+      "me tira error de encoding y el archivo no lo tocó nadie",
+      "esto andaba ayer y hoy explota al leer el mismo csv"
+    ]
   },
   "valid_when": [
     { "condition": "el pipeline tiene más de una capa que puede convertir", "source": "observed" },
