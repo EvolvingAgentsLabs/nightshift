@@ -9,69 +9,77 @@
   "trayectorias": 4,
   "rechazos": [],
   "saltados": [],
-  "costo_usd": 0.56674,
-  "tokens_entrada": 68526,
-  "tokens_salida": 5311,
+  "costo_usd": 0.6317665,
+  "tokens_entrada": 68970,
+  "tokens_salida": 6569,
   "candidatas": [
     {
-      "trajectory": "89d9acc1-c093-455c-b57d-02e166870480",
+      "trajectory": "352f63e0-ec3c-4eef-899a-755f4567abd1",
       "abstraction": {
-        "pattern": "Varias fallas que parecen no tener relacion entre si son la misma: un conjunto compartido y finito de recursos prestados que un consumidor toma y no devuelve, hasta que el resto espera. Cada superficie traduce esa espera a su propia apariencia local -un control deshabilitado, una salida vacia, una demora- asi que se diagnostica una vez por superficie y ninguna reparacion local funciona. El arreglo es medir quien retiene y corregir a ese consumidor; vaciar el recurso periodicamente solo corre el agotamiento de hora y borra la evidencia que permitia encontrarlo.",
+        "pattern": "Un recurso compartido y limitado se presta y se devuelve, y un solo consumidor lo toma sin devolverlo hasta agotarlo; cada superficie que depende de ese recurso falla con la forma de su propia superficie (un control que no se habilita, una salida vacía, una espera agotada), así que el diagnóstico se va hacia donde se ve el síntoma y no hacia donde se pierde la unidad prestada. La corrección está en la devolución del consumidor que retiene, y arregla todas las superficies a la vez sin tocar ninguna de ellas.",
         "signals": [
-          "El boton queda gris y no se puede apretar, y cambiar o reinstalar el aparato no cambia nada",
-          "El informe sale en blanco solo en cierta franja horaria y para algunos usuarios si y para otros no",
-          "Volver atras el cambio sospechoso no arregla el sintoma",
-          "El reinicio diario baja los reclamos una semana y despues vuelven, mas tarde en el dia",
-          "Tres pantallas distintas se rompen por separado y se arreglan todas juntas con un solo cambio"
+          "El botón queda gris y no se habilita hasta que vuelve la respuesta de otro servicio",
+          "Cambiar el equipo, el controlador o la plantilla no cambia nada: el síntoma se repite igual",
+          "La falla aparece solamente en una franja horaria fija, cuando entra el lote grande",
+          "Una de cada tres consultas termina en espera agotada, y sólo en horario de oficina",
+          "La pantalla muestra una respuesta vacía en lugar de un aviso de falla"
         ],
-        "decisive_signal": "Al medir quien toma el recurso compartido y no lo devuelve aparecio un unico consumidor reteniendo el noventa por ciento para siempre; corregido ese consumidor, los sintomas de las tres pantallas desaparecieron al mismo tiempo."
+        "decisive_signal": "El conjunto prestable está en su máximo y nunca baja: lo que se toma no se devuelve, y un solo consumidor retiene el noventa por ciento de lo que toma, para siempre.",
+        "colloquial_queries": [
+          "el boton de imprimir esta gris y no me deja apretarlo",
+          "el informe sale en blanco a la manana y despues del mediodia sale bien",
+          "se agoto el tiempo de espera al conectar con la base",
+          "reiniciamos el servidor todas las mananas y a la tarde se vuelve a colgar igual",
+          "tres pantallas que no tienen nada que ver se rompen a la misma hora"
+        ]
       },
       "valid_when": [
         {
-          "condition": "Hay un conjunto limitado y compartido que varios consumidores toman y deben devolver",
+          "condition": "Hay algo compartido y limitado que se pide prestado y se supone que se devuelve",
           "source": "inferred"
         },
         {
-          "condition": "El sintoma aparece en la pantalla del usuario, lejos de donde esta el recurso",
+          "condition": "Varias pantallas o funciones independientes dependen de ese mismo conjunto limitado",
           "source": "inferred"
         },
         {
-          "condition": "La falla se concentra en una franja horaria o bajo carga y afuera de ella no se reproduce",
+          "condition": "Los síntomas se agrupan en una franja horaria o bajo carga concentrada",
           "source": "inferred"
         },
         {
-          "condition": "Existe un consumidor con un volumen muy distinto al del resto",
+          "condition": "Reemplazar el componente donde se ve el síntoma no cambia el síntoma",
           "source": "inferred"
         },
         {
-          "condition": "Ya hay un paliativo periodico, o se esta por instalar uno, que vacia o reinicia el recurso",
+          "condition": "Existe una mitigación periódica que vacía y repone el conjunto",
           "source": "inferred"
         }
       ],
       "projected_signals": [
-        "Ampliar la capacidad no arregla nada: solo hace que la caida llegue mas tarde, y cuanto mas se agranda mas tarde llega",
-        "El chequeo de salud del servicio da bien todo el tiempo, porque tiene su propio camino reservado y nunca hace la cola comun",
-        "Reintentar empeora la situacion: cada reintento se lleva otra unidad del mismo conjunto y acorta el tiempo hasta la caida",
-        "El caso aislado anda perfecto en un ambiente de prueba y no se puede reproducir hasta que hay varios consumidores a la vez",
-        "El indicador que mostraba el crecimiento arranca en cero despues de cada limpieza programada, asi que nunca se ve la curva completa"
+        "Si el que espera se cansa y vuelve a pedir, el agotamiento llega más temprano cada día en vez de más tarde",
+        "Ampliar el límite corre la hora del corte unos días y después el corte vuelve: la pendiente no cambia",
+        "Una vez agotado no se recupera solo aunque baje la demanda; queda vacío hasta que alguien fuerza la devolución",
+        "El chequeo de salud, que también pide prestado, informa que todo está bien hasta el último instante y después deja de responder sin explicar nada",
+        "Áreas que no tienen ninguna relación entre sí empeoran al mismo minuto del reloj, porque comparten el mismo conjunto"
       ],
-      "physical_scene": "En el taller hay un tablero con veinte llaves colgadas de ganchos numerados: cada operario descuelga una, aprieta su tuerca y la vuelve a colgar. Un operario del fondo descuelga llaves y las guarda en su cajon, y nunca las cuelga de vuelta, asi que el tablero se vacia de a poco sin que suene ninguna campana. Los que llegan al tablero vacio simplemente se quedan parados con la mano estirada, y desde el pasillo se ve un torno quieto, una prensa quieta y una mesa de pintura quieta, cada una con la cara de su propio trabajo detenido. El capataz manda revisar el torno, despues la prensa, despues la pintura, porque las tres se ven distintas y ninguna de las tres esta rota. A la madrugada un sereno recorre el taller, junta lo que encuentra y lo vuelve a colgar, asi que a la mañana el tablero esta lleno y nadie llega nunca al cajon del fondo: lo unico que se nota es que la paralisis empieza cada dia un poco mas tarde.",
-      "logogram": "prestado y nunca devuelto",
+      "physical_scene": "En el taller cuelga un tablero con treinta tenazas numeradas: cada operario descuelga una, mete la tela en la tina de tintura y la vuelve a colgar al terminar. La prensa del fondo sólo baja cuando una tenaza hace tope contra su tope de bronce, así que si no hay tenaza la palanca queda dura y no se mueve. Uno de los operarios guarda las tenazas en su cajón cuando termina y no las devuelve nunca, y los ganchos se van vaciando de a poco. El gancho vacío no suena ni se enciende: un gancho sin tenaza se ve exactamente igual que un gancho cuya tenaza está en uso, y nadie mira el tablero. Desde el salón sólo se ve una palanca dura y telas que salen pálidas, así que los reclamos caen sobre la prensa y sobre la tina, que están perfectas. Cada madrugada el capataz junta las tenazas de todos los cajones y las vuelve a colgar: el tablero se vacía más tarde en el día y, de paso, desaparece el rastro de qué cajón se las estaba quedando.",
+      "logogram": "prestado sin devolver",
       "diagram": null,
-      "ideation": "A lo largo del recorrido se conserva el total del recurso compartido y la cuenta de quien espera: nunca falta capacidad nominal, y cada espera queda contabilizada en el punto comun. Lo que se pierde, sin que ninguna etapa se queje, es la identidad del que tomo y no devolvio, y se pierde exactamente en el cuadro donde la espera cruza hacia la superficie del usuario y se convierte en un defecto local con la forma de esa superficie. El paliativo periodico borra el otro rastro que quedaba: al devolver todo de golpe iguala a inocentes y culpable, y con eso destruye la unica pendiente que senalaba al consumidor que retiene."
+      "ideation": "A lo largo del recorrido se conserva la forma del síntoma en cada superficie: cada una traduce la misma escasez al idioma de su propia pantalla, y por eso los reclamos llegan separados y apuntan a lugares distintos. Lo que se pierde, sin que ninguna etapa se queje, es la unidad prestada, y se pierde en el cuadro exacto en que el consumidor termina de usarla y no la libera: el que la retiene no falla, sólo no devuelve. Lo segundo que se pierde es la atribución, porque un lugar libre y un lugar ocupado se ven iguales desde afuera, y la mitigación periódica que repone el conjunto borra el rastro que permitiría identificar al que retiene. Medir quién toma y no devuelve, en lugar de reponer, es lo único que devuelve la magnitud perdida al punto donde se pierde."
     }
   ],
   "contrastes": [
     {
-      "trajectory": "dbdfc53b-d51d-45c2-a6a3-2ddbe9b09e76",
+      "trajectory": "55d6c3be-1b90-4855-b29d-8532ff247a36",
       "es_la_descartada": true,
       "contrast": {
-        "changed": "Se pasó de una intervención periódica que vaciaba el recurso agotado a una medición de retención por consumidor, que localiza al que toma y no devuelve. La corrección dejó de actuar sobre el síntoma acumulado y pasó a actuar sobre el que lo produce.",
-        "bought": "Deja de ser posible que el agotamiento siga creciendo invisible detrás de la intervención: la señal que permite identificar al retenedor ya no se borra antes de poder leerse, y desaparece la clase de fallas que reaparecen desplazadas en el tiempo en vez de resolverse. También deja de ser posible perseguir por separado varias manifestaciones que tenían un solo origen.",
-        "cost": "Se pagó con instrumentación: hubo que medir retención por consumidor a lo largo del tiempo, algo que la intervención periódica no requería, y aceptar que durante la investigación los reclamos siguieran ocurriendo en vez de ser suprimidos a diario.",
+        "changed": "Se pasó de una intervención periódica que restaura el estado global a intervalo fijo, sin mirar quién lo consume, a una medición por consumidor que atribuye cuánto retiene cada uno y corrige el origen de la retención.",
+        "bought": "Deja de ser posible que el agotamiento reaparezca desplazado en el tiempo y con la evidencia ya borrada: la restauración periódica destruía justamente la señal que permite identificar al que retiene, y sin esa señal la causa única detrás de síntomas dispersos en superficies distintas queda indetectable de forma indefinida.",
+        "cost": "Se pagó con la instrumentación por consumidor y con una ventana en la que los síntomas siguieron apareciendo sin mitigación, porque hay que dejar que la retención se acumule hasta ser atribuible en vez de borrarla cada mañana.",
         "old_valid_when": [
-          "Cuando el que retiene está fuera de alcance de corrección —código ajeno, componente que no se puede tocar en esa ventana— y el vaciado periódico es la única contención disponible",
-          "Cuando la tasa de retención es tan baja frente al ciclo de la intervención que el recurso nunca llega a agotarse entre una y otra, y el costo de instrumentar la medición supera al de la intervención"
+          "Cuando la retención está repartida entre muchos consumidores sin uno dominante, de modo que no hay un origen único que corregir y el crecimiento agregado es predecible",
+          "Cuando el que retiene es un componente ajeno que no se puede modificar, y el intervalo de restauración es mucho más corto que el tiempo de agotamiento",
+          "Como contención acotada mientras se instrumenta la medición, siempre que se preserve la señal de retención antes de restaurar"
         ]
       }
     }

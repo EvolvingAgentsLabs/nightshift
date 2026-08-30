@@ -9,69 +9,77 @@
   "trayectorias": 4,
   "rechazos": [],
   "saltados": [],
-  "costo_usd": 0.55735,
-  "tokens_entrada": 68482,
-  "tokens_salida": 4953,
+  "costo_usd": 0.620958,
+  "tokens_entrada": 68986,
+  "tokens_salida": 6139,
   "candidatas": [
     {
-      "trajectory": "da014211-7eea-4a1f-ae9b-fec18cafb786",
+      "trajectory": "cc309d0f-fa21-4ce9-b215-6555c197702e",
       "abstraction": {
-        "pattern": "Un recorrido en serie donde una sola magnitud se propaga hacia atrás desde un estrechamiento tardío hasta el componente más débil, que es el que acusa el síntoma. Se atribuye la causa al componente que se queja y se lo reemplaza o refuerza, con alivio corto; también se prueba bajar la exigencia global, que borra el síntoma y paga con rendimiento en cada ciclo. El diagnóstico sólo cierra midiendo la caída en varios puntos del recorrido para ubicar dónde está el salto, y la corrección va sobre el estrechamiento, no sobre el elemento que lo acusa.",
+        "pattern": "El elemento que dispara el aviso no es donde está la falla: ante un estrechamiento ubicado más adelante en el recorrido, el empuje se apoya contra todo lo que viene antes y cede primero la pieza más débil, que además es la que tiene el instrumento al lado. Cambiarla o reforzarla devuelve la calma por horas o días, y atenuar lo que empuja apaga el aviso a costa del rendimiento en cada turno. El arreglo es medir la caída tramo por tramo hasta ubicar dónde se estrecha el paso, y abrir ahí.",
         "signals": [
-          "cambié la pieza por una nueva y limpia y el aviso volvió a las pocas horas",
-          "puse la pieza reforzada y duró casi lo mismo, con el mismo dibujo de desgaste",
-          "bajando el empuje el aviso desaparece pero la produccion del turno cae",
-          "la misma pieza se vuelve a ensuciar con un periodo casi fijo",
-          "midiendo a lo largo del recorrido, el salto grande aparece despues de la pieza sospechada"
+          "El aviso vuelve a las pocas horas con la pieza recién cambiada y limpia.",
+          "El repuesto reforzado dura un poco más y falla igual, con el mismo dibujo de desgaste y del mismo lado.",
+          "Atenuar lo que empuja hace desaparecer el aviso durante todo el turno.",
+          "Con el empuje atenuado la producción del turno cae fuerte y no se recupera.",
+          "Midiendo a lo largo de la línea, el salto grande de caída aparece después de la pieza que se queja y no antes."
         ],
-        "decisive_signal": "La caída medida punto por punto mostró que el estrechamiento estaba después del elemento acusado, y al liberarlo la magnitud volvió sola al rango sin tocar ese elemento."
+        "decisive_signal": "La caída medida tramo por tramo ubica el salto aguas abajo de la pieza que avisa: la restricción está ahí, y el que se rompe es sólo el eslabón más débil que queda por delante.",
+        "colloquial_queries": [
+          "cambié el filtro y a las seis horas volvió a saltar la alarma de presión",
+          "el sello de la bomba me dura tres semanas, ya puse uno reforzado y se rompió igual",
+          "bajé la presión y se fue la alarma pero el turno cerró con dieciocho por ciento menos",
+          "el filtro nuevo aparece tapado todos los turnos, algo lo está ensuciando",
+          "la aspiración se me cae cada vez que cierran la válvula del retorno"
+        ]
       },
       "valid_when": [
         {
-          "condition": "hay elementos en serie y una magnitud que se propaga hacia atras",
+          "condition": "Hay un recorrido en serie con algo que empuja y varias piezas encadenadas.",
           "source": "inferred"
         },
         {
-          "condition": "el que avisa es el elemento mas debil o el primero del recorrido",
+          "condition": "El aviso lo emite un punto fijo y no dice en qué tramo se originó el desequilibrio.",
           "source": "inferred"
         },
         {
-          "condition": "reemplazar el elemento sospechado alivia el sintoma por un rato",
+          "condition": "Reemplazar la pieza que avisa alivia por poco tiempo y con periodo repetido.",
           "source": "inferred"
         },
         {
-          "condition": "el sintoma reaparece con periodicidad parecida",
+          "condition": "Se puede medir la caída por tramos separados y no sólo el total.",
           "source": "inferred"
         },
         {
-          "condition": "se puede medir la magnitud en varios puntos y no solo donde suena la alarma",
+          "condition": "Bajar la exigencia apaga el aviso sin cambiar nada del recorrido.",
           "source": "inferred"
         }
       ],
       "projected_signals": [
-        "reforzada la pieza que cedia, ahora cede otra distinta y parece un problema nuevo sin relacion",
-        "los recambios se van espaciando cada vez menos hasta que reemplazar deja de dar alivio",
-        "probada fuera del recorrido, la pieza sospechada siempre da bien y nadie entiende por que falla montada",
-        "el consumo de energia sube de a poco sin que se dispare ninguna alarma",
-        "sacada la restriccion, se acomodan solos problemas lejanos que nadie habia relacionado"
+        "El motor que impulsa empieza a tomar más corriente y a calentarse, y nadie lo relaciona con el aviso porque tiene su propio tablero.",
+        "Después de reforzar la pieza que avisaba, la falla se muda a la siguiente más débil: una junta que gotea, una manguera que se hincha, una unión que transpira.",
+        "La válvula de alivio empieza a abrir sola cada turno y se descarga producto, y eso se anota como pérdida aparte sin sumarlo al mismo caso.",
+        "Con el paso estrechado el fluido recircula y sube de temperatura, y las fallas siguientes se atribuyen al calor en vez de al estrechamiento.",
+        "Aparece ruido y vibración del lado de la aspiración que se explica como desbalanceo del rodete, y se manda a balancear una pieza sana."
       ],
-      "physical_scene": "Por una acequia de piedra corre agua desde el molino hasta la huerta, y en el tramo final hay una compuerta de madera que el limo va cerrando de a milímetros, sin ruido y sin que nadie la mire. El agua que ya entró no desaparece: se queda apretada contra la compuerta y ese apretón camina hacia atrás por todo el canal hasta la junta de cuero de la entrada, que es la parte más blanda del recorrido y por eso es la que gotea. El regante ve el charco en la junta, la cambia por una de cuero nuevo y grueso, y el charco desaparece hasta la tarde; también prueba abrir menos el molino, y entonces el charco no vuelve nunca pero la huerta recibe la mitad del agua todos los días. Lo que se pierde en el trayecto no es agua sino la marca de dónde nació el apretón: el agua empuja igual en cada tramo y no lleva escrito qué la está frenando, así que ningún tramo tiene motivo para quejarse y el único que gotea es el más blando. Recién cuando alguien clava varillas mojadas a lo largo del canal y ve que el nivel salta después de la junta y no antes, aparece el limo en la compuerta del fondo.",
-      "logogram": "tapon abajo, rotura arriba",
+      "physical_scene": "Una bomba empuja aceite por un caño que pasa primero por un filtro, después por un serpentín que lo enfría, y vuelve por una línea de retorno con una válvula al final. La aguja del manómetro está montada junto al filtro, porque el filtro es lo único que se puede abrir sin parar la línea. Cuando el serpentín enfría de más y el aceite se pone espeso, o cuando la válvula del retorno queda cerrada del todo, el paso se estrecha allá al fondo, pero el caño no tiene manera de decir dónde: la misma presión se apoya contra todo lo que hay antes, y lo primero que cede es la tela del filtro y el sello de la bomba. El que cambia la tela ve la aguja bajar y se va tranquilo, porque el estrechamiento del fondo no deja marca, no hace ruido y no tiene aguja propia. Seis horas después la tela nueva está igual de tapada, y el del turno siguiente la cambia otra vez, ya convencido de que el repuesto viene fallado.",
+      "logogram": "tapón aguas abajo",
       "diagram": null,
-      "ideation": "A lo largo del recorrido se conserva el empuje: cada tramo transmite hacia atrás el mismo estrechamiento sin atenuarlo. Lo que se pierde, y sin que ninguna etapa lo reporte, es la procedencia de ese estrechamiento: la magnitud llega al punto más débil idéntica venga de donde venga, así que el lugar donde se manifiesta el síntoma queda desacoplado del lugar donde se origina. La pérdida ocurre exactamente en el cuadro donde la magnitud se propaga aguas arriba, entre el estrechamiento y el elemento que acusa. Actuar sobre el elemento que acusa restaura el margen sin tocar el estrechamiento, y bajar la exigencia global oculta la señal conservando la restricción, que se sigue cobrando en rendimiento en cada ciclo."
+      "ideation": "A lo largo del recorrido se conserva lo que pasa por unidad de tiempo: si un tramo se estrecha, la misma cantidad tiene que seguir pasando y la exigencia sube en todo lo que está antes. Lo que se pierde sin que nada se queje es la ubicación: el aviso dice cuánta presión hay, nunca en qué tramo se generó, y esa información se borra exactamente en el cuadro en que un desequilibrio repartido por toda la línea se traduce en una lectura local, tomada junto al eslabón más débil. Por eso reemplazar o reforzar al que avisa compra silencio por un rato y atenuar lo que empuja lo compra entero, mientras el estrechamiento sigue intacto y se cobra rendimiento en cada turno."
     }
   ],
   "contrastes": [
     {
-      "trajectory": "4f30b834-68d8-4504-9eb4-e6a48d3d5a09",
+      "trajectory": "5b4e2f75-350a-476d-974f-9cbee2ba39fe",
       "es_la_descartada": true,
       "contrast": {
-        "changed": "El punto de intervencion se movio del extremo que empuja al recorrido completo: en vez de bajar la magnitud que dispara el aviso, se midio la caida tramo por tramo hasta ubicar la restriccion real aguas abajo y se la saco. La variable que antes se ajustaba a mano paso a ser una consecuencia que vuelve sola a rango.",
-        "bought": "Deja de ser posible que el indicador quede en silencio con la restriccion todavia puesta, y deja de ser posible que la reparacion se cobre una fraccion del rendimiento en cada ciclo posterior en vez de una sola vez. Tambien elimina la falla de dar por resuelto algo cuya causa nunca se localizo.",
-        "cost": "Se pago tiempo de diagnostico antes de cualquier alivio: medir a lo largo de todo el recorrido en vez de aplicar el unico ajuste inmediato disponible, y la correccion exige intervenir un punto interno que puede requerir detener el flujo.",
+        "changed": "Se pasó de actuar sobre la magnitud que empuja —bajarla hasta que el indicador dejara de señalar— a medir a lo largo del recorrido para localizar la restricción aguas abajo y removerla. El punto de intervención se movió del origen al lugar donde realmente se pierde el recorrido.",
+        "bought": "Deja de ser posible la falla de silenciar el indicador dejando la restricción adentro: ya no se paga un costo recurrente en cada ciclo para que la señal no aparezca, ni queda una degradación permanente del ritmo comprometido que nadie atribuye a la intervención. Además elimina el falso cierre, porque la señal apagada ya no puede confundirse con la causa resuelta.",
+        "cost": "Diagnóstico más lento y más caro: hay que instrumentar el recorrido entero y medir en varios puntos en vez de mover una sola perilla, y la intervención pasa a ser física sobre un elemento aguas abajo, con el acceso y la parada que eso exige.",
         "old_valid_when": [
-          "Cuando el ritmo realmente exigido es menor o igual al que la linea entrega ya degradada: ahi bajar la magnitud no cuesta rendimiento y el paliativo es gratis",
-          "Cuando la restriccion aguas abajo no se puede tocar todavia (falta el reemplazo, la intervencion exige una parada programada lejana) y hay que sostener el ciclo en curso: el ajuste sirve como contencion explicitamente temporal, no como arreglo"
+          "Cuando la restricción de aguas abajo no se puede tocar en ese momento —sin acceso, sin repuesto, sin ventana de parada— y bajar lo que empuja funciona como contención temporal explícita, con su costo declarado y una fecha para removerla",
+          "Cuando el origen está sobredimensionado respecto del ritmo comprometido: al nivel más bajo la línea todavía cumple, y entonces bajar no cuesta producción sino que sólo consume margen sobrante",
+          "Cuando el período tiene demanda por debajo del compromiso y la pérdida de ritmo no se materializa, mientras el desgaste por operar contra la restricción sí se evita"
         ]
       }
     }

@@ -9,70 +9,77 @@
   "trayectorias": 4,
   "rechazos": [],
   "saltados": [],
-  "costo_usd": 0.5917380000000001,
-  "tokens_entrada": 68142,
-  "tokens_salida": 5285,
+  "costo_usd": 0.6435175,
+  "tokens_entrada": 68831,
+  "tokens_salida": 7084,
   "candidatas": [
     {
-      "trajectory": "9a0129b2-5a87-4bad-9e3c-2f4758dbca9a",
+      "trajectory": "6223bdec-105a-416e-938b-c32254adbf9c",
       "abstraction": {
-        "pattern": "El sintoma se manifiesta en una zona que no lo origina y que solo comparte con el origen real una via comun de salida; por eso cada inspeccion de la zona sintomatica vuelve normal, y aumentar la resolucion sobre ese mismo lugar solo consume tiempo y reconfirma lo que ya se sabia. El diagnostico avanza recien cuando se cambia la pregunta de que hay en la zona que se queja a que otros origenes desembocan en esa misma via, con un dato barato que separa origen local de origen remoto. La correccion se aplica en el origen y el sintoma remoto cede solo, sin ninguna intervencion en el lugar donde se veia.",
+        "pattern": "El síntoma se manifiesta en un punto que no tiene lesión propia sino que comparte vía de conducción con el origen real, y la primera hipótesis se ancla al lugar donde se siente. Todas las pruebas dirigidas a ese lugar vuelven normales sin contradecirse entre sí, y refinar la resolución sobre el lugar equivocado sólo confirma que está sano. El diagnóstico se cierra recién cuando se cambia la pregunta de qué hay en el lugar que se queja a qué origen comparte vía con ese lugar.",
         "signals": [
-          "El estudio del lugar donde duele vuelve normal y la molestia sigue igual",
-          "Repetir el examen con mas detalle sobre la misma zona tarda semanas y tampoco encuentra nada",
-          "Lo que dispara la molestia es un esfuerzo o una respiracion, no mover ni apretar la zona que se queja",
-          "El alivio dirigido a la zona dura unas horas y despues vuelve",
-          "Hay una segunda molestia acompanante que no encaja con la zona sospechada"
+          "La imagen del lugar donde duele vuelve normal, y la siguiente también.",
+          "El calmante alivia unas horas y el dolor vuelve igual.",
+          "Mover o apretar la zona que duele no reproduce el dolor.",
+          "El dolor cambia con otra cosa: respirar hondo, subir una escalera.",
+          "Junto al dolor hay un segundo signo raro, hipo o nausea, que nadie relaciona."
         ],
-        "decisive_signal": "El estudio dirigido al otro organo que comparte territorio con la zona dolorida encontro la coleccion en la primera vuelta, y al tratar ese origen cedieron juntas la molestia principal y la acompanante, sin tocar el lugar donde dolia."
+        "decisive_signal": "El estudio dirigido al organo que comparte territorio nervioso con la zona dolorida encontro el origen en la primera vuelta, mientras las imagenes cada vez mas finas de la zona dolorida seguian normales.",
+        "colloquial_queries": [
+          "me duele el hombro hace tres dias, la radiografia salio bien y sigo igual",
+          "tome antiinflamatorio dos dias y el dolor no se movio ni un poco",
+          "me duele la mandibula cuando subo la escalera pero el dentista no encontro nada",
+          "el dolor me aumenta al respirar hondo y mover el brazo no me lo cambia",
+          "espere dos semanas la resonancia, salio normal, y estoy en el mismo lugar que antes"
+        ]
       },
       "valid_when": [
         {
-          "condition": "La zona que se queja comparte una via comun con otras zonas de origen posible",
+          "condition": "El sintoma se siente en un lugar donde no se demuestra lesion propia.",
           "source": "inferred"
         },
         {
-          "condition": "Mas de un estudio local de la zona sintomatica volvio normal",
+          "condition": "Existe una via compartida entre ese lugar y otro origen posible.",
           "source": "inferred"
         },
         {
-          "condition": "La molestia no se reproduce manipulando directamente el lugar donde se siente",
+          "condition": "Las pruebas locales, cada vez mas finas, siguen saliendo normales.",
           "source": "inferred"
         },
         {
-          "condition": "La lista de origenes que desembocan en esa via comun es acotada y se puede enumerar",
+          "condition": "Hay una maniobra desde el lugar que duele que no reproduce el dolor.",
           "source": "inferred"
         },
         {
-          "condition": "Hay una prueba barata que distingue origen local de origen remoto antes de pedir mas detalle",
+          "condition": "El alivio dirigido al lugar donde duele es parcial y transitorio.",
           "source": "inferred"
         }
       ],
       "projected_signals": [
-        "Dos casos con el mismo origen se quejan en lugares distintos y quedan archivados como problemas sin relacion",
-        "La molestia cambia de lugar segun la postura o el momento y salta a otra zona que comparte la misma via",
-        "Si el origen crece despacio, la molestia se agrava sin que el estudio del lugar cambie nunca de resultado: siempre normal, cada vez peor",
-        "Un remedio aplicado a la zona parece funcionar porque tambien actua sobre el origen, y se le da el credito al lugar equivocado",
-        "Se acumulan estudios cada vez mas caros sobre la misma zona y ninguno se guarda como descarte util: cada uno se pide de nuevo"
+        "Aparece un hallazgo local menor y casual, un desgaste o una caries chica, que parece explicar el dolor: se trata eso, no mejora, y el caso se cierra como tratamiento fallido en vez de lugar equivocado.",
+        "Anestesiar o bloquear la zona que duele no apaga el dolor, y eso se interpreta como que el bloqueo se hizo mal en vez de como que el origen esta en otro lado.",
+        "La intensidad de lo que se siente no acompana el tamano del origen: un origen grande se anuncia flojo y la urgencia se subestima en la primera consulta.",
+        "El origen sigue creciendo mientras se espera cada estudio nuevo del lugar sano, asi que la demora la produce el propio metodo de mirar mas fino.",
+        "El segundo signo que acompana se anota como no relacionado y se cae de la historia, y con el se pierde la unica pista de que via se estaba usando."
       ],
-      "physical_scene": "En un edificio viejo, un solo conducto de chapa recoge el aire de la caldera del sotano y el de la despensa del tercer piso, y los junta en un empalme antes de llegar a la unica rejilla del pasillo. Por esa rejilla sale olor a quemado, asi que el portero vacia la despensa, la lava, cambia el burlete de la puerta y vuelve con una linterna mas potente: la despensa esta impecable y el olor sigue. El conducto transmite el olor entero, sin perder una pizca de fuerza, pero en el empalme se pierde la unica cosa que despues no se puede reconstruir, que es por cual de las dos bocas entro. Ninguna chapa se queja, porque cada tramo hace su trabajo perfecto y transmitir sin marcar procedencia es exactamente lo que un cano hace bien. El que mira desde afuera se pasa semanas frente a la rejilla, que es lo unico visible, mientras la junta floja de la caldera sigue soltando abajo. Recien cuando alguien pregunta que otras bocas dan a ese mismo conducto, en vez de que hay detras de esta, baja al sotano y aprieta la junta en una tarde.",
-      "logogram": "sintoma lejos del origen",
+      "physical_scene": "En un caseron viejo, varios cuartos tiran de cordones distintos que detras de la pared se anudan a un mismo alambre y hacen sonar una sola campana en el pasillo. El alambre transmite el tiron entero: la campana suena con la misma fuerza venga de donde venga, porque en el nudo se conserva la traccion y se pierde de que brazo vino, y el nudo aguanta perfecto, no cruje ni se afloja, no tiene por que avisar nada. El portero corre siempre al cuarto mas cercano a la campana, lo revisa con lampara y despues con lupa, y no encuentra nada, porque mirar mejor un cuarto vacio solo confirma que esta vacio. Recien cuando alguien nota que junto con la campana grande tintinea un cascabel chico, el otro brazo del mismo nudo, se puede seguir el alambre para atras y encontrar al que tiraba, en un cuarto del otro extremo de la casa. Y hay una manera de saberlo antes de gastar lampara y lupa: sacudir la puerta del cuarto cercano no mueve la campana, y en cambio suena sola cuando en el fondo alguien tira.",
+      "logogram": "duele donde no es",
       "diagram": null,
-      "ideation": "A lo largo del recorrido se conserva la intensidad del sintoma: llega igual de fuerte al punto visible que como salio del origen, y por eso resulta convincente como pista del lugar. Lo que se pierde, sin que ninguna etapa lo reporte, es la procedencia: se borra en el empalme donde varios origenes comparten una unica via de salida, no en el origen ni en la boca visible. Como la perdida es de etiqueta y no de senal, mirar la boca con mas aumento nunca la recupera: cada estudio local devuelve normal y ese normal se lee como falta de informacion cuando en realidad es la respuesta. La procedencia solo se recupera invirtiendo la pregunta y enumerando que origenes desembocan en esa misma via."
+      "ideation": "A lo largo del recorrido se conserva la presencia y la intensidad de la senal: llega entera al lugar donde se percibe, con la misma fuerza que salio. Lo que se pierde, sin que ninguna etapa se queje ni de resultado anormal, es la marca de procedencia, y se pierde en el punto exacto donde la via del origen se junta con la via del lugar que duele, antes de la primera observacion. Como la perdida ocurre aguas arriba de todo lo que se mide, ningun estudio del lugar puede recuperarla: aumentar la resolucion sobre el punto de llegada no reconstruye el remitente, solo agrega hallazgos casuales que anclan mas fuerte la hipotesis equivocada. La unica maniobra que devuelve la procedencia es enumerar que origenes comparten via con el lugar que se queja y mirar ahi."
     }
   ],
   "contrastes": [
     {
-      "trajectory": "36e7ace0-dfac-4eee-89ca-e330a9447143",
+      "trajectory": "75fd5d42-cc7b-4ac3-9427-37d6b177678c",
       "es_la_descartada": true,
       "contrast": {
-        "changed": "Se dejó de estudiar con más resolución el lugar donde aparece el síntoma y se pasó a preguntar qué otras zonas comparten el canal por el que ese síntoma llega. La primera trayectoria refinaba el instrumento sobre el sitio de la queja; la segunda cambió el conjunto de candidatos antes de elegir instrumento, y usó dos pruebas baratas de provocación para separar origen local de origen remitido antes de pedir cualquier imagen.",
-        "bought": "Deja de ser posible la falla de confirmar el sitio equivocado con una prueba cara: un resultado normal en la zona dolorida ya no se interpreta como información sobre la causa, porque nunca se pregunta ahí primero. También elimina la espera larga que un instrumento de alta resolución impone antes de que alguien note que estaba apuntado al lugar equivocado.",
-        "cost": "Se pagó en amplitud: la búsqueda ahora abarca órganos que nunca se quejaron, lo que exige conocer el mapa de qué comparte canal con qué y admite falsos positivos en zonas ajenas al motivo de consulta. Además el descarte del origen local queda apoyado en maniobras de cabecera y no en una imagen, así que un origen local raro que esas maniobras no provocan puede pasarse por alto.",
+        "changed": "La primera trayectoria aumentaba la resolución del instrumento sobre el mismo sitio donde se manifiesta la señal; la segunda mueve el punto de medición aguas arriba: primero una maniobra barata que separa origen local de origen referido, y recién después el estudio dirigido al territorio candidato que quedó.",
+        "bought": "Deja de ser posible la falla en la que un resultado negativo se interpreta como informativo: mirar más fino el lugar donde algo se manifiesta no puede distinguir ausencia de causa de causa remota, así que ese ciclo largo terminaba siempre confirmando lo ya sabido. Con la maniobra discriminante adelante, ninguna medición cara se lanza antes de que exista un candidato que pueda ser descartado por ella.",
+        "cost": "Se pasó a depender de signos de cabecera, sensibles al examinador y no auditables después, en lugar de una imagen que queda registrada; y se pasó a depender de un mapa previo de qué territorios comparten inervación con cuál, que si está mal dirige la búsqueda al órgano equivocado con la misma confianza con la que acá acertó.",
         "old_valid_when": [
-          "Cuando las maniobras baratas sí reproducen el síntoma moviendo la zona, es decir cuando la prueba de provocación ya localizó el origen ahí mismo y sólo falta caracterizar el tejido para elegir tratamiento",
-          "Cuando el conjunto de zonas que comparten canal con el sitio del síntoma es vacío o intratablemente grande, y entonces el sitio dolorido es el único candidato con probabilidad no despreciable",
-          "Cuando la prueba fina sobre el sitio es la barata y rápida, y la exploración de las zonas remitidas exige varios estudios en serie"
+          "Cuando la maniobra discriminante ya salió a favor del origen local -la molestia se reproduce manipulando la zona y no varía con funciones de otros territorios-, y entonces el estudio fino del sitio es el paso correcto y no una confirmación vacía.",
+          "Cuando el sitio donde se manifiesta la señal es el único candidato anatómicamente posible, o la hipótesis local domina por probabilidad de base al resto sumado.",
+          "Cuando el estudio de alta resolución es barato y de vuelta rápida en relación con montar la prueba discriminante: si devolviera en horas y no en semanas, empezar por él cuesta menos que ordenar el diferencial."
         ]
       }
     }

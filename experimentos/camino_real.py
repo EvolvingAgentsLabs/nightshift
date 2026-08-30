@@ -120,7 +120,13 @@ def montar(d, abstraccion, proyecciones=None, *, physical_scene=None, logogram=N
     d.store.close_trajectory(d.conn, tid, result="tests_passed")
     d.store.promote_to_candidate(
         d.conn, tid,
-        abstraction={k: abstraccion[k] for k in ("pattern", "signals", "decisive_signal")
+        # La lista blanca es la del esquema, y **crece cuando el esquema crece**. Se
+        # dejó afuera `colloquial_queries` (enmienda 0.3.13) y la medición del brazo
+        # nuevo salió en verde midiendo el brazo viejo: exit 0, números plausibles, campo
+        # ausente. Es el `plano viejo, pieza real` de la candidata `16a5f7ff`, cometido
+        # el mismo día que esa memoria se inyectó en la sesión que lo cometió.
+        abstraction={k: abstraccion[k] for k in ("pattern", "signals", "decisive_signal",
+                                                 "colloquial_queries")
                      if abstraccion.get(k)},
         valid_when=condiciones(abstraccion.get("valid_when")),
         hypothesis=None, weight=0.6,

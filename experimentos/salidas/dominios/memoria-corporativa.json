@@ -9,69 +9,72 @@
   "trayectorias": 4,
   "rechazos": [],
   "saltados": [],
-  "costo_usd": 0.58605,
-  "tokens_entrada": 68527,
-  "tokens_salida": 6083,
+  "costo_usd": 0.9536584999999999,
+  "tokens_entrada": 104806,
+  "tokens_salida": 10189,
   "candidatas": [
     {
-      "trajectory": "6acefb51-61f6-46c9-a012-5dbf9c11b9f8",
+      "trajectory": "4b118ab6-aed9-45d0-abf9-c86571d89c1f",
       "abstraction": {
-        "pattern": "El presupuesto de revisión se gasta entero en el activo enumerable y con registro, que vuelve limpio y por eso confirma la premisa equivocada, mientras la magnitud que decide el precio vive en los vínculos vigentes con quienes hacen u operan el trabajo, que ningún control cuantifica porque ninguna etapa los tiene a cargo. Ese pasivo sólo se hace visible cuando un tercero lo reclasifica hacia atrás o cuando se intenta deshacer el vínculo, y para entonces puede superar el valor entero de la operación. La corrección es invertir el orden: cuantificar primero el pasivo del vínculo y recién después discutir la forma y el precio.",
+        "pattern": "Se dimensiona el alcance de la revisión alrededor del bien visible que se adquiere, y la contingencia mayor vive en el vínculo con quien ejecuta la operación, que queda fuera del alcance y no se cuantifica; el fix es invertir el orden, poner número al pasivo del vínculo antes de discutir la forma del acuerdo, y recién después mirar el bien.",
         "signals": [
-          "La revisión salió limpia, sin observaciones, y no movió ninguna decisión",
-          "El grueso de quienes hacen el trabajo no está en relación de dependencia y factura como proveedor",
-          "Los contratos con quien opera no tienen plazo ni causal de salida",
-          "El pasivo aparece recién cuando se quiere salir del vínculo o cuando un tercero lo reclasifica hacia atrás",
-          "La contingencia estimada supera el precio ofrecido por la operación"
+          "El informe sobre el activo sale limpio, sin una sola observación, y no mueve ninguna decisión",
+          "La mayoría de quienes hacen el trabajo no está en relación de dependencia y factura como independiente",
+          "La autoridad ya reclasificó ese mismo esquema en otros casos del sector, con efecto retroactivo",
+          "Los contratos con quien opera tienen exclusividad sin plazo y sin causal de salida",
+          "La contingencia del vínculo supera el precio ofrecido o duplica el resultado esperado"
         ],
-        "decisive_signal": "La contingencia por reclasificar el vínculo con quienes hacen el trabajo superaba el precio ofrecido: el riesgo no estaba en lo que se compraba sino en quién lo opera."
+        "decisive_signal": "El pasivo no estaba en lo que se estaba comprando sino en quién hace el trabajo, y su monto superaba el precio: la revisión del activo había sido gasto sin efecto sobre la decisión.",
+        "colloquial_queries": [
+          "pagamos seis semanas de estudio de las patentes y el problema era que los que programan facturan como monotributistas",
+          "el informe salió sin observaciones y a los dos meses cayó una intimación por los que nos facturan",
+          "quiero cortar con el distribuidor y el contrato no tiene fecha de salida ni causal",
+          "salir del acuerdo me sale más caro que lo que el acuerdo me deja",
+          "miramos todo lo que estábamos comprando y nadie miró a la gente que hace el trabajo"
+        ]
       },
       "valid_when": [
         {
-          "condition": "El valor de la operación se atribuye a un activo con registro o título verificable",
+          "condition": "Se evalúa una operación donde el valor depende de gente que ejecuta, no sólo de bienes registrados",
           "source": "inferred"
         },
         {
-          "condition": "La operación viene con vínculos vigentes con quienes hacen u operan el trabajo",
+          "condition": "Existe un alcance de revisión definido antes de mirar quién opera",
           "source": "inferred"
         },
         {
-          "condition": "Existe un tercero con potestad de reclasificar esos vínculos con efecto sobre años pasados",
+          "condition": "Los vínculos con quien trabaja o distribuye están fuera de ese alcance",
           "source": "inferred"
         },
         {
-          "condition": "Salir del vínculo requiere acuerdo de la otra parte o indemnización",
-          "source": "inferred"
-        },
-        {
-          "condition": "El alcance de la revisión se fija antes de cuantificar esos vínculos",
+          "condition": "Hay un tercero con poder de reclasificar o un contrato del que hay que poder salir",
           "source": "inferred"
         }
       ],
       "projected_signals": [
-        "El resultado del negocio se ve alto justamente porque el costo de quienes trabajan no pesa donde se lo mide: la métrica con la que se fija el precio está inflada por el mismo mecanismo",
-        "Ordenar el esquema hacia adelante no descarga los años ya trabajados, así que la contingencia sobrevive intacta al arreglo posterior al cierre",
-        "La retención de precio vence antes que el plazo en que el tercero todavía puede reclamar, y la garantía queda más corta que la exposición",
-        "Escalar la operación multiplica el pasivo colgado sin que ninguna revisión del activo lo registre: cada nuevo operador agrega peso que no pisa la balanza",
-        "En la renovación, quien opera cobra su condición de irremplazable y el precio del vínculo sube sin que el activo haya cambiado"
+        "La retención de precio pactada se agota antes de que venza el plazo en que el reclamo puede llegar",
+        "La misma figura aparece en proveedores críticos que nadie miró porque no eran parte de la compra",
+        "Al querer vender más adelante, el comprador siguiente frena por el mismo vínculo y castiga el precio",
+        "Formalizar a quienes facturan como independientes dispara la salida de los que sostienen la operación",
+        "El seguro contratado cubre el activo revisado y deja afuera justo el reclamo por quien hace el trabajo"
       ],
-      "physical_scene": "En un galpón de puerto una grúa deposita los bidones sobre una balanza de piso: cada bidón trae su chapa grabada y la aguja los aprueba uno por uno. Lo que la balanza no puede ver es que los bidones siguen colgados de eslingas enganchadas al riel del techo, así que buena parte del peso descansa en los anclajes del riel y nunca pisa la plancha. Ningún instrumento se queja, porque el riel no tiene aguja: el que mira desde la pasarela ve la aguja quieta, lee el número bajo y firma. El peso colgado se acumula sobre anclajes que se pusieron cuando el galpón cargaba mucho menos, y se queda ahí años sin dar señal. Recién cuando alguien quiere sacar los bidones y desengancha las eslingas, todo ese peso baja de golpe al piso y el número aparece entero y tarde. Y si en vez de llevarse los bidones se alquila el uso del riel, lo que se paga por hora depende de cuán tenso esté puesto el riel, no de lo que pesan los bidones.",
-      "logogram": "balanza limpia, peso colgado",
+      "physical_scene": "Al patio entra un remolque cargado y todo el turno se va en el contenedor: la balanza lo pesa, el inspector revisa el lacre, los precintos y las paredes, y el remito sale sin una sola observación. Lo que nadie sube a la balanza es el gancho que une ese remolque al camión, con un perno gastado y dos eslingas que vienen aguantando desde hace años. Mientras el remolque está quieto en el patio nada cruje, porque el perno recién trabaja cuando el camión arranca en la subida o cuando hay que soltarlo. El capataz mira su planilla y ve un número exacto del peso de adentro, así que duerme tranquilo: la cifra que le falta no tiene casillero. Se entera el día que quiere desenganchar y el perno no sale, o sale llevándose la traviesa y el remolque entero se le viene encima.",
+      "logogram": "gancho sin pesar",
       "diagram": null,
-      "ideation": "A lo largo del recorrido se conserva la certeza sobre el activo enumerable: viaja intacta, cada etapa la confirma y sale con su chapa grabada. Lo que se pierde sin que nadie se queje es el peso que cargan los vínculos con quienes hacen u operan el trabajo, porque ninguna etapa tiene un instrumento asignado a esa magnitud y su ausencia se lee como limpieza. Se pierde exactamente en el cuadro donde se fija el alcance de la revisión, antes de medir nada: todo lo que viene después sólo puede confirmar lo que se apoyó sobre la plancha. El peso reaparece con su número completo en el cuadro en que se intenta desenganchar el vínculo, o cuando un tercero lo pesa hacia atrás."
+      "ideation": "A lo largo del recorrido se conserva con precisión la medición del bien que se transfiere: patentes, marca, tecnología, todo queda cuantificado y documentado. Lo que se pierde sin que ninguna etapa se queje es la carga que soporta el vínculo con quien ejecuta —el personal que factura como independiente, la red distribuidora con exclusividad perpetua—, porque ese vínculo no tiene casillero en la planilla y nadie lo pesa. Se pierde en el cuadro donde se fija el alcance de la revisión, antes de mirar nada: ahí se decide qué entra a la balanza. Sale a la luz recién en el momento de tensión —al desenganchar, al salir, al reclasificar— cuando ya no se puede elegir el precio."
     }
   ],
   "contrastes": [
     {
-      "trajectory": "a9a607c9-e4ba-4527-959d-d0838c4257e7",
+      "trajectory": "7b28c6a4-69c9-4049-9e93-7ab1339efa3d",
       "es_la_descartada": true,
       "contrast": {
-        "changed": "Se dejó de elegir la forma de la operación primero y se pasó a cuantificar la contingencia oculta antes de discutir cualquier estructura, con lo que la forma quedó como consecuencia del número y no como premisa.",
-        "bought": "Deja de ser posible descartar o adoptar una estructura por una comparación que nunca incluyó el pasivo relevante, y deja de ser posible que la discusión de precio se reabra cada vez que aparece esa contingencia: se cierra una sola vez, con retención asociada al número.",
-        "cost": "Se pagó con trabajo previo de cuantificación antes de poder discutir la operación, y con una retención de precio que inmoviliza parte del pago durante la vigencia de la contingencia.",
+        "changed": "Se invirtió el orden de la decisión: antes se elegía primero la forma de la operación para esquivar una contingencia nunca medida, y ahora se cuantifica esa contingencia primero y la forma sale como consecuencia del número.",
+        "bought": "Deja de ser posible que la estructura elegida quede colgada de una variable externa al activo — el costo del dinero — y que la discusión de precio se reabra cada vez que esa variable se mueve; también deja de ser posible cerrar sin que la contingencia tenga un monto asignado.",
+        "cost": "Parte del precio queda inmovilizada como retención hasta que la contingencia se resuelva, y hay que hacer todo el trabajo de cuantificación antes de saber siquiera si la operación existe.",
         "old_valid_when": [
-          "Cuando el costo del dinero es bajo frente al flujo comprometido, el valor presente de los pagos periódicos queda por debajo del precio de adquisición y la opción de acceso sin adquirir vuelve a ganar",
-          "Cuando la contingencia del vínculo con quien ejecuta el trabajo es acotada y ya está cuantificada de antemano, de modo que evitarla no aporta nada y sólo pesa la comparación financiera"
+          "Cuando el costo del dinero es bajo y el horizonte de pagos es corto, de modo que el flujo periódico vale menos que el precio de compra y evitar la contingencia por la forma del acuerdo sí sale más barato",
+          "Cuando la contingencia no se puede cuantificar dentro del plazo de la decisión y sólo queda elegir la forma que no la hereda"
         ]
       }
     }
