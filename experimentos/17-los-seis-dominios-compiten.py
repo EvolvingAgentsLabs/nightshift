@@ -23,6 +23,7 @@ con material armado para ser separable, y nunca que la memoria sirva en un SOC, 
 guardia o en una planta.
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -78,6 +79,50 @@ def e1(slug, suenio):
     return marcador
 
 
+def e1_semantico(slug, suenio, comando):
+    """El mismo E1, con el fallback semántico enchufado (ADR-003, enmienda 2026-08-29).
+
+    Existe porque el proyecto ya construyó una salida para el modo de falla que E1 mide
+    —las palabras no coinciden aunque el mecanismo sea el mismo— y esa salida está
+    **apagada por default**. Medirla es más honesto que suponerla: la nota de calibración
+    de `config.py` dice que el coseno separa sinónimos de registro parecido y NO separa
+    síntoma contra mecanismo abstracto (0.24-0.28, por debajo de los ajenos), que es
+    exactamente el par que este experimento tiene entre manos.
+
+    No usa `camino_real.medir` porque ése carga la config él solo. Usa las otras tres
+    piezas del mismo módulo —`montar`, `compuerta`, `llega`— así que el camino sigue
+    siendo el real: lo único que cambia es una clave de config.
+    """
+    from nightshift import config
+
+    caso = casos_de_dominio.por_slug(slug)
+    candidatas = suenio.get("candidatas") or []
+    if not candidatas:
+        return None
+    c = candidatas[0]
+    abstraccion = dict(c["abstraction"])
+    abstraccion["valid_when"] = [v.get("condition") if isinstance(v, dict) else v
+                                 for v in (c.get("valid_when") or [])]
+    ajenos = [("AJENO", p) for _, p in casos_de_dominio.retenidos_ajenos(slug)]
+
+    with camino_real.StoreDesechable() as d:
+        camino_real.montar(d, abstraccion, c.get("projected_signals") or [],
+                           physical_scene=c.get("physical_scene"),
+                           logogram=c.get("logogram"))
+        cfg = dict(config.load())
+        cfg["embedding_command"] = comando
+        marcador = {"retenidos": 0, "ajenos": 0, "detalle": []}
+        for clase, items in (("retenido", caso["retenidos"]), ("ajeno", ajenos)):
+            for etiqueta, prompt in items:
+                _, tipo = camino_real.compuerta(prompt)
+                _, engancha, motivos = camino_real.llega(d, cfg, prompt, tipo=tipo)
+                marcador[clase + "s"] += bool(engancha)
+                marcador["detalle"].append({"clase": clase, "etiqueta": etiqueta,
+                                            "prompt": prompt, "engancha": engancha,
+                                            "motivos": motivos})
+    return marcador
+
+
 def e3(suenios):
     """Los seis en un store. ¿Cada síntoma encuentra el dominio del que salió?"""
     from nightshift import config, retrieve
@@ -122,6 +167,15 @@ def e3(suenios):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--semantico", nargs="*", default=None, metavar="ARG",
+                    help="repite E1 con el fallback semántico enchufado. Sin argumentos "
+                         "usa `sh tools/embed-ollama.sh`, que es el de referencia")
+    args = ap.parse_args()
+    comando_semantico = None
+    if args.semantico is not None:
+        comando_semantico = args.semantico or ["sh", str(RAIZ / "tools" / "embed-ollama.sh")]
+
     suenios, faltan = {}, []
     for caso in casos_de_dominio.CASOS:
         s = cargar(caso["slug"])
@@ -170,6 +224,31 @@ def main():
           % (totales["engancha"], totales["posibles"],
              totales["llega"], totales["posibles"], totales["ajenos"]))
     print()
+
+    if comando_semantico:
+        print("== E1-bis · el mismo E1 con el fallback semántico enchufado ==")
+        print()
+        print("Está apagado por default. La calibración del propio proyecto dice que el")
+        print("coseno separa sinónimos y NO separa síntoma contra mecanismo abstracto.")
+        print()
+        print("%-26s %-9s %-7s" % ("dominio", "engancha", "ajenos"))
+        print("-" * 46)
+        bis = {"engancha": 0, "ajenos": 0}
+        for slug, suenio in suenios.items():
+            m = e1_semantico(slug, suenio, comando_semantico)
+            if not m:
+                continue
+            print("%-26s %-9s %-7d" % (slug, "%d de 2" % m["retenidos"], m["ajenos"]))
+            bis["engancha"] += m["retenidos"]
+            bis["ajenos"] += m["ajenos"]
+            for det in m["detalle"]:
+                if "semantic_match" in (det["motivos"] or ""):
+                    print("      por coseno: [%s] `%s`"
+                          % (det["clase"], det["prompt"][:44]))
+        print("-" * 46)
+        print("engancha %d de %d · ajenos %d"
+              % (bis["engancha"], 2 * len(suenios), bis["ajenos"]))
+        print()
 
     # --------------------------------------------------------------- E2
     print("== E2 · la alternativa descartada, con su precondición ==")

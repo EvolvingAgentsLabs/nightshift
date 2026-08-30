@@ -8,6 +8,44 @@ acá.
 
 ---
 
+## MEDIDO — los seis dominios del README: el consolidador cruza, el retrieval no (2026-08-30)
+
+`experimentos/DOMINIOS.md`, con los sueños en `experimentos/salidas/dominios/` y el
+resultado en `experimentos/RESULTADOS-DOMINIOS.md`. Seis cadenas de ejecución escritas a
+mano —SOC, medicina interna, helpdesk, mantenimiento, memoria corporativa, QA de juegos—
+consolidadas por el camino real. **Material de autor: es un techo, no transferencia.**
+
+**Lo que salió a favor.** Seis candidatas de seis, sin un solo rechazo de gate y sin
+reintentos: `validate_scene`, `validate_logogram` y `VOCABULARIO_DEL_CODIGO` —escritos
+mirando software— aceptaron a la primera una acequia, un guardarropas y una balanza. El
+contraste de ADR-005 devolvió `old_valid_when` en los seis, y en dos casos la precondición
+que devolvió es **mejor** que la que el pre-registro había escrito a mano.
+
+**Lo que salió en contra, y es lo que hay que anotar acá.** El retrieval enganchó **2 de
+12** síntomas retenidos, con 3 falsos positivos. Diez de los doce comparten **una palabra
+de contenido o ninguna** con una superficie de búsqueda que dice lo mismo con otras
+palabras; los tres falsos positivos enganchan con exactamente dos, y las dos son `hora`,
+`nada`, `siempre`. **En el borde del piso, lo que decide el enganche no nombra el
+mecanismo.**
+
+**Y la salida que ya existe no alcanza, medido y no supuesto.** Con el fallback semántico
+enchufado (`tools/embed-ollama.sh`, embeddinggemma): 11 de 12 enganchan **y 20 de 60
+ajenos también**. Cambia un modo de falla silencioso por uno ruidoso. Estaba anticipado en
+la nota de calibración de `config.py` del 2026-08-29 — el coseno separa sinónimos, no
+separa síntoma contra mecanismo abstracto.
+
+**Nada de esto se implementa, y el motivo es el de siempre.** Lo que sugiere —un piso que
+pese cuánto informa cada palabra en vez de contarlas, o una superficie de búsqueda que no
+sea sólo léxica— es una feature que no está en el plan, y el plan lo escribe una persona.
+Queda anotado con su número al lado.
+
+**Lo que el experimento no puede tocar, dicho para que nadie lo lea de más:** no existe
+captura fuera de un agente de código. Que el consolidador funcione en seis dominios no
+acerca a nightshift a un SOC; acerca a un SOC que ya tuviera su cadena de ejecución
+capturada, que es un problema entero y ajeno a este repositorio. Y sigue sin medirse que
+la memoria sirva: doce síntomas escritos por la misma mano que escribió las trayectorias
+no son un experimento sobre la utilidad de nada.
+
 ## MEDIDO — la opción nuclear: lo que compró, lo que dijo que no, y lo que el notario rechazó (2026-08-29)
 
 Orden ejecutiva de Matías, ejecutada con tres correcciones que quedaron registradas en el

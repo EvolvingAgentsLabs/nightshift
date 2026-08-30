@@ -68,6 +68,20 @@ la condición es de las que el propio prompt llama «una forma elegante de decir
 El parecido con la precondición esperada lo juzga una persona leyendo las dos: el script
 imprime las dos al lado y **no** decide.
 
+### E1-bis(d) — el fallback semántico, y NO estaba pre-registrado
+
+Se agregó el 2026-08-30 **después de leer el resultado de E1**, y por eso lleva el
+asterisco puesto en el nombre: no es parte del pre-registro y no se puede citar como si lo
+fuera. Existe porque el proyecto ya tiene construida una salida para el modo de falla que
+E1 encontró —el fallback semántico por embeddings (`embedding_command`, apagado por
+default)— y medirla es más honesto que suponerla.
+
+Es el mismo E1, con una sola clave de config cambiada.
+
+```sh
+python3 experimentos/17-los-seis-dominios-compiten.py --semantico
+```
+
 ### E3 — los seis compiten en un solo store
 
 Las seis candidatas montadas juntas, y los doce síntomas retenidos preguntando. Es la
