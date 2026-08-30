@@ -185,5 +185,40 @@ Sigue sin medirse, sigue sin `verify`, y nada de lo de acá llega a `procedure`.
 síntomas escritos por la misma persona que escribió las trayectorias no son un
 experimento sobre la utilidad de nada.
 
+## El plugin, usado sobre la sesión que produjo esto
+
+La sesión que escribió estos experimentos fue capturada por el plugin —`5f35bfac`, tipo
+`docs`, 62 pasos— y recibió **seis memorias inyectadas**, tres en `SessionStart` y tres en
+el primer prompt. Los motivos de las seis, tal como los registró el store:
+
+```
+16a5f7ff  rank 1  score 2.07  same_repo,has_decisive_step,tests_passed
+a5d95061  rank 2  score 2.04  same_repo,has_decisive_step,tests_passed
+d529a430  rank 3  score 2.04  same_repo,has_decisive_step,tests_passed
+057531f2  rank 1  score 2.63  same_task_type,same_repo,tests_passed
+242e105a  rank 2  score 2.04  same_repo,has_decisive_step,tests_passed
+8678f39f  rank 3  score 2.03  same_repo,has_decisive_step,tests_passed
+```
+
+**Ninguno de los seis motivos es un enganche.** No hay `signal_match`, ni
+`projected_match`, ni `logogram_match`, ni `failure_match`: las seis llegaron por vecindad
+—mismo repo, mismo tipo de tarea, la trayectoria terminó en verde— y ninguna porque
+hablara del problema que la sesión tenía enfrente. Es el mismo resultado que E1 midió
+sobre material sintético, ocurriendo en vivo sobre el store real, el mismo día.
+
+Y hay una coincidencia que vale registrar con su asterisco puesto. La memoria de rango 1,
+`16a5f7ff`, dice: *"las sondas de inspección se escriben contra una forma recordada del
+objeto en vez de contra el objeto vivo"*, logograma **plano viejo, pieza real**. En esta
+sesión eso pasó: el primer script de diagnóstico armó la superficie de búsqueda con lo que
+el prompt de consolidación **dice** que es la superficie —señales, precondiciones,
+proyecciones, logograma— y no con lo que `retrieve.candidates` lee de verdad, que además
+incluye `decisive_signal`. El error se encontró porque dos números no coincidieron, no
+porque alguien hubiera leído la memoria y actuado sobre ella.
+
+Así que la lectura correcta es la que el propio `status` imprime al lado del eco: **es
+correlación, no causa.** La memoria que describía el error estaba en la ventana, llegó por
+`same_repo`, y el error se cometió igual. Que ese sea el resumen honesto del dogfooding es
+exactamente por qué `verify` —y no otra cosa— es lo que falta.
+
 Las consecuencias que no se implementan acá —porque no están en el plan— quedaron
 anotadas en [`LATER.md`](../LATER.md).
