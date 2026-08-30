@@ -185,6 +185,66 @@ Sigue sin medirse, sigue sin `verify`, y nada de lo de acá llega a `procedure`.
 síntomas escritos por la misma persona que escribió las trayectorias no son un
 experimento sobre la utilidad de nada.
 
+## La enmienda 0.3.13 medida — tres brazos, no dos
+
+El 2026-08-30, después de leer lo de arriba, Matías decidió la **expansión asimétrica**:
+que el consolidador escriba de noche `colloquial_queries` —hasta 5 quejas literales con
+jerga concreta y cero palabras abstractas— y que el enganche léxico busque contra eso. La
+spec la registra como enmienda 0.3.13 con esa procedencia.
+
+Se midió **una sola vez**, con el protocolo declarado antes de correr: un tiro, se publica
+lo que salga, no se ajusta el prompt contra el marcador.
+
+| brazo | qué es | engancha | ajenos | precisión |
+|---|---|---|---|---|
+| **A** | los seis sueños originales, sin el campo | 2 de 12 (17%) | 3 de 60 | 40% |
+| **B** | los seis **regenerados**, con el campo removido | 5 de 12 (42%) | 5 de 60 | 50% |
+| **C** | los seis regenerados, con el campo puesto | **8 de 12 (67%)** | 7 de 60 | 53% |
+
+**El tercer brazo es la razón por la que este resultado no se puede citar como «2 de 12 pasó
+a 8 de 12».** Entre A y B no cambió el campo: cambió que los sueños se volvieron a generar
+con un prompt distinto. Ese salto solo —de 2 a 5— es **del mismo tamaño** que el que aporta
+el campo. Publicar el 2→8 como efecto de la enmienda le atribuiría al campo la mitad de una
+mejora que es del prompt nuevo, o de la varianza de una corrida que se midió una sola vez.
+
+**B contra C sí es limpio**, y es la única comparación causal acá: son los mismos sueños,
+el mismo texto, la misma corrida, con el campo puesto y removido. La medición es
+determinista. El campo aporta **+3 enganches verdaderos y +2 falsos**, y de los seis
+enganches que se le atribuyen directamente por `colloquial_match`, **4 son verdaderos y 2
+falsos**: una precisión de 67%, por encima del 53% del sistema completo.
+
+Eso **refuta la predicción que la propia enmienda dejó escrita** antes de medir. La spec
+decía que agregar frases sólo puede inflar las dos mitades por construcción, y que la
+pregunta era si la precisión aguantaba. Aguantó y subió: la superficie nueva discrimina
+mejor que las que ya existían, y la razón es la que el prompt perseguía — un sustantivo
+concreto del oficio (`filtro`, `sello`, `mandíbula`, `monotributista`) es más raro que las
+palabras que sostenían los falsos positivos viejos (`hora`, `nada`, `siempre`).
+
+**Lo que igual no cambia.** Los 12 síntomas retenidos se escribieron antes de que el campo
+existiera, pero acaban de usarse para decidir si el campo se queda: **están gastados desde
+ahora**, igual que el conjunto de `cbbd7ff0`. El siguiente número sobre este material sería
+entrenar contra el test. Y sigue siendo material de autor, n=1 por brazo, sin captura.
+
+### El bug que encontró la medición, y quién lo había anticipado
+
+La primera corrida de C dio **5 de 12 y `colloquial_match` sin disparar una sola vez**. El
+instrumento —`camino_real.montar`— filtraba la abstracción a tres claves fijas y descartaba
+el campo nuevo en silencio: exit 0, números plausibles, midiendo el brazo viejo.
+
+Se encontró porque **dos números no coincidieron**: la atribución decía cero
+`colloquial_match` y el solapamiento token a token decía que cuatro retenidos pasaban el
+piso. Nunca falló nada.
+
+Es el mecanismo de la candidata `16a5f7ff` —*una sonda escrita contra la forma recordada
+del objeto en vez de contra el objeto vivo*, logograma **plano viejo, pieza real**— y esa
+memoria estaba inyectada en la sesión que cometió el error, desde el `SessionStart`.
+Volvió a pasar lo mismo que ya está registrado más abajo: la memoria correcta en la
+ventana, y el error cometido igual.
+
+La conjetura **507** de `057531f2` —*"agrego un elemento nuevo del tipo que sólo se revisaba
+a mano y nadie lo revisa nunca, y todo sigue en verde"*— quedó **confirmada** con el commit
+`d0c4b86` como evidencia, y el notario la aceptó.
+
 ## El plugin, usado sobre la sesión que produjo esto
 
 La sesión que escribió estos experimentos fue capturada por el plugin —`5f35bfac`, tipo
