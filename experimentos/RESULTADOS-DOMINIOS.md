@@ -206,6 +206,14 @@ d529a430  rank 3  score 2.04  same_repo,has_decisive_step,tests_passed
 hablara del problema que la sesión tenía enfrente. Es el mismo resultado que E1 midió
 sobre material sintético, ocurriendo en vivo sobre el store real, el mismo día.
 
+**Y no es que el enganche no ocurra nunca sobre el store real**, que sería la lectura de
+más: la sesión anterior, del 2026-08-30 a las 00:02, enganchó con score 5.25 y tres
+motivos de enganche —`signal_match,precondition_match,projected_match`—. La diferencia
+entre esa sesión y ésta es de qué hablaban: aquélla trabajaba sobre el mismo material del
+que salió la memoria, con las mismas palabras. Es el mismo eje que separa E1 de E1-bis, y
+la conclusión no es "el enganche está roto" sino **"el enganche depende de compartir
+vocabulario"**, que es una afirmación más chica y más incómoda.
+
 Y hay una coincidencia que vale registrar con su asterisco puesto. La memoria de rango 1,
 `16a5f7ff`, dice: *"las sondas de inspección se escriben contra una forma recordada del
 objeto en vez de contra el objeto vivo"*, logograma **plano viejo, pieza real**. En esta
