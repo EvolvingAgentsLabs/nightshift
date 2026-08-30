@@ -23,6 +23,8 @@ suma al conteo del gate de M1.**
 | [13](13-cuanto-discrimina-el-enganche.py) | ¿Cuánto discrimina el enganche cuando el store crece? Empezó por un verbo | nada: lee el store |
 | [14](14-la-escena-antes-del-diagrama.py) | Los dos medios de idear sobre el mismo corpus: ¿el modelo traduce de verdad a una escena física? | 2 llamadas al modelo |
 | [15](15-el-techo-a-escala.py) | Seis ideaciones diseñadas a mano compitiendo en un store: ¿cada síntoma encuentra su caso? | nada: no llama al modelo |
+| [16](16-los-suenios-de-los-seis-dominios.py) | Los seis dominios del README, soñados de verdad: ¿el consolidador abstrae fuera del software? | 6 llamadas al modelo + 6 contrastes |
+| [17](17-los-seis-dominios-compiten.py) | Los seis dominios compitiendo: ¿cada síntoma retenido encuentra su dominio? | nada: lee lo que soñó el 16 |
 | [preguntar](preguntar.py) | Lo proyectado, presentado como opciones para que una persona lo resuelva | nada: lee el store y pregunta |
 
 ```sh
@@ -40,6 +42,8 @@ python3 experimentos/12-sensibilidad.py
 python3 experimentos/13-cuanto-discrimina-el-enganche.py
 python3 experimentos/14-la-escena-antes-del-diagrama.py
 python3 experimentos/15-el-techo-a-escala.py
+python3 experimentos/16-los-suenios-de-los-seis-dominios.py   # llama al modelo
+python3 experimentos/17-los-seis-dominios-compiten.py
 python3 experimentos/preguntar.py --dry-run       # sin --dry-run, pregunta
 ```
 
@@ -786,6 +790,25 @@ Casos, señales y paráfrasis los escribió **la misma mano**, así que esto mid
 la cadena puede dar, nunca que la memoria sirva. Y los casos **no** van al prompt de
 consolidación como few-shot: eso cambiaría el brazo (PREREG §2) y ensuciaría toda medición
 futura contra ellos.
+
+## 16 y 17 — Los seis dominios del README, medidos
+
+El README nombra seis dominios donde la arquitectura *encajaría* —caza de amenazas,
+diagnóstico diferencial, helpdesk, mantenimiento industrial, memoria corporativa y QA de
+juegos— y lo dice con la advertencia adelante: son hipótesis sobre dónde encaja, no casos
+de estudio. El **16** consolida de verdad seis cadenas de ejecución de esos dominios y el
+**17** las hace competir entre sí.
+
+El diseño entero —los trece experimentos, sus criterios de falla y lo que el número **no**
+puede significar— está en [`DOMINIOS.md`](DOMINIOS.md), escrito y commiteado antes de que
+ningún modelo consolidara nada. El material está en
+[`casos_de_dominio.py`](casos_de_dominio.py) y los resultados en
+[`RESULTADOS-DOMINIOS.md`](RESULTADOS-DOMINIOS.md).
+
+Lo que no se mide, dicho acá y no en una nota al pie: **la captura**. No existe ningún
+harness que capture a un analista de un SOC ni a un clínico, así que las trayectorias las
+escribió una persona. Esto mide el consolidador y el retrieval fuera del software, con la
+otra mitad de la máquina reemplazada a mano.
 
 ## Cómo leer todo esto
 
