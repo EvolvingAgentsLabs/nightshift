@@ -8,6 +8,47 @@ acá.
 
 ---
 
+## ENCONTRADO — la ventana de 6 pasos cayó entera sobre lecturas del repo (2026-08-30)
+
+`nightshift sleep` selló el capítulo de una sesión de 119 pasos, **117 con contenido**, y
+consolidó. Lo que el modelo vio fueron **6 pasos**: cinco `ls` y `cat` de los primeros
+minutos —los cinco marcados `LECTURA-DEL-REPO`, que el propio `dream.PROMPT` declara «no
+son observaciones sobre este trabajo» y prohíbe usar como evidencia— y **un** `tool_failure`.
+
+Todo lo demás quedó afuera: cada edición, cada corrida de tests, cada medición, los dos
+bugs encontrados y arreglados, cuatro horas de trabajo.
+
+**Es el mismo modo de falla que `pasos_para_el_prompt` documenta en su propio docstring,
+con otra cara.** Aquel era la ventana cayendo sobre pasos vacíos; éste es la ventana
+cayendo sobre lecturas. La causa es la misma función: `_prioridad` ordena `tool_failure` →
+`contradicted` → `decisive` → **resto por índice**, y «resto por índice» significa *los
+primeros de la sesión*, que en toda sesión son la orientación.
+
+Con un solo fallo capturado, cinco de los seis lugares se los llevó la orientación inicial.
+
+**Lo notable es que la consolidación salió bien igual** —el patrón generaliza
+correctamente ese único fallo, y las `colloquial_queries` que produjo son buenas— pero
+salió bien **a pesar del material**, no gracias a él. Un capítulo de cuatro horas se
+consolidó como si hubiera durado cinco minutos.
+
+**No se implementa nada:** cambiar `_prioridad` es tocar el corazón de qué se consolida, y
+la decisión de si el desempate va por índice, por recencia o por otra cosa es del dueño del
+proyecto. Queda medido: 6 de 117, y 5 de esos 6 son lecturas.
+
+### Y una conjetura que NO se resolvió, a propósito
+
+De ese sueño salió la proyección *"una lista de nombres permitidos deja afuera al campo
+nuevo, así que lo que sí se guardó nunca aparece en el resumen"* — que describe
+exactamente el bug de `camino_real.montar` arreglado en `d0c4b86` unas horas antes. Se
+verificó que el modelo **no** lo vio: ese paso no está entre los seis que entraron al
+prompt.
+
+Aun así **no se registró como confirmada**, y el motivo es el que hace que el notario
+exista: por marca de tiempo es una **postdicción** —el commit es anterior a la conjetura— y
+el notario la rechazaría. Que la proyección sea genuina por información no la vuelve
+notarizable por cronología, y la distinción es justamente la que impide convertir cualquier
+bug ya arreglado en una profecía cumplida.
+
 ## ENCONTRADO — el retrieval es un contaminante experimental cuando el agente se mide a sí mismo (2026-08-30)
 
 El bucle de dogfooding intentó cerrar el retenido de `5b3ff97f` con el agente escribiendo
