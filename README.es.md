@@ -1,6 +1,6 @@
 # nightshift
 
-**Una capa de memoria procedimental sobre la memoria declarativa nativa del agente.**
+**Un motor de memoria procedimental y epistemológica.**
 Una prueba de concepto, no un producto.
 
 *[Read me in English](README.md)*
@@ -8,106 +8,140 @@ Una prueba de concepto, no un producto.
 ![El sueño proyecta trayectorias hacia bugs; la misma persona se los encuentra horas después en la pantalla](doc/assets/night.png)
 
 > **Estado: M3 construido** — captura, retrieval y dream fase 1, como plugin de Claude
-> Code. Todo lo de abajo corre. El gate es `make dogfood`.
+> Code. El gate es `make dogfood`.
 >
-> **Nadie midió que nada de esto ayude.** Ésa era la pregunta del benchmark y está
-> pausada, no respondida. `verify` no existe, nada llega a `procedure`, y toda memoria
-> que se inyecta hoy está sin verificar.
+> **Todo lo de esta página es una hipótesis sobre dónde encaja esta arquitectura, no un
+> registro de lo que hizo.** nightshift sólo corrió sobre su propio repositorio. Nadie
+> midió que ayude ni siquiera ahí: `verify` no existe, nada llega a `procedure` y toda
+> memoria que inyecta está sin verificar. Leé los dominios de abajo como *"ésta es la
+> forma de problema para la que se construyó la máquina"*, nunca como casos de éxito.
 
-## Qué hace, en simple
+---
 
-La memoria nativa de un agente es **declarativa**: aprende *hechos*. "El timeout es
-2000ms". Eso ya funciona y nightshift no lo toca.
+El núcleo de nightshift no es sobre código. Su capacidad real es capturar la **Cadena de
+Ejecución** (CTE), destilarla en un **mecanismo abstracto — una escena física** — y
+**proyectar síntomas futuros** antes de que ocurran, preservando las alternativas
+descartadas con las precondiciones que las hacían correctas.
 
-nightshift agrega la otra mitad, la **procedimental**: recordar **cómo** se resolvió un
-problema.
+Si sacamos a nightshift del IDE y de Claude Code, éstos son los dominios para los que su
+arquitectura tiene forma.
 
-1. **Mira tu trayectoria.** Tus comandos, tus errores, tus correcciones — redactados, en
-   tu máquina, en SQLite. Nada sale por red.
+## 1 · Ciberseguridad: threat hunting y respuesta a incidentes
 
-2. **De noche sueña con ella.** Convierte esa trayectoria en el **mecanismo** del
-   problema, dibujado como una escena física en vez de como prosa técnica. Éste salió del
-   store de este repo, no es un ejemplo inventado:
+Los analistas del SOC persiguen anomalías. Un atacante usa el mismo mecanismo subyacente
+pero cambia la *cara* del ataque: el síntoma.
 
-   > **`tamiz sin agujero`** — *Por una cinta viajan bidones cerrados hasta un arco con
-   > una plantilla recortada: el que entra por el hueco enciende la lámpara verde y sigue
-   > al camión. La plantilla mide alto y ancho, nada más.*
+- **La trayectoria:** la secuencia del analista — `alerta → query a logs → hipótesis falsa
+  → query a red → descubrimiento de exfiltración`.
+- **El sueño:** dibuja el mecanismo táctico del atacante (*"el atacante usa una tubería
+  legítima, pero en horario muerto"*).
+- **La proyección:** qué otras alertas generaría ese mecanismo — *"picos de CPU en los
+  servidores de backup"*.
+- **El gancho:** cuando un analista junior ve un síntoma proyectado meses después, vuelve
+  el procedimiento: *"alguien ya investigó este patrón; no mires el malware, mirá los
+  crons programados — y bloquear la IP se descartó porque era spoofed."*
 
-   Era un chequeo que daba verde porque contaba elementos sin mirar lo que tenían adentro.
+## 2 · Diagnóstico diferencial en medicina interna
 
-3. **Proyecta hacia adelante.** Desde ese mecanismo escribe **síntomas que nadie vio
-   todavía**: con qué otras caras va a volver el mismo problema.
+El diagnóstico clínico es, por definición, una cadena de ejecución: síntoma → examen
+físico → estudio de laboratorio (negativo) → corrección de hipótesis → diagnóstico.
 
-4. **Te lo devuelve antes, no después.** En la sesión siguiente, si describís un síntoma
-   que engancha con alguno de ésos, lo que se hizo la vez anterior te llega **antes** de
-   que repitas los mismos errores.
+- **Ideación física, literal.** Un proceso patológico *es* un mecanismo físico — *"una
+  válvula tapada que acumula presión hacia atrás"*. Es el único dominio donde el medio por
+  defecto no es una metáfora del mecanismo: es el mecanismo.
+- **El problema que ataca:** los pacientes presentan a menudo síntomas atípicos de una
+  enfermedad común, y ésos son exactamente los que un mecanismo puede proyectar. Ante
+  *"dolor en hombro + hipo"*, volvería la trayectoria que una vez lo rastreó hasta una
+  irritación del diafragma por un problema hepático — antes de que se pida otra
+  radiografía de hombro.
 
-La diferencia, en una línea: no *"el timeout es 2000"*, sino *"esto ya se probó, alguien
-subió el límite, se corrigió porque tapaba el síntoma, y ese camino descartado igual tenía
-razón cuando el límite era genuinamente bajo"*.
+> Éste lleva una advertencia que los otros no. Un motor de memoria que sugiere qué
+> estudios saltear es un sistema de apoyo a la decisión clínica, y ésos son regulados,
+> validados y auditados. nightshift no es ninguna de las tres cosas y no llega a
+> `procedure`: sería insumo para un clínico, nunca una recomendación, y necesitaría la
+> etapa de verificación que sigue sin construirse antes de acercarse a un paciente.
 
-En una frase: **que la próxima sesión no recorra de cero el camino que la anterior ya
-recorrió.**
+## 3 · Helpdesk: cerrar la brecha de Nivel 3 a Nivel 1
 
-```mermaid
-flowchart LR
-  S["tu sesión"] -->|"7 hooks"| C["captura<br/>comando · error · corrección"]
-  C --> R["redactor"] --> D[("SQLite<br/>local")]
-  D -->|"de noche"| DR["dream<br/>dibuja · abstrae · proyecta"]
-  DR --> D
-  D -->|"tu primer prompt"| I["inyectado<br/>'esto ya se probó así'"]
-  DR -. "M5 · no existe" .-> V["verify"] -. "nada llega acá" .-> P["procedure"]
-  style V stroke-dasharray: 5 5
-  style P stroke-dasharray: 5 5
-```
+Los ingenieros de Nivel 3 resuelven problemas de infraestructura que en Nivel 1 se
+manifiestan de formas estúpidas — *"el botón de imprimir sale gris"* porque el
+microservicio de facturación saturó el pool de conexiones.
 
-## Las tres ideas que perseguimos
+- **La proyección:** Nivel 3 resuelve el bug; se sueña el mecanismo y se proyecta qué
+  otros tickets van a empezar a llegar — *"la app móvil dará timeout"*, *"los reportes
+  saldrán en blanco"*.
+- **El valor:** cuando el usuario final llama a Nivel 1 quejándose de la app móvil, la
+  paráfrasis engancha la memoria procedimental y el agente de Nivel 1 recibe el paliativo
+  en vez de escalar el ticket.
 
-Éstos son los objetivos. Todo lo que hay en el repo existe para servir a alguno, y cada
-uno tiene hipótesis que dicen si se sostiene — `make experiments` las corre.
+## 4 · Mantenimiento industrial y robótica
 
-**1 · CTE — la cadena de pensamiento *es* la cadena de ejecución.** Para un agente de
-código no son dos cosas. El razonamiento que sobrevive no es un monólogo interno: es la
-secuencia que tocó el filesystem — hipótesis → comando → error → corrección → señal
-decisiva → fix. Esa cadena es lo que se captura, redactada, como trayectoria.
+El ejemplo que salió del store de este repo — *"tamiz sin agujero: por una cinta viajan
+bidones cerrados…"* — es literalmente mantenimiento industrial.
 
-**2 · Correr la cadena para adelante, no para atrás.** Una cadena de pensamiento
-normalmente explica algo que ya pasó. Dream la recorre al revés — trayectoria → mecanismo
-→ abstracción → **conjetura** — para que la memoria pueda enganchar con un problema
-*antes* de que su síntoma se haya visto una vez. Las conjeturas se guardan aparte, pesan
-exactamente la mitad y se anuncian siempre como conjetura
-([ADR-004](doc/adr/ADR-004-ideacion-y-proyeccion.md)). Si ese límite se borra, esto deja de
-ser memoria. Y una conjetura que nadie resuelve es una nota, no memoria:
-`/nightshift:resolve` registra que pasó, o que no puede — siempre con evidencia y autor.
+- **La trayectoria:** lecturas de sensores más acciones del operario — `apaga motor →
+  purga válvula → el error persiste → cambia filtro → se soluciona`.
+- **El sueño:** abstrae la falla mecánica y proyecta qué otros sensores van a dar lecturas
+  anómalas si vuelve a pasar.
+- **Precondiciones (capacidad B):** *"bajar la presión de la bomba resolvió la alerta,
+  pero se descartó porque ralentizaba la producción. Ese camino era correcto cuando el
+  líquido era de alta viscosidad."*
 
-**3 · Idear en vez de razonar.** Antes de abstraer, dibujar. El prompt de consolidación
-arranca negándose a razonar: *"no razones todavía — encontrá la imagen."* Algunas
-explicaciones sólo entran cuando alguien las dibuja bien, y el dibujo correcto no agrega
-información: saca la que sobra. La apuesta es falsable —*el dibujo de un mecanismo es
-invariante entre síntomas de un modo que la prosa no lo es*— y es la que sigue en
-discusión: al 2026-08-29, contra un retenido de 5 síntomas, el brazo `mermaid` engancha 4
-y la escena física engancha **0**, justamente porque la escena no nombra el dominio. La
-escena sigue siendo el default por decisión de Matías
-([ADR-007](doc/adr/ADR-007-la-escena-antes-del-diagrama.md)), no por veredicto.
+## 5 · Memoria corporativa y estrategia legal
 
-## Qué no es
+Las empresas pierden fortunas repitiendo estrategias descartadas porque nadie recuerda
+*por qué* se descartaron, ni *bajo qué condiciones* eran correctas.
 
-Claude Code trae **Auto Memory** (notas declarativas por repo) y **Auto Dream**
-(consolidación en segundo plano). nightshift **no** los reemplaza y no compite en "notas +
-sueño": corre encima ([ADR-001](doc/adr/ADR-001-no-competir-con-auto-dream.md)).
+- **La capacidad B ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)) es la
+  clave acá.** Trayectorias de decisiones: M&A, apuestas de marketing, litigios.
+- **La memoria:** *"intentamos comprar la empresa X. Hicimos el análisis Y. Descubrimos el
+  pasivo Z. Descartamos la compra."*
+- **El gancho:** años después la dirección propone comprar la empresa W, estructuralmente
+  parecida. Lo que vuelve: *"esta estructura ya se investigó. Auditar sus patentes es una
+  trampa de tiempo; vayan directo a los pasivos laborales. Licenciar su tecnología era
+  válido sólo con la tasa por debajo del 3%."*
 
-> Auto Memory recuerda *qué es cierto en este repo*. nightshift recuerda *cómo se
-> averiguó*.
+## 6 · Diseño de videojuegos y QA testing
+
+Los speedrunners y los testers de QA rompen juegos encadenando acciones que no deberían
+interactuar.
+
+- **La trayectoria:** la secuencia de inputs — `saltar → abrir inventario → recibir daño →
+  estado de invulnerabilidad`.
+- **Ideación y proyección:** dibuja el mecanismo del motor (*"la interrupción de animación
+  desincroniza el flag de colisión"*) y proyecta qué otras combinaciones de ítems y
+  acciones explotan el mismo.
+- **Inyección:** señala parchear **el mecanismo abstracto** en vez de ese glitch puntual,
+  anticipándose a exploits que los jugadores todavía no descubrieron.
+
+## Qué tienen en común los seis
+
+nightshift no es "un asistente para programadores". Es un **motor de anticipación de
+fallos basado en experiencia empírica**. Cualquier dominio donde el costo de repetir una
+investigación desde cero sea alto, y donde un mismo fallo sistémico tenga múltiples
+síntomas, es la forma para la que se construyó.
+
+Si de verdad entrega eso es la pregunta abierta, y está abierta en sentido estricto: el
+benchmark que la respondería tiene runner, tres repos de fixture y un adapter de agente, y
+**nunca corrió**.
+
+## Qué de eso está construido
+
+Cada dominio de arriba se apoya en alguna de estas cinco capacidades. Éste es su estado
+real, y la última fila es la razón por la que ninguno de los seis es un caso de éxito:
 
 | | Capacidad | ¿Construida? |
 |---|---|---|
 | A | Memoria procedimental: la trayectoria, no sólo la conclusión | sí |
 | B | Alternativas descartadas guardadas **con la precondición** que las hacía correctas | sí ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)) |
-| C | Transferencia entre repositorios | apagada por defecto |
+| C | Transferencia entre repositorios — o entre casos, pacientes, tickets, máquinas | apagada por defecto |
 | D | Cada inyección trazable hasta su origen (`why`) | sí |
 | E | Verificación: nada es procedimiento hasta que reproducirlo pasa un gate | **no — eso es M5** |
 
-E es la que importa, y es la que no existe.
+**E es la que importa, y es la que no existe.** Hasta que exista, toda memoria es
+`candidate`: la abstrajo un modelo, no la reprodujo nadie. En un repositorio de código eso
+significa tratarla como pista. En un hospital, un SOC o una sala de due diligence
+significa algo más fuerte: no es usable como recomendación.
 
 ## Correlo
 
@@ -132,32 +166,11 @@ make experiments               # cuáles hipótesis del proyecto están comproba
 | `/nightshift:doctor` | ¿la captura está funcionando de verdad? |
 | `/nightshift:dev` | empezar una sesión de desarrollo sobre el plugin mismo |
 
-## La parte honesta
-
-El benchmark que contestaría *"¿recordar cómo se resolvió algo mejora a un agente que ya
-tiene memoria declarativa?"* tiene su runner, sus tres repos de fixture y su adapter de
-agente — y **nunca corrió**. Está **pausado**, y pausado no es cerrado: los 25
-`TODO(Matias)` del pre-registro siguen sin tocar y la pregunta sigue abierta.
-
-Todo lo que se inyecta hoy es `candidate`: lo abstrajo un modelo, no lo reprodujo nadie.
-**Y una de ellas es falsa.** El 2026-08-28 dream consolidó un bug de una línea y produjo un
-mecanismo que no existe — con diagrama, analogía y cinco precondiciones coherentes. No lo
-alucinó: levantó el razonamiento ya escrito en los comentarios del propio código y lo
-presentó como su diagnóstico. Por eso nada llega a `procedure`.
-
-Un ensayo no es evidencia, una demostración no es un resultado, y una proyección que se
-cumplió dos veces tampoco.
-
-La versión larga —las noches en que soñó sobre sí mismo, el defecto que apareció cuando
-alguien midió la promesa, y cuánto valía cada arreglo— está en
-[`doc/BITACORA.md`](doc/BITACORA.md).
-
 ## Dónde mirar después
 
+- [`doc/COMO-FUNCIONA.md`](doc/COMO-FUNCIONA.md) — **cómo funciona la máquina**: los cuatro pasos, las tres ideas, qué está construido y qué no
 - [`doc/00-spec.md`](doc/00-spec.md) — la spec
-- [`doc/PLAN-TRES-IDEAS.md`](doc/PLAN-TRES-IDEAS.md) — qué le falta a cada una de las tres ideas
 - [`doc/BITACORA.md`](doc/BITACORA.md) — qué pasó de verdad, en su tamaño real
-- [`experimentos/hipotesis/`](experimentos/hipotesis/) — una hipótesis por archivo: **24 hipótesis**. `make experiments` las recorre y dice cuáles se sostienen
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren, incluidos los que no favorecen al plugin
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado
