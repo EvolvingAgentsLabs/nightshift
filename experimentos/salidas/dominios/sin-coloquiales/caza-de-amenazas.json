@@ -1,0 +1,81 @@
+{
+  "slug": "caza-de-amenazas",
+  "dominio": "Ciberseguridad: caza de amenazas y respuesta a incidentes",
+  "task_type": "caza_de_amenazas",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.6195675,
+  "tokens_entrada": 68267,
+  "tokens_salida": 6344,
+  "candidatas": [
+    {
+      "trajectory": "c7f51158-61f0-4de3-9c6b-40ee73d8b370",
+      "abstraction": {
+        "pattern": "La actividad dañina viaja adentro de un portador que ya tiene autorización permanente, y cada control valida al portador y no a la carga, así que ninguna etapa se queja. El diagnóstico no sale de un objeto extraño sino de una magnitud acumulada -volumen o franja horaria- que nadie compara contra su promedio. El arreglo que sostiene no es enumerar los destinos visibles, que rotan, sino recortar el permiso y el horario del portador para que su uso fuera de esa franja valga por sí solo.",
+        "signals": [
+          "El barrido completo vuelve limpio y aun así algo sigue saliendo",
+          "El volumen de salida se triplica de madrugada y de dia esta en el promedio",
+          "Decenas de transferencias grandes iniciadas por una cuenta de servicio y ninguna con alerta",
+          "La actividad se concentra justo cuando la oficina esta vacia o el equipo no trabaja",
+          "Ninguna deteccion se dispara porque la herramienta esta en la lista de permitidas"
+        ],
+        "decisive_signal": "La tarea programada tenia un destino agregado nueve dias antes y corria con el permiso del respaldo, operada por una cuenta de mantenimiento que ningun administrador reclama: por eso ninguna regla la marco."
+      },
+      "valid_when": [
+        {
+          "condition": "La salida usa un portador con autorizacion permanente y firmada",
+          "source": "inferred"
+        },
+        {
+          "condition": "Los controles verifican quien transporta y no que se transporta",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe una magnitud acumulada, volumen u horario, que nadie compara contra su promedio",
+          "source": "inferred"
+        },
+        {
+          "condition": "La cuenta que ejecuta no tiene dueno humano identificable",
+          "source": "inferred"
+        },
+        {
+          "condition": "Hay un destino visible que tienta a bloquearlo como primer arreglo",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Despues de atar el permiso a la franja horaria, el mismo volumen reaparece en pleno horario laboral y se pierde adentro del promedio de dia",
+        "Las transferencias se parten en muchas chicas que quedan debajo del umbral y ningun corte por tamano las levanta",
+        "El inventario informa que todo esta firmado y en orden mientras el desvio sigue, porque cuenta portadores y no cargas",
+        "Se revierte la tarea y semanas despues vuelve a aparecer modificada, porque quien podia editarla nunca se toco",
+        "Otra cuenta de servicio del mismo tipo repite el mismo patron en otro equipo y tampoco levanta alerta"
+      ],
+      "physical_scene": "De noche, el portón de un depósito deja salir a los camiones de la casa: el sereno mira el precinto pintado en la puerta del acoplado, lo reconoce y levanta la barrera. En la planilla de ruta clavada al tablero alguien agregó un renglón al final, un galpón más después del último, y la letra es igual a la de siempre. La romana del portón pesa cada camión y estampa el número en un rollo de papel que queda enrollado dentro de la caja y se desenrolla recién a fin de mes. Nada se atasca ni chirría: la barrera sube, el precinto está entero, y el camión sale más pesado que ayer sin que ninguna pieza de la cadena tenga con qué notarlo, porque cada una fue hecha para mirar el precinto y no la carga. El que mira desde afuera ve una noche igual a las otras, y cuando por fin desenrolla el papel encuentra la línea que sube desde hace semanas.",
+      "logogram": "canal permitido, carga ajena",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la identidad del portador: el precinto llega intacto de punta a punta y cada etapa lo confirma. Lo que se pierde sin que nadie se queje es la relacion entre el portador y lo que efectivamente lleva, y se pierde exactamente en el cuadro donde el control decide con el precinto a la vista y la carga fuera de campo. La unica magnitud que todavia delata el desvio -el peso acumulado por noche- queda escrita en un lugar que se lee mucho despues, asi que el intervalo entre que el desvio ocurre y que alguien lo puede ver es el mes entero. Bloquear el galpon agregado no restituye nada: devuelve la planilla a su largo anterior y deja intacta la barrera que se levanta ante el precinto."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "c9bc3db2-2df0-457f-91ce-9faa4aed9c3f",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se dejó de enumerar destinos —un conjunto que controla el adversario y que crece sin costo— y se pasó a acotar la capacidad del canal que transporta: permiso y franja horaria de la cuenta. La señal dejó de ser la coincidencia con una lista y pasó a ser el desvío respecto de un uso declarado.",
+        "bought": "Deja de ser posible que la misma salida se restablezca con sólo cambiar de destino, y deja de ser posible que la detección dependa de conocer la dirección de antemano: el uso fuera de franja es señal por sí mismo, con destino nuevo o desconocido.",
+        "cost": "Se paga en operación y alcance: hay que tener autoridad sobre el permiso de la cuenta, la contención ya no es inmediata como cortar en el borde, todo uso legítimo fuera de la franja pasa a requerir excepción, y aparece una fuente de alertas nueva que alguien tiene que atender.",
+        "old_valid_when": [
+          "Cuando el conjunto de destinos es chico, estable y no rotable por el adversario, de modo que la lista no crece y bloquearla sí agota la salida",
+          "Cuando el canal tiene uso legítimo continuo y no admite recorte de permiso ni de horario, y el bloqueo perimetral es la única palanca con efecto inmediato disponible mientras se investiga"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Bloquear el destino era lo correcto cuando el destino es uno solo y fijo, y no rota entre noches.",
+  "mecanismo_escrito_a_mano": "El transporte del atacante es un canal legítimo y programado, con permiso propio. Cada control ve un actor autorizado y ninguno protesta; la anomalía no existe en el eje del permiso, existe en el eje del horario. Buscar el binario malicioso vuelve limpio todas las veces."
+}

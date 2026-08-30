@@ -8,6 +8,27 @@ acá.
 
 ---
 
+## ENCONTRADO — el retrieval es un contaminante experimental cuando el agente se mide a sí mismo (2026-08-30)
+
+El bucle de dogfooding intentó cerrar el retenido de `5b3ff97f` con el agente escribiendo
+los síntomas. Se abortó sin escribir ninguno: **el propio plugin le había inyectado las
+conjeturas de esa trayectoria** doce minutos antes, dos veces, enganchando por
+`signal_match,precondition_match,projected_match`, con el patrón, las precondiciones, el
+diagrama y los tres síntomas proyectados completos.
+
+El protocolo de `experimentos/retenido/README.md` prohíbe leer justamente eso antes de
+escribir. Con el texto leído, el retenido sería una paráfrasis y el número sería una
+tautología.
+
+**Lo que esto expone, y no estaba escrito en ningún lado:** cuando el agente es a la vez el
+experimentador y el sujeto, la memoria procedimental **no es neutral respecto de lo que
+mide**. El dogfooding y la medición ciega son incompatibles en la misma sesión, y hoy no
+hay forma de decirle al retrieval «esta fila no, estoy midiendo contra ella».
+
+**No se implementa nada.** Una clave de exclusión en el retrieval es una feature que no
+está en el plan, y además la solución correcta probablemente no sea técnica: el retenido lo
+tiene que escribir una persona, que es lo que el archivo pedía desde el principio.
+
 ## MEDIDO — los seis dominios del README: el consolidador cruza, el retrieval no (2026-08-30)
 
 `experimentos/DOMINIOS.md`, con los sueños en `experimentos/salidas/dominios/` y el

@@ -1,0 +1,81 @@
+{
+  "slug": "helpdesk",
+  "dominio": "Helpdesk: cerrar la distancia entre el nivel 3 y el nivel 1",
+  "task_type": "helpdesk",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.56674,
+  "tokens_entrada": 68526,
+  "tokens_salida": 5311,
+  "candidatas": [
+    {
+      "trajectory": "89d9acc1-c093-455c-b57d-02e166870480",
+      "abstraction": {
+        "pattern": "Varias fallas que parecen no tener relacion entre si son la misma: un conjunto compartido y finito de recursos prestados que un consumidor toma y no devuelve, hasta que el resto espera. Cada superficie traduce esa espera a su propia apariencia local -un control deshabilitado, una salida vacia, una demora- asi que se diagnostica una vez por superficie y ninguna reparacion local funciona. El arreglo es medir quien retiene y corregir a ese consumidor; vaciar el recurso periodicamente solo corre el agotamiento de hora y borra la evidencia que permitia encontrarlo.",
+        "signals": [
+          "El boton queda gris y no se puede apretar, y cambiar o reinstalar el aparato no cambia nada",
+          "El informe sale en blanco solo en cierta franja horaria y para algunos usuarios si y para otros no",
+          "Volver atras el cambio sospechoso no arregla el sintoma",
+          "El reinicio diario baja los reclamos una semana y despues vuelven, mas tarde en el dia",
+          "Tres pantallas distintas se rompen por separado y se arreglan todas juntas con un solo cambio"
+        ],
+        "decisive_signal": "Al medir quien toma el recurso compartido y no lo devuelve aparecio un unico consumidor reteniendo el noventa por ciento para siempre; corregido ese consumidor, los sintomas de las tres pantallas desaparecieron al mismo tiempo."
+      },
+      "valid_when": [
+        {
+          "condition": "Hay un conjunto limitado y compartido que varios consumidores toman y deben devolver",
+          "source": "inferred"
+        },
+        {
+          "condition": "El sintoma aparece en la pantalla del usuario, lejos de donde esta el recurso",
+          "source": "inferred"
+        },
+        {
+          "condition": "La falla se concentra en una franja horaria o bajo carga y afuera de ella no se reproduce",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe un consumidor con un volumen muy distinto al del resto",
+          "source": "inferred"
+        },
+        {
+          "condition": "Ya hay un paliativo periodico, o se esta por instalar uno, que vacia o reinicia el recurso",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Ampliar la capacidad no arregla nada: solo hace que la caida llegue mas tarde, y cuanto mas se agranda mas tarde llega",
+        "El chequeo de salud del servicio da bien todo el tiempo, porque tiene su propio camino reservado y nunca hace la cola comun",
+        "Reintentar empeora la situacion: cada reintento se lleva otra unidad del mismo conjunto y acorta el tiempo hasta la caida",
+        "El caso aislado anda perfecto en un ambiente de prueba y no se puede reproducir hasta que hay varios consumidores a la vez",
+        "El indicador que mostraba el crecimiento arranca en cero despues de cada limpieza programada, asi que nunca se ve la curva completa"
+      ],
+      "physical_scene": "En el taller hay un tablero con veinte llaves colgadas de ganchos numerados: cada operario descuelga una, aprieta su tuerca y la vuelve a colgar. Un operario del fondo descuelga llaves y las guarda en su cajon, y nunca las cuelga de vuelta, asi que el tablero se vacia de a poco sin que suene ninguna campana. Los que llegan al tablero vacio simplemente se quedan parados con la mano estirada, y desde el pasillo se ve un torno quieto, una prensa quieta y una mesa de pintura quieta, cada una con la cara de su propio trabajo detenido. El capataz manda revisar el torno, despues la prensa, despues la pintura, porque las tres se ven distintas y ninguna de las tres esta rota. A la madrugada un sereno recorre el taller, junta lo que encuentra y lo vuelve a colgar, asi que a la mañana el tablero esta lleno y nadie llega nunca al cajon del fondo: lo unico que se nota es que la paralisis empieza cada dia un poco mas tarde.",
+      "logogram": "prestado y nunca devuelto",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva el total del recurso compartido y la cuenta de quien espera: nunca falta capacidad nominal, y cada espera queda contabilizada en el punto comun. Lo que se pierde, sin que ninguna etapa se queje, es la identidad del que tomo y no devolvio, y se pierde exactamente en el cuadro donde la espera cruza hacia la superficie del usuario y se convierte en un defecto local con la forma de esa superficie. El paliativo periodico borra el otro rastro que quedaba: al devolver todo de golpe iguala a inocentes y culpable, y con eso destruye la unica pendiente que senalaba al consumidor que retiene."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "dbdfc53b-d51d-45c2-a6a3-2ddbe9b09e76",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se pasó de una intervención periódica que vaciaba el recurso agotado a una medición de retención por consumidor, que localiza al que toma y no devuelve. La corrección dejó de actuar sobre el síntoma acumulado y pasó a actuar sobre el que lo produce.",
+        "bought": "Deja de ser posible que el agotamiento siga creciendo invisible detrás de la intervención: la señal que permite identificar al retenedor ya no se borra antes de poder leerse, y desaparece la clase de fallas que reaparecen desplazadas en el tiempo en vez de resolverse. También deja de ser posible perseguir por separado varias manifestaciones que tenían un solo origen.",
+        "cost": "Se pagó con instrumentación: hubo que medir retención por consumidor a lo largo del tiempo, algo que la intervención periódica no requería, y aceptar que durante la investigación los reclamos siguieran ocurriendo en vez de ser suprimidos a diario.",
+        "old_valid_when": [
+          "Cuando el que retiene está fuera de alcance de corrección —código ajeno, componente que no se puede tocar en esa ventana— y el vaciado periódico es la única contención disponible",
+          "Cuando la tasa de retención es tan baja frente al ciclo de la intervención que el recurso nunca llega a agotarse entre una y otra, y el costo de instrumentar la medición supera al de la intervención"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "El reinicio programado era lo correcto cuando la ventana de uso es corta y conocida y el arreglo de fondo no llega antes de esa ventana.",
+  "mecanismo_escrito_a_mano": "Un recurso compartido y contado se agota en un servicio central. Cada consumidor traduce la espera al vocabulario de su propia pantalla, así que el que llama nunca nombra el recurso, y cada pantalla parece un problema distinto."
+}

@@ -1,0 +1,81 @@
+{
+  "slug": "qa-de-juego",
+  "dominio": "Diseño de juegos y testing de QA",
+  "task_type": "qa_de_juego",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.58501,
+  "tokens_entrada": 68623,
+  "tokens_salida": 6003,
+  "candidatas": [
+    {
+      "trajectory": "76ae276e-4eb3-4672-8fa5-beba18a5bec9",
+      "abstraction": {
+        "pattern": "Un estado transitorio suspende una regla al entrar (deja de recibir daño, deja de chocar) y la restitución de esa regla queda colgada del final normal del proceso que ese estado ejecuta. Cualquier interrupción abandona el estado por un camino que no pasa por ese final, y la suspensión queda puesta para siempre. El arreglo no es prohibir la combinación que alguien encontró sino mover la restitución a la salida del estado, que sí ocurre venga la salida de donde venga.",
+        "signals": [
+          "El efecto queda pegado para siempre después de una acción que dura un instante",
+          "Se arregla la combinación reportada y a los dos dias llega el mismo efecto con otra combinacion, y despues con otra",
+          "Reforzar o agrandar el obstaculo no cambia nada, lo sigue atravesando igual",
+          "La secuencia se reproduce siempre que la accion empieza antes de que la anterior termine",
+          "Dos fallas que parecian distintas se arreglan con un unico cambio en el mismo lugar"
+        ],
+        "decisive_signal": "Interrumpir el proceso a la mitad deja la suspension puesta: la baja estaba atada al final del proceso, y ese final nunca llega, asi que la combinacion reportada era un ejemplo y no la causa."
+      },
+      "valid_when": [
+        {
+          "condition": "Hay un estado transitorio que suspende una regla mientras dura",
+          "source": "inferred"
+        },
+        {
+          "condition": "El levantamiento de la suspension esta atado al final de un proceso, no a la salida del estado",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe al menos una accion capaz de interrumpir ese proceso a mitad de camino",
+          "source": "inferred"
+        },
+        {
+          "condition": "El estado se puede abandonar por mas de un camino",
+          "source": "inferred"
+        },
+        {
+          "condition": "La suspension puesta de mas no dispara ningun aviso por si sola",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Aparece el efecto contrario y peor: una restriccion que se pone al entrar queda puesta y el personaje se queda sin control para siempre, sin ninguna secuencia rara a la vista",
+        "Si se guarda la partida con la suspension pegada, al volver a cargar ya arranca pegada, sin que nadie haya hecho nada esa sesion",
+        "Se pega cualquier otra cosa que se levante al entrar y se baje al final: velocidad, sonido, la camara, no solo el daño",
+        "La version espejo: dos de estos estados se solapan y el que sale primero baja la suspension que el otro todavia necesitaba, asi que recibe daño justo cuando estaba protegido",
+        "La lista de combinaciones prohibidas crece parche a parche y el juego se vuelve rigido, con acciones que ya no se pueden encadenar, y el efecto igual reaparece"
+      ],
+      "physical_scene": "En una esclusa, cuando entra una barcaza se retira un pasador que traba la compuerta para que el agua pase sin golpearla. El pasador vuelve solo cuando un contrapeso cae, y el contrapeso recien se suelta si el brazo de la compuerta completa todo su giro. Si alguien detiene el brazo a mitad de giro —apoya una tabla, suelta la manivela— el contrapeso queda colgado arriba y el pasador no vuelve nunca: la compuerta queda suelta. En ese momento no se derrama una gota, el agua sigue pasando prolija y desde el muelle la esclusa se ve igual a todas las otras; la falta se nota mucho despues, cuando llega una barcaza que empuja fuerte y la compuerta que tenia que aguantar cede. Atar una soga para que nadie apoye la tabla en ese punto exacto tapa un solo lugar donde apoyarla, y el brazo se puede frenar en cualquier parte del giro.",
+      "logogram": "traba que no vuelve",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la entrada al estado excepcional: siempre se registra, siempre se pone la marca. Lo que se pierde sin que nada se queje es la cancelacion, porque esta enganchada al final feliz del proceso y no al abandono del estado. El cuadro exacto es el de la interrupcion: ahi el estado se deja por un camino que no arrastra la baja, y desde ese instante todo sigue funcionando con la excepcion activa. Nadie protesta porque una regla suspendida no produce sintoma propio, solo ausencia de consecuencias, y la ausencia recien se lee cuando algo tenia que doler y no dolio."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "1423c621-34e9-4eda-acdc-ef6358a664cc",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se pasó de enumerar y prohibir las entradas que producían el efecto a reparar el punto único donde la marca de estado se limpia, ubicando la limpieza en la salida del estado en vez de en cada camino de acceso. La corrección dejó de depender de la lista de casos conocidos y pasó a depender de una invariante del ciclo de vida.",
+        "bought": "Deja de ser posible que una interrupción cualquiera —incluidas las que todavía nadie probó y las que se agreguen después— deje la marca puesta, porque ya no hay camino que evite el punto de limpieza. También elimina la clase de regresión en la que cada entrada nueva reabre el mismo defecto con otro nombre.",
+        "cost": "Se pagó alcance: la corrección toca el ciclo de vida compartido del estado en vez de un punto local, así que su radio de impacto es mayor y exige entender cuándo se entra y se sale de ese estado. Además se quitó la restricción que servía de contención, con lo cual si el punto de limpieza falla no queda ninguna barrera de respaldo.",
+        "old_valid_when": [
+          "Cuando el punto de salida del estado está en un componente que no se puede modificar y sólo se puede intervenir la capa de entrada",
+          "Cuando hace falta contención inmediata sobre algo ya entregado y el conjunto de entradas es cerrado y no crece, de modo que la lista se puede enumerar entera"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Bloquear la combinación era lo correcto cuando falta muy poco para la fecha de publicación y tocar la máquina de estados no entra en la ventana de pruebas que queda.",
+  "mecanismo_escrito_a_mano": "Dos estados que el diseño supone excluyentes se solapan porque una transición se interrumpe antes de limpiar su marca. Cualquier acción que pueda interrumpir esa transición reproduce el estado, así que la lista de combinaciones no se termina nunca."
+}

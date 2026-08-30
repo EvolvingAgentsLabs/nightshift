@@ -1,0 +1,81 @@
+{
+  "slug": "memoria-corporativa",
+  "dominio": "Memoria corporativa y estrategia legal",
+  "task_type": "memoria_corporativa",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.58605,
+  "tokens_entrada": 68527,
+  "tokens_salida": 6083,
+  "candidatas": [
+    {
+      "trajectory": "6acefb51-61f6-46c9-a012-5dbf9c11b9f8",
+      "abstraction": {
+        "pattern": "El presupuesto de revisión se gasta entero en el activo enumerable y con registro, que vuelve limpio y por eso confirma la premisa equivocada, mientras la magnitud que decide el precio vive en los vínculos vigentes con quienes hacen u operan el trabajo, que ningún control cuantifica porque ninguna etapa los tiene a cargo. Ese pasivo sólo se hace visible cuando un tercero lo reclasifica hacia atrás o cuando se intenta deshacer el vínculo, y para entonces puede superar el valor entero de la operación. La corrección es invertir el orden: cuantificar primero el pasivo del vínculo y recién después discutir la forma y el precio.",
+        "signals": [
+          "La revisión salió limpia, sin observaciones, y no movió ninguna decisión",
+          "El grueso de quienes hacen el trabajo no está en relación de dependencia y factura como proveedor",
+          "Los contratos con quien opera no tienen plazo ni causal de salida",
+          "El pasivo aparece recién cuando se quiere salir del vínculo o cuando un tercero lo reclasifica hacia atrás",
+          "La contingencia estimada supera el precio ofrecido por la operación"
+        ],
+        "decisive_signal": "La contingencia por reclasificar el vínculo con quienes hacen el trabajo superaba el precio ofrecido: el riesgo no estaba en lo que se compraba sino en quién lo opera."
+      },
+      "valid_when": [
+        {
+          "condition": "El valor de la operación se atribuye a un activo con registro o título verificable",
+          "source": "inferred"
+        },
+        {
+          "condition": "La operación viene con vínculos vigentes con quienes hacen u operan el trabajo",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe un tercero con potestad de reclasificar esos vínculos con efecto sobre años pasados",
+          "source": "inferred"
+        },
+        {
+          "condition": "Salir del vínculo requiere acuerdo de la otra parte o indemnización",
+          "source": "inferred"
+        },
+        {
+          "condition": "El alcance de la revisión se fija antes de cuantificar esos vínculos",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "El resultado del negocio se ve alto justamente porque el costo de quienes trabajan no pesa donde se lo mide: la métrica con la que se fija el precio está inflada por el mismo mecanismo",
+        "Ordenar el esquema hacia adelante no descarga los años ya trabajados, así que la contingencia sobrevive intacta al arreglo posterior al cierre",
+        "La retención de precio vence antes que el plazo en que el tercero todavía puede reclamar, y la garantía queda más corta que la exposición",
+        "Escalar la operación multiplica el pasivo colgado sin que ninguna revisión del activo lo registre: cada nuevo operador agrega peso que no pisa la balanza",
+        "En la renovación, quien opera cobra su condición de irremplazable y el precio del vínculo sube sin que el activo haya cambiado"
+      ],
+      "physical_scene": "En un galpón de puerto una grúa deposita los bidones sobre una balanza de piso: cada bidón trae su chapa grabada y la aguja los aprueba uno por uno. Lo que la balanza no puede ver es que los bidones siguen colgados de eslingas enganchadas al riel del techo, así que buena parte del peso descansa en los anclajes del riel y nunca pisa la plancha. Ningún instrumento se queja, porque el riel no tiene aguja: el que mira desde la pasarela ve la aguja quieta, lee el número bajo y firma. El peso colgado se acumula sobre anclajes que se pusieron cuando el galpón cargaba mucho menos, y se queda ahí años sin dar señal. Recién cuando alguien quiere sacar los bidones y desengancha las eslingas, todo ese peso baja de golpe al piso y el número aparece entero y tarde. Y si en vez de llevarse los bidones se alquila el uso del riel, lo que se paga por hora depende de cuán tenso esté puesto el riel, no de lo que pesan los bidones.",
+      "logogram": "balanza limpia, peso colgado",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la certeza sobre el activo enumerable: viaja intacta, cada etapa la confirma y sale con su chapa grabada. Lo que se pierde sin que nadie se queje es el peso que cargan los vínculos con quienes hacen u operan el trabajo, porque ninguna etapa tiene un instrumento asignado a esa magnitud y su ausencia se lee como limpieza. Se pierde exactamente en el cuadro donde se fija el alcance de la revisión, antes de medir nada: todo lo que viene después sólo puede confirmar lo que se apoyó sobre la plancha. El peso reaparece con su número completo en el cuadro en que se intenta desenganchar el vínculo, o cuando un tercero lo pesa hacia atrás."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "a9a607c9-e4ba-4527-959d-d0838c4257e7",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se dejó de elegir la forma de la operación primero y se pasó a cuantificar la contingencia oculta antes de discutir cualquier estructura, con lo que la forma quedó como consecuencia del número y no como premisa.",
+        "bought": "Deja de ser posible descartar o adoptar una estructura por una comparación que nunca incluyó el pasivo relevante, y deja de ser posible que la discusión de precio se reabra cada vez que aparece esa contingencia: se cierra una sola vez, con retención asociada al número.",
+        "cost": "Se pagó con trabajo previo de cuantificación antes de poder discutir la operación, y con una retención de precio que inmoviliza parte del pago durante la vigencia de la contingencia.",
+        "old_valid_when": [
+          "Cuando el costo del dinero es bajo frente al flujo comprometido, el valor presente de los pagos periódicos queda por debajo del precio de adquisición y la opción de acceso sin adquirir vuelve a ganar",
+          "Cuando la contingencia del vínculo con quien ejecuta el trabajo es acotada y ya está cuantificada de antemano, de modo que evitarla no aporta nada y sólo pesa la comparación financiera"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Licenciar en vez de comprar era lo correcto cuando el costo del dinero está por debajo de cierto umbral, porque ahí el flujo de regalías vale menos que el precio de compra.",
+  "mecanismo_escrito_a_mano": "La estructura de la contraparte concentra el riesgo en un lugar distinto del que la diligencia mira por costumbre. El presupuesto se gasta en el activo visible, que sale limpio, y el pasivo que decide la operación está en cómo está armado el vínculo con quienes hacen el trabajo."
+}
