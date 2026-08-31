@@ -179,6 +179,24 @@ consolidó como si hubiera durado cinco minutos.
 la decisión de si el desempate va por índice, por recencia o por otra cosa es del dueño del
 proyecto. Queda medido: 6 de 117, y 5 de esos 6 son lecturas.
 
+### El cierre de la sesión volvió a caer en el mismo pozo, y hay que leerlo bien
+
+El último `sleep` del 2026-08-31 consolidó el capítulo `919815da` (44 pasos) y devolvió un
+patrón que describe **exactamente este defecto**, con logograma `cucharada por camionada`:
+*"una etapa acumula sin límite todo el material y otra lo abstrae leyendo sólo una ventana
+fija y chica… nadie compara el volumen retenido contra el volumen efectivamente mirado"*.
+Una de sus frases coloquiales es *"guardó ciento diecinueve pasos y el resumen habla de
+seis comandos del final"*.
+
+**No es un descubrimiento de dream, y confundirlo sería el error de altitud de siempre.**
+Se verificó qué pasos entraron al prompt: dos de los seis son la salida del diagnóstico
+que el agente había impreso —`pasos totales: 119 · los que vio el modelo: 6`— y el mensaje
+de commit `la ventana de 6 pasos cayo sobre lecturas`. El modelo **re-abstrajo material
+que se le puso delante**. Que la abstracción sea buena no la vuelve independiente.
+
+Lo que sí es información: esa consolidación tomó **6 de 44** pasos, tres de ellos lecturas.
+El mecanismo se reprodujo mientras se describía.
+
 ### Y una conjetura que NO se resolvió, a propósito
 
 De ese sueño salió la proyección *"una lista de nombres permitidos deja afuera al campo
