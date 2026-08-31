@@ -360,7 +360,13 @@ class CorroboracionTest(IsolatedStoreTest):
 class ImportacionTest(IsolatedStoreTest):
     """Lo importado no se observó acá, y eso se dice en tres lugares."""
 
-    DOC = {"schema_version": "trajectory.v1", "id": "ajeno", "created_at": "2026-08-01T00:00:00Z",
+    # La fecha es **relativa y no absoluta**, y eso no es estilo: con `2026-08-01`
+    # clavado acá, este test pasó durante 29 días y se puso rojo solo el 2026-08-31 a
+    # las 00:00Z, cuando el doc salió de la ventana de `retrieval_lookback_days` (30).
+    # Nadie tocó nada: el gate cambió de color por el reloj. Un fixture con fecha
+    # absoluta contra una ventana relativa es una bomba con fecha de detonación.
+    DOC = {"schema_version": "trajectory.v1", "id": "ajeno",
+           "created_at": store.hours_ago(24),
            "status": "closed", "harness": {"name": "otro"}, "repo_fingerprint": FP,
            "task_type": "debug_test_failure", "base_commit": "abc1234",
            "steps": [{"kind": "tool_failure", "tool": "run_shell",
