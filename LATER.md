@@ -8,6 +8,88 @@ acá.
 
 ---
 
+## PROPUESTO — once ideas de Matías sobre la forma de la memoria (2026-08-30)
+
+Once ideas sueltas, más el proyecto del que nightshift desciende:
+`EvolvingAgentsLabs/evolving-memory` — mismo CTE, con SQLite+FAISS, LLM dual
+(`llm` + `dreaming_llm`), grafo con aristas `NEXT_STEP` y una ISA de 16 opcodes.
+Archivado el 2026-07-29, movido a un monorepo. **Importa porque dos de las ideas ya
+las probó ese proyecto**, y una de las dos la descartó.
+
+**Nada de esto se implementa.** Es la regla de `CLAUDE.md`: lo que no está en el plan se
+anota acá con su motivo. El análisis se apoya en lo medido el mismo día
+([`RESULTADOS-DOMINIOS.md`](experimentos/RESULTADOS-DOMINIOS.md)).
+
+### Las que ya están hechas y conviene no volver a construir
+
+| Idea | Dónde ya vive |
+|---|---|
+| Un LLM por memoria más uno de operación | [ADR-003](doc/adr/ADR-003-modelo-de-dream.md): el agente opera, `model_backend` consolida por `subprocess`. Es el `llm`/`dreaming_llm` del ancestro, ya implementado |
+| El harness es el bucle de operación y las tools | Es la idea 1 del pivot (CTE), la definición vigente del proyecto. No es un cambio |
+| Memoria compartida en multiagente | La primitiva está: `import_trajectory` con `origin=external` y peso por debajo de una cruda local (H21, comprobada). Falta transporte y confianza, no el modelo de datos |
+| La memoria como git con históricos | git ya es el **notario**: `resolution_ref`, `--commit`, y la corroboración de que el fix sobrevivió. Reemplazar SQLite por git perdería el índice que el retrieval necesita para rankear |
+
+### La que está medida desde hoy
+
+**Otros dominios que no sean código.** Es el experimento de los seis dominios. El
+consolidador **cruza**: 6 de 6 candidatas, cero rechazos de gate, contrastes con
+precondiciones accionables en los seis. El retrieval **no cruza**: 2 de 12 síntomas
+retenidos, que la enmienda 0.3.13 llevó a 8 de 12. Y el bloqueante real no es ninguno de
+los dos: **no existe captura fuera de un agente de código**. Que el consolidador funcione
+no acerca a nightshift a un SOC; acerca a un SOC que ya tuviera su cadena capturada.
+
+### La mejor de la lista por relación valor/costo
+
+**Generaciones de harness y tags de memoria.** El store ya guarda `harness.version` y
+`consolidation_model`. Etiquetar por generación convierte *"¿la memoria de la generación N
+sirve en la N+1?"* en una pregunta **medible**, que es exactamente lo que a este proyecto
+le falta y no lo que le sobra. Barato, no toca el camino caliente, y no depende de M4.
+
+### Las tres que merecen discusión antes de construirse
+
+**La wiki enciclopédica navegable choca con [ADR-001](doc/adr/ADR-001-no-competir-con-auto-dream.md).**
+Toda la posición del proyecto es que no hace memoria declarativa, y una enciclopedia
+navegable **es** memoria declarativa. El calificador que la salva es el que Matías ya
+escribió: *"con trayectorias"*. Si las páginas se **derivan** de trayectorias y no se
+escriben aparte, deja de ser una memoria nueva y pasa a ser una **superficie de lectura**
+de la que ya existe — y ahí es fuerte, porque es lo que hoy más falta: todo se inyecta en
+silencio y ningún humano puede leerlo. Los seis sueños de los dominios son páginas
+publicables tal como están.
+
+El límite es duro y es el mismo de siempre: **nada llega a `procedure`**. Una wiki de
+"recetas de cómo operar" construida sobre `candidate` publica procedimientos sin verificar
+con formato de instructivo, que es peor que inyectarlos con la etiqueta puesta. **La wiki
+va después de M5, no antes**, o cada página lleva `SIN VERIFICAR` en el encabezado y no en
+una nota al pie.
+
+**Markov no tiene con qué estimarse.** Una navegación probabilística necesita estimar
+transiciones, y el store tiene **12 candidatas y 39 conjeturas abiertas**. Con esos números
+no se estima: se sobreajusta. Y el dato que vale más es del ancestro: `evolving-memory`
+construyó exactamente ese grafo —`MEMORY_TRAVERSAL`, `CONTEXT_JUMP`, aristas `NEXT_STEP`—
+y **eligió puntaje compuesto determinista, no probabilístico**. Ya se intentó y no se fue
+por ahí.
+
+Además apunta a la causa equivocada. Lo medido hoy dice que el problema del retrieval no es
+el **modelo de navegación** sino la **superficie**: el enganche es léxico y se cae cuando el
+vocabulario no se comparte. La 0.3.13 atacó eso y movió 5 de 12 a 8 de 12 en una
+comparación causal limpia. Markov no habría tocado esa causa.
+
+**"Todo el harness y la memoria es evolutiva" es la que menos apoyo tiene, y por una razón
+dura: no se puede evolucionar lo que no se puede medir.** [M4 nunca corrió](bench/PREREG.md)
+y nadie sabe todavía si esta memoria ayuda, ni siquiera en su propio repositorio. El mismo
+día en que se propuso la idea pasaron tres cosas: el propio retrieval **contaminó un
+experimento**, la ventana de consolidación tomó **6 pasos de 117** y cinco eran lecturas, y
+el gate **cambió de color por el reloj**. Agregarle grados de libertad a un sistema en ese
+estado no es evolución: es deriva sin función de fitness.
+
+### El orden propuesto
+
+1. **Tags de generación.** Barato, medible, independiente de M4.
+2. **Exportador estático a git/wiki**, con `SIN VERIFICAR` en cada página. Es la wiki sin
+   violar ADR-001.
+3. **Nada más hasta que corra M4.** Las otras ideas son buenas y todas suponen resuelto lo
+   que M4 iba a decidir.
+
 ## ENCONTRADO — la ventana de 6 pasos cayó entera sobre lecturas del repo (2026-08-30)
 
 `nightshift sleep` selló el capítulo de una sesión de 119 pasos, **117 con contenido**, y
