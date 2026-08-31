@@ -90,6 +90,68 @@ estado no es evolución: es deriva sin función de fitness.
 3. **Nada más hasta que corra M4.** Las otras ideas son buenas y todas suponen resuelto lo
    que M4 iba a decidir.
 
+### Anexo — ¿y una red neuronal de grafos para construir las wikis?
+
+Pregunta de Matías el mismo día, sobre las dos wikis: la de trayectorias operacionales y la
+enciclopédica. **Estructuralmente hay puerta; con los datos de hoy no alcanza por dos
+órdenes de magnitud; y la wiki no la necesita para existir.**
+
+**La puerta ya se usó dos veces y no habría que inventarla.** `make lint-code` prohíbe
+imports de terceros en `nightshift/`, y una GNN es PyTorch o PyG: bloqueo duro adentro del
+plugin. Pero [ADR-006](doc/adr/ADR-006-el-oraculo-es-un-comando.md) y la enmienda de
+[ADR-003](doc/adr/ADR-003-modelo-de-dream.md) ya resolvieron esta forma exacta: nightshift
+no importa nada ni habla por red, hace `subprocess` contra un **comando del usuario** que
+lee JSON por stdin y escribe por stdout. Una GNN entraría por ahí. La objeción no es
+arquitectónica.
+
+**El problema es el N.** Medido sobre el store real el 2026-08-30:
+
+| qué | cuánto hay |
+|---|---|
+| nodos de memoria (trayectorias) | **18** |
+| aristas `superseded_by` — las de la enciclopedia | **1** |
+| inyecciones (memoria → sesión) | 56 |
+| proyecciones | 63 |
+| etiquetas supervisadas (resueltas) | **20** — 11 confirmadas, 9 refutadas |
+| memorias verificadas (`procedure`) | **0** |
+
+Una GNN sobre 18 nodos y 1 arista no es un modelo. Los 153 pares posibles se calculan
+exhaustivamente en microsegundos: **a este N los métodos exactos dominan a los aprendidos**.
+Y la etiqueta que importaría —*¿esta memoria sirvió?*— es justo la que no existe: cero
+`procedure`, M4 sin correr. Sería entrenar contra un objetivo que el proyecto todavía no
+definió.
+
+**Para la wiki, además, ataca algo que no es el cuello de botella.** Todo lo que una página
+necesita ya está escrito por la consolidación: `logogram` es el título, `physical_scene` la
+ilustración, `pattern` y `decisive_signal` el cuerpo, `signals` / `valid_when` /
+`projected_signals` / `colloquial_queries` el índice de búsqueda —y desde la 0.3.13 ese
+índice está **en el idioma del usuario**—, `superseded_by` + `contrast` la sección de lo
+descartado con su precondición, las 56 inyecciones son los backlinks, y git el histórico.
+Eso es una wiki completa con **build determinista**. No hay nada que aprender.
+
+**Dónde sí se ganaría el lugar, y las dos están río abajo:**
+
+1. **Predicción de enlaces** — qué memorias son el mismo mecanismo entre repos y dominios.
+   Es una tarea de grafo genuina, y empieza a tener sentido en el orden de 10³ memorias.
+2. **Predecir qué candidata sobrevive a la verificación.** Clasificación de nodos con el
+   resultado de `verify` como etiqueta. Es la interesante, porque **abarataría lo más caro
+   que le falta al proyecto**. Existe después de M5, no antes: hoy hay 0 etiquetas de ese
+   tipo.
+
+**Y una restricción de diseño que no es obvia.** La postura del proyecto es determinismo
+auditable: `why` tiene que poder decir `signal_match,precondition_match,projected_match`.
+Un score de GNN no se expresa en ese vocabulario. Hay precedente de cómo entra algo opaco
+sin romper eso —`semantic_match` ya es un score aprendido— y **cómo entró es la regla**:
+motivo propio, peso subordinado (0.75, el de una conjetura), corre sólo donde lo léxico no
+encontró nada, y apagado por default. Una GNN tendría que entrar igual, y **nunca ser el
+ranking**: si lo reemplazara, `why` dejaría de poder explicar las inyecciones y la
+capacidad D se muere.
+
+**Conclusión, que no cambia el orden de arriba:** exportador determinista ahora, GNN cuando
+haya volumen y etiquetas —es decir, después de M5—. Para agrupar páginas a N=18 alcanzan
+operaciones exactas sobre lo que ya está: componentes conexas por señales compartidas y
+cadenas transitivas de `superseded`.
+
 ## ENCONTRADO — la ventana de 6 pasos cayó entera sobre lecturas del repo (2026-08-30)
 
 `nightshift sleep` selló el capítulo de una sesión de 119 pasos, **117 con contenido**, y
