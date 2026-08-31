@@ -7,7 +7,7 @@
 | Reemplaza | v0.2 |
 | Fuente de alcance | `doc/PLAN-v0.3.md` |
 | ADRs vinculados | ADR-001, ADR-002, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007 |
-| Revisión | 0.3.12 — la opción nuclear: embeddings por comando, validación simulada y el notario diciendo que no |
+| Revisión | 0.3.13 — la expansión asimétrica: el consolidador traduce de noche lo que el enganche no traduce |
 
 > **Nota de procedencia.** Este repositorio se creó en el commit de M0. La v0.2 existía
 > como documento de trabajo fuera del repo y no se importó. Esta v0.3 reconstruye la
@@ -1064,6 +1064,38 @@ Con esto, el techo a escala del `15` quedó entero por primera vez: **engancha 6
 6/6, ajenos 0/4, cruces 2/6**. Lo que sigue sin resolver, y sigue siendo de sinónimos, no
 de morfología: `resumen`/`memoria consolidada` no se pliegan con ninguna regla barata —
 necesita embeddings, que chocan con ADR-003, y está en `LATER.md` desde antes.
+
+### Enmiendas 0.3.13 (la expansión asimétrica — decidida por Matías, 2026-08-30)
+
+**El diagnóstico primero, porque la enmienda no se entiende sin él.** El experimento de los
+seis dominios (`experimentos/RESULTADOS-DOMINIOS.md`) midió una asimetría que hasta
+entonces nadie había escrito: **la máquina comprende cuando guarda y cuenta tokens cuando
+busca.** Del lado de consolidar hay un modelo de lenguaje que abstrae, traduce a una escena
+y proyecta; del lado de recuperar hay conteo de palabras con piso en 2. Dentro de un repo
+la asimetría no se nota, porque quien pregunta y quien consolidó comparten jerga. Fuera, el
+enganche cae a 2 de 12, y **10 de los 12 comparten una palabra de contenido o ninguna** con
+una superficie que habla exactamente de su mecanismo.
+
+| § | Enmienda | Por qué |
+|---|---|---|
+| 6.3 | **`colloquial_queries`** en `abstraction`: hasta 5 quejas literales —jerga concreta del oficio, cero palabras abstractas— que el consolidador escribe **traduciendo el mecanismo que acaba de abstraer**. Mismos gates de fuga que `signals`, mismo tope, campo opcional | La traducción se paga de noche, donde la latencia no cuesta. Es el único lugar del sistema donde hay un modelo disponible para traducir; el hook no puede llamar a uno sin volverse lento y sin hablar por red |
+| 5.10 | **`colloquial_match`**, motivo propio con peso de señal (1.5) y piso de lo destilado (2). Entra a `MOTIVOS_DE_ENGANCHE` y a la superficie del fallback semántico | Motivo propio y no `signal_match` disfrazado: `why` tiene que poder decir por dónde entró la fila. Peso de señal y no más: es lo que el modelo **imaginó que alguien diría**, no algo observado, y darle prioridad porque se lo agregó para que enganche sería ordenar por el deseo |
+
+**Lo que esta enmienda NO sostiene, y conviene decirlo antes de que alguien cite el
+recall.** Que el campo exista no es que sirva. `_enganche` toma el máximo sobre las
+frases, así que agregar cinco frases por candidata **sólo puede aumentar los enganches, los
+verdaderos y los falsos**: el recall sube por construcción. La única pregunta abierta es si
+la precisión aguanta, y eso depende enteramente de si los sustantivos concretos del oficio
+son más raros que las palabras que sostienen hoy los falsos positivos —`hora`, `nada`,
+`siempre`, `compartido`—. Es una pregunta empírica y su medición está en
+`experimentos/17-los-seis-dominios-compiten.py`.
+
+**Y una contaminación que queda registrada acá y no en una nota al pie:** los 12 síntomas
+retenidos de los seis dominios se escribieron **antes** de que existiera este campo, pero
+si se usan para decidir si el campo se queda, dejan de ser retenidos. El protocolo que se
+siguió es de **un solo tiro**: se mide una vez, se publica lo que salga, y no se ajusta el
+prompt contra el marcador. Ajustarlo sería entrenar contra el test, que es el error que
+`retenido/README.md` documenta y que ya gastó un conjunto.
 
 ### Enmiendas 0.3.12 (la opción nuclear — decidida por Matías, 2026-08-29)
 

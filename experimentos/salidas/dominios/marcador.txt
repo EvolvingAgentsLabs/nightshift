@@ -1,0 +1,140 @@
+Los seis dominios del README, medidos por el camino real.
+Material de autor: esto es un TECHO, no transferencia.
+
+== E1 · cada dominio solo: sus 2 retenidos, y 10 ajenos ==
+
+dominio                    proy.  engancha  llega     ajenos 
+--------------------------------------------------------------
+caza-de-amenazas           5      1 de 2    1 de 2    1      
+      no engancha: `el uso de disco del archivo compartido sube todas la`
+      FALSO POSITIVO: `el chico se queja de que le duele la rodilla` (same_repo,has_decisive_step,tests_passed,projected_match)
+diagnostico-diferencial    5      2 de 2    2 de 2    2      
+      FALSO POSITIVO: `el uso de disco del archivo compartido sube ` (same_repo,has_decisive_step,tests_passed,signal_match)
+      FALSO POSITIVO: `el sello nuevo de la bomba duro tres semanas` (same_repo,has_decisive_step,tests_passed,colloquial_match)
+helpdesk                   5      1 de 2    1 de 2    2      
+      no engancha: `la aplicacion del celular se queda cargando y despue`
+      FALSO POSITIVO: `el uso de disco del archivo compartido sube ` (same_repo,has_decisive_step,tests_passed,projected_match)
+      FALSO POSITIVO: `el motor del transporte se recalienta a la t` (same_repo,has_decisive_step,tests_passed,colloquial_match)
+mantenimiento-industrial   5      1 de 2    1 de 2    1      
+      no engancha: `el motor del transporte se recalienta a la tarde y a`
+      FALSO POSITIVO: `el uso de disco del archivo compartido sube ` (same_repo,has_decisive_step,tests_passed,signal_match)
+memoria-corporativa        5      1 de 2    1 de 2    0      
+      no engancha: `el directorio quiere comprar una empresa parecida y `
+qa-de-juego                5      2 de 2    2 de 2    1      
+      FALSO POSITIVO: `el directorio quiere comprar una empresa par` (same_repo,has_decisive_step,tests_passed,signal_match)
+--------------------------------------------------------------
+engancha 8 de 12 · llega 8 de 12 · ajenos 7
+
+== E1-bis · el mismo E1 con el fallback semántico enchufado ==
+
+Está apagado por default. La calibración del propio proyecto dice que el
+coseno separa sinónimos y NO separa síntoma contra mecanismo abstracto.
+
+dominio                    engancha  ajenos 
+----------------------------------------------
+caza-de-amenazas           2 de 2    5      
+      por coseno: [retenido] `el uso de disco del archivo compartido sube `
+      por coseno: [ajeno] `la aplicacion del celular se queda cargando `
+      por coseno: [ajeno] `desde ayer la pantalla de consulta tarda un `
+      por coseno: [ajeno] `el motor del transporte se recalienta a la t`
+      por coseno: [ajeno] `si abro el mapa justo cuando me empuja el en`
+diagnostico-diferencial    2 de 2    5      
+      por coseno: [ajeno] `la aplicacion del celular se queda cargando `
+      por coseno: [ajeno] `desde ayer la pantalla de consulta tarda un `
+      por coseno: [ajeno] `si abro el mapa justo cuando me empuja el en`
+helpdesk                   2 de 2    5      
+      por coseno: [retenido] `la aplicacion del celular se queda cargando `
+      por coseno: [ajeno] `una cuenta de servicio inicio sesion un domi`
+      por coseno: [ajeno] `si abro el mapa justo cuando me empuja el en`
+      por coseno: [ajeno] `guardar la partida en medio de la animacion `
+mantenimiento-industrial   2 de 2    5      
+      por coseno: [retenido] `el motor del transporte se recalienta a la t`
+      por coseno: [ajeno] `la aplicacion del celular se queda cargando `
+      por coseno: [ajeno] `desde ayer la pantalla de consulta tarda un `
+      por coseno: [ajeno] `si abro el mapa justo cuando me empuja el en`
+      por coseno: [ajeno] `guardar la partida en medio de la animacion `
+memoria-corporativa        1 de 2    1      
+      por coseno: [ajeno] `una cuenta de servicio inicio sesion un domi`
+qa-de-juego                2 de 2    5      
+      por coseno: [ajeno] `el uso de disco del archivo compartido sube `
+      por coseno: [ajeno] `la paciente dice que le arde entre los omopl`
+      por coseno: [ajeno] `la aplicacion del celular se queda cargando `
+      por coseno: [ajeno] `desde ayer la pantalla de consulta tarda un `
+----------------------------------------------
+engancha 11 de 12 · ajenos 26
+
+== E2 · la alternativa descartada, con su precondición ==
+
+▸ caza-de-amenazas
+   cambió:   Se movió el ancla de la detección desde un atributo que el otro lado elige y renueva a voluntad —el destino de la salida— hacia un atributo del propio canal que transporta: su permiso y su franja horaria. En vez de enumerar hacia dónde no se puede ir, se acotó cuándo y con qué autorización se puede salir, y toda salida fuera de esa franja quedó marcada por sí sola.
+   compró:   Deja de ser posible que un cambio de destino evada el control: la señal ya no requiere conocer de antemano la dirección, así que la carrera entre una lista que se escribe a mano y una lista que crece del otro lado desaparece. También deja de ser posible el silencio engañoso de las primeras horas, donde el volumen en cero se leía como incidente resuelto mientras el permiso seguía intacto.
+   la vieja tenía razón: Cuando el conjunto de destinos es realmente finito y no rotable —infraestructura fija que el otro lado no puede reemplazar a bajo costo— y enumerarlo termina en vez de crecer.
+   la vieja tenía razón: Cuando hace falta contención inmediata en los minutos siguientes al hallazgo: cortar la salida detiene el volumen ya, mientras el control sobre el permiso se prepara.
+   la vieja tenía razón: Cuando no se tiene autoridad sobre la cuenta ni sobre el horario del canal, y el borde de salida es la única palanca propia disponible.
+   esperado (pre-registro): Bloquear el destino era lo correcto cuando el destino es uno solo y fijo, y no rota entre noches.
+
+▸ diagnostico-diferencial
+   cambió:   La primera trayectoria aumentaba la resolución del instrumento sobre el mismo sitio donde se manifiesta la señal; la segunda mueve el punto de medición aguas arriba: primero una maniobra barata que separa origen local de origen referido, y recién después el estudio dirigido al territorio candidato que quedó.
+   compró:   Deja de ser posible la falla en la que un resultado negativo se interpreta como informativo: mirar más fino el lugar donde algo se manifiesta no puede distinguir ausencia de causa de causa remota, así que ese ciclo largo terminaba siempre confirmando lo ya sabido. Con la maniobra discriminante adelante, ninguna medición cara se lanza antes de que exista un candidato que pueda ser descartado por ella.
+   la vieja tenía razón: Cuando la maniobra discriminante ya salió a favor del origen local -la molestia se reproduce manipulando la zona y no varía con funciones de otros territorios-, y entonces el estudio fino del sitio es el paso correcto y no una confirmación vacía.
+   la vieja tenía razón: Cuando el sitio donde se manifiesta la señal es el único candidato anatómicamente posible, o la hipótesis local domina por probabilidad de base al resto sumado.
+   la vieja tenía razón: Cuando el estudio de alta resolución es barato y de vuelta rápida en relación con montar la prueba discriminante: si devolviera en horas y no en semanas, empezar por él cuesta menos que ordenar el diferencial.
+   esperado (pre-registro): Estudiar más fino el lugar donde duele era lo correcto cuando hay un antecedente de golpe o esfuerzo local reciente que explique el dolor ahí mismo.
+
+▸ helpdesk
+   cambió:   Se pasó de una intervención periódica que restaura el estado global a intervalo fijo, sin mirar quién lo consume, a una medición por consumidor que atribuye cuánto retiene cada uno y corrige el origen de la retención.
+   compró:   Deja de ser posible que el agotamiento reaparezca desplazado en el tiempo y con la evidencia ya borrada: la restauración periódica destruía justamente la señal que permite identificar al que retiene, y sin esa señal la causa única detrás de síntomas dispersos en superficies distintas queda indetectable de forma indefinida.
+   la vieja tenía razón: Cuando la retención está repartida entre muchos consumidores sin uno dominante, de modo que no hay un origen único que corregir y el crecimiento agregado es predecible
+   la vieja tenía razón: Cuando el que retiene es un componente ajeno que no se puede modificar, y el intervalo de restauración es mucho más corto que el tiempo de agotamiento
+   la vieja tenía razón: Como contención acotada mientras se instrumenta la medición, siempre que se preserve la señal de retención antes de restaurar
+   esperado (pre-registro): El reinicio programado era lo correcto cuando la ventana de uso es corta y conocida y el arreglo de fondo no llega antes de esa ventana.
+
+▸ mantenimiento-industrial
+   cambió:   Se pasó de actuar sobre la magnitud que empuja —bajarla hasta que el indicador dejara de señalar— a medir a lo largo del recorrido para localizar la restricción aguas abajo y removerla. El punto de intervención se movió del origen al lugar donde realmente se pierde el recorrido.
+   compró:   Deja de ser posible la falla de silenciar el indicador dejando la restricción adentro: ya no se paga un costo recurrente en cada ciclo para que la señal no aparezca, ni queda una degradación permanente del ritmo comprometido que nadie atribuye a la intervención. Además elimina el falso cierre, porque la señal apagada ya no puede confundirse con la causa resuelta.
+   la vieja tenía razón: Cuando la restricción de aguas abajo no se puede tocar en ese momento —sin acceso, sin repuesto, sin ventana de parada— y bajar lo que empuja funciona como contención temporal explícita, con su costo declarado y una fecha para removerla
+   la vieja tenía razón: Cuando el origen está sobredimensionado respecto del ritmo comprometido: al nivel más bajo la línea todavía cumple, y entonces bajar no cuesta producción sino que sólo consume margen sobrante
+   la vieja tenía razón: Cuando el período tiene demanda por debajo del compromiso y la pérdida de ritmo no se materializa, mientras el desgaste por operar contra la restricción sí se evita
+   esperado (pre-registro): Bajar la presión era lo correcto cuando el fluido está frío y espeso y una parada de línea cuesta más que la producción que se pierde por trabajar más lento.
+
+▸ memoria-corporativa
+   cambió:   Se invirtió el orden de la decisión: antes se elegía primero la forma de la operación para esquivar una contingencia nunca medida, y ahora se cuantifica esa contingencia primero y la forma sale como consecuencia del número.
+   compró:   Deja de ser posible que la estructura elegida quede colgada de una variable externa al activo — el costo del dinero — y que la discusión de precio se reabra cada vez que esa variable se mueve; también deja de ser posible cerrar sin que la contingencia tenga un monto asignado.
+   la vieja tenía razón: Cuando el costo del dinero es bajo y el horizonte de pagos es corto, de modo que el flujo periódico vale menos que el precio de compra y evitar la contingencia por la forma del acuerdo sí sale más barato
+   la vieja tenía razón: Cuando la contingencia no se puede cuantificar dentro del plazo de la decisión y sólo queda elegir la forma que no la hereda
+   esperado (pre-registro): Licenciar en vez de comprar era lo correcto cuando el costo del dinero está por debajo de cierto umbral, porque ahí el flujo de regalías vale menos que el precio de compra.
+
+▸ qa-de-juego
+   cambió:   Se pasó de prohibir en la entrada una combinación puntual a limpiar la marca de estado en el punto de salida por el que pasa toda transición, sin importar qué la haya interrumpido.
+   compró:   Deja de ser posible que una interrupción no enumerada deje la marca puesta: la falla ya no depende de haber previsto la lista de vías de entrada, que era infinita en la práctica.
+   la vieja tenía razón: Cuando el punto de salida del estado no es único ni modificable —está en una capa ajena o congelada— y sólo se puede intervenir en las entradas
+   la vieja tenía razón: Cuando hace falta contención inmediata sobre una vía ya reportada mientras se prepara el arreglo en la salida
+   la vieja tenía razón: Cuando prohibir esa combinación es además una regla querida del diseño, y no sólo un parche
+   esperado (pre-registro): Bloquear la combinación era lo correcto cuando falta muy poco para la fecha de publicación y tocar la máquina de estados no entra en la ventana de pruebas que queda.
+
+El parecido entre las dos últimas líneas lo juzga una persona. Un script que
+lo puntúe estaría inventando un umbral, y los umbrales los fija Matías.
+
+== E3 · los seis compitiendo en un solo store ==
+
+dominio                    síntoma retenido         propio    ajenos 
+----------------------------------------------------------------------
+caza-de-amenazas           volumen-nocturno         no        mantenimiento-industrial, diagnostico-diferencial, helpdesk
+caza-de-amenazas           cuenta-fuera-de-hora     SI        —      
+diagnostico-diferencial    rodilla-que-no-tiene-nad SI        caza-de-amenazas
+diagnostico-diferencial    entre-los-omoplatos      SI        —      
+helpdesk                   app-que-no-carga         no        —      
+helpdesk                   pantalla-lenta-y-vacia   SI        —      
+mantenimiento-industrial   motor-que-se-recalienta  no        helpdesk
+mantenimiento-industrial   sello-nuevo-que-dura-poc SI        diagnostico-diferencial
+memoria-corporativa        otra-empresa-parecida    no        qa-de-juego
+memoria-corporativa        equipo-como-proveedores  SI        —      
+qa-de-juego                empujon-y-mapa           SI        —      
+qa-de-juego                guardar-en-la-puerta     SI        —      
+----------------------------------------------------------------------
+el propio engancha: 8 de 12
+el propio queda entre los inyectados: 9 de 12
+síntomas que además enganchan otro dominio: 5 de 12
+
+Todo lo de arriba lo escribió la misma mano. Es un techo de autor: dice qué
+puede dar la cadena con material separable, nunca que la memoria sirva.

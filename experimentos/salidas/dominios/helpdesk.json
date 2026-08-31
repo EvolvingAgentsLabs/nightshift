@@ -1,0 +1,89 @@
+{
+  "slug": "helpdesk",
+  "dominio": "Helpdesk: cerrar la distancia entre el nivel 3 y el nivel 1",
+  "task_type": "helpdesk",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.6317665,
+  "tokens_entrada": 68970,
+  "tokens_salida": 6569,
+  "candidatas": [
+    {
+      "trajectory": "352f63e0-ec3c-4eef-899a-755f4567abd1",
+      "abstraction": {
+        "pattern": "Un recurso compartido y limitado se presta y se devuelve, y un solo consumidor lo toma sin devolverlo hasta agotarlo; cada superficie que depende de ese recurso falla con la forma de su propia superficie (un control que no se habilita, una salida vacía, una espera agotada), así que el diagnóstico se va hacia donde se ve el síntoma y no hacia donde se pierde la unidad prestada. La corrección está en la devolución del consumidor que retiene, y arregla todas las superficies a la vez sin tocar ninguna de ellas.",
+        "signals": [
+          "El botón queda gris y no se habilita hasta que vuelve la respuesta de otro servicio",
+          "Cambiar el equipo, el controlador o la plantilla no cambia nada: el síntoma se repite igual",
+          "La falla aparece solamente en una franja horaria fija, cuando entra el lote grande",
+          "Una de cada tres consultas termina en espera agotada, y sólo en horario de oficina",
+          "La pantalla muestra una respuesta vacía en lugar de un aviso de falla"
+        ],
+        "decisive_signal": "El conjunto prestable está en su máximo y nunca baja: lo que se toma no se devuelve, y un solo consumidor retiene el noventa por ciento de lo que toma, para siempre.",
+        "colloquial_queries": [
+          "el boton de imprimir esta gris y no me deja apretarlo",
+          "el informe sale en blanco a la manana y despues del mediodia sale bien",
+          "se agoto el tiempo de espera al conectar con la base",
+          "reiniciamos el servidor todas las mananas y a la tarde se vuelve a colgar igual",
+          "tres pantallas que no tienen nada que ver se rompen a la misma hora"
+        ]
+      },
+      "valid_when": [
+        {
+          "condition": "Hay algo compartido y limitado que se pide prestado y se supone que se devuelve",
+          "source": "inferred"
+        },
+        {
+          "condition": "Varias pantallas o funciones independientes dependen de ese mismo conjunto limitado",
+          "source": "inferred"
+        },
+        {
+          "condition": "Los síntomas se agrupan en una franja horaria o bajo carga concentrada",
+          "source": "inferred"
+        },
+        {
+          "condition": "Reemplazar el componente donde se ve el síntoma no cambia el síntoma",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe una mitigación periódica que vacía y repone el conjunto",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Si el que espera se cansa y vuelve a pedir, el agotamiento llega más temprano cada día en vez de más tarde",
+        "Ampliar el límite corre la hora del corte unos días y después el corte vuelve: la pendiente no cambia",
+        "Una vez agotado no se recupera solo aunque baje la demanda; queda vacío hasta que alguien fuerza la devolución",
+        "El chequeo de salud, que también pide prestado, informa que todo está bien hasta el último instante y después deja de responder sin explicar nada",
+        "Áreas que no tienen ninguna relación entre sí empeoran al mismo minuto del reloj, porque comparten el mismo conjunto"
+      ],
+      "physical_scene": "En el taller cuelga un tablero con treinta tenazas numeradas: cada operario descuelga una, mete la tela en la tina de tintura y la vuelve a colgar al terminar. La prensa del fondo sólo baja cuando una tenaza hace tope contra su tope de bronce, así que si no hay tenaza la palanca queda dura y no se mueve. Uno de los operarios guarda las tenazas en su cajón cuando termina y no las devuelve nunca, y los ganchos se van vaciando de a poco. El gancho vacío no suena ni se enciende: un gancho sin tenaza se ve exactamente igual que un gancho cuya tenaza está en uso, y nadie mira el tablero. Desde el salón sólo se ve una palanca dura y telas que salen pálidas, así que los reclamos caen sobre la prensa y sobre la tina, que están perfectas. Cada madrugada el capataz junta las tenazas de todos los cajones y las vuelve a colgar: el tablero se vacía más tarde en el día y, de paso, desaparece el rastro de qué cajón se las estaba quedando.",
+      "logogram": "prestado sin devolver",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la forma del síntoma en cada superficie: cada una traduce la misma escasez al idioma de su propia pantalla, y por eso los reclamos llegan separados y apuntan a lugares distintos. Lo que se pierde, sin que ninguna etapa se queje, es la unidad prestada, y se pierde en el cuadro exacto en que el consumidor termina de usarla y no la libera: el que la retiene no falla, sólo no devuelve. Lo segundo que se pierde es la atribución, porque un lugar libre y un lugar ocupado se ven iguales desde afuera, y la mitigación periódica que repone el conjunto borra el rastro que permitiría identificar al que retiene. Medir quién toma y no devuelve, en lugar de reponer, es lo único que devuelve la magnitud perdida al punto donde se pierde."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "55d6c3be-1b90-4855-b29d-8532ff247a36",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se pasó de una intervención periódica que restaura el estado global a intervalo fijo, sin mirar quién lo consume, a una medición por consumidor que atribuye cuánto retiene cada uno y corrige el origen de la retención.",
+        "bought": "Deja de ser posible que el agotamiento reaparezca desplazado en el tiempo y con la evidencia ya borrada: la restauración periódica destruía justamente la señal que permite identificar al que retiene, y sin esa señal la causa única detrás de síntomas dispersos en superficies distintas queda indetectable de forma indefinida.",
+        "cost": "Se pagó con la instrumentación por consumidor y con una ventana en la que los síntomas siguieron apareciendo sin mitigación, porque hay que dejar que la retención se acumule hasta ser atribuible en vez de borrarla cada mañana.",
+        "old_valid_when": [
+          "Cuando la retención está repartida entre muchos consumidores sin uno dominante, de modo que no hay un origen único que corregir y el crecimiento agregado es predecible",
+          "Cuando el que retiene es un componente ajeno que no se puede modificar, y el intervalo de restauración es mucho más corto que el tiempo de agotamiento",
+          "Como contención acotada mientras se instrumenta la medición, siempre que se preserve la señal de retención antes de restaurar"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "El reinicio programado era lo correcto cuando la ventana de uso es corta y conocida y el arreglo de fondo no llega antes de esa ventana.",
+  "mecanismo_escrito_a_mano": "Un recurso compartido y contado se agota en un servicio central. Cada consumidor traduce la espera al vocabulario de su propia pantalla, así que el que llama nunca nombra el recurso, y cada pantalla parece un problema distinto."
+}

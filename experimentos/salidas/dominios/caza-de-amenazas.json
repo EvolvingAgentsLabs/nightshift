@@ -1,0 +1,89 @@
+{
+  "slug": "caza-de-amenazas",
+  "dominio": "Ciberseguridad: caza de amenazas y respuesta a incidentes",
+  "task_type": "caza_de_amenazas",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.633217,
+  "tokens_entrada": 68931,
+  "tokens_salida": 6624,
+  "candidatas": [
+    {
+      "trajectory": "34c303c3-b027-471c-9014-b87607afbb56",
+      "abstraction": {
+        "pattern": "El control decide por identidad y no por comportamiento: la actividad hostil viaja dentro de un permiso legítimo, así que ninguna etapa protesta y todo queda anotado como actividad autorizada. El diagnóstico recién aparece al comparar volumen y horario contra la línea base, no al buscar algo malicioso. El arreglo que dura no bloquea el destino visible, que rota, sino que le pone franja horaria y alcance al permiso que transporta.",
+        "signals": [
+          "El barrido completo de los equipos vuelve limpio en todos los motores.",
+          "El volumen de salida se triplica de madrugada y de día está en el promedio.",
+          "Las transferencias salen a nombre de una cuenta de servicio y ninguna tiene alerta asociada.",
+          "La actividad se concentra justo cuando no hay nadie trabajando.",
+          "Se bloquea el destino, cae una noche, y a la siguiente sale hacia otro destino."
+        ],
+        "decisive_signal": "La tarea y la cuenta que transportan corren con permiso propio y fueron modificadas sin disparar nada: lo que hace posible la salida es el permiso, no el destino.",
+        "colloquial_queries": [
+          "escaneamos todas las máquinas y salen limpias, pero de madrugada se sigue yendo un montón de tráfico",
+          "bloqueamos la IP y a la noche siguiente salía a otra IP distinta",
+          "la cuenta del backup está copiando carpetas enteras a las tres de la mañana y ninguna alerta saltó",
+          "hay una cuenta de mantenimiento activa que nadie sabe de quién es",
+          "el volumen de salida se triplica cuando la oficina está vacía y los registros dicen que está todo bien"
+        ]
+      },
+      "valid_when": [
+        {
+          "condition": "Hay un canal de salida que corre con un permiso propio y legítimo.",
+          "source": "inferred"
+        },
+        {
+          "condition": "Las reglas deciden por identidad o por herramienta firmada, no por horario ni por volumen.",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe una línea base diurna contra la cual comparar la actividad nocturna.",
+          "source": "inferred"
+        },
+        {
+          "condition": "La cuenta o la tarea que transporta se puede modificar sin generar alerta.",
+          "source": "inferred"
+        },
+        {
+          "condition": "El destino es cambiable por quien opera y la lista de bloqueo es fija.",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Otras cuentas de servicio con el mismo tipo de permiso muestran el mismo exceso fuera de hora y nadie las miró nunca.",
+        "Una revisión posterior de los registros no muestra nada raro y se concluye que no pasó nada: todo quedó asentado como actividad autorizada.",
+        "Revertir la tarea programada no cierra nada, porque el permiso sigue valiendo y la tarea se puede volver a modificar mañana.",
+        "Al atar el permiso a la franja horaria, el trabajo legítimo fuera de hora empieza a alertar y aparece la presión para volver a ampliar la franja.",
+        "Donde la operación es continua y no hay diferencia entre día y noche, la misma salida no produce ninguna anomalía visible."
+      ],
+      "physical_scene": "En el portón de un depósito hay una barrera que se levanta sola cuando ve el sello de la casa en el carro, y un cuaderno donde el sereno anota cuántos carros salieron. El carro del turno noche tiene sello permanente porque saca la basura y la ropa sucia, y lleva clavada al costado una tarjeta de ruta con sus paradas; alguien le agregó una parada más y la tarjeta quedó igual de prolija que antes. La barrera se levanta, el cuaderno cierra con la cuenta justa de carros, y lo único que registra la diferencia es la balanza del piso del muelle, que entre las dos y las cinco marca el triple y que nadie mira, porque todos miran el sello. Cuando por fin tapian la calle a la que iba ese carro, el carro sale igual y dobla por otra: el sello sigue valiendo a cualquier hora, y la balanza sigue sin tener quien la lea.",
+      "logogram": "llave legítima, carga ajena",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la legitimidad: en cada puesto la credencial es auténtica, la acción es permitida y queda correctamente asentada. Lo que se pierde, sin que ninguna etapa se queje, es la relación entre quién autoriza y cuánto sale y a qué hora sale: esa magnitud nunca se pesa. Se pierde exactamente en el cuadro donde la regla verifica identidad o firma y da el caso por cerrado, porque ahí no queda nada que compare el permiso contra el comportamiento. Por eso el rastro sobrevive en una magnitud que nadie vigila —volumen y horario— y no en ninguna alerta."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "023778be-10e3-4206-8cf4-e1af1b4cbfeb",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se movió el ancla de la detección desde un atributo que el otro lado elige y renueva a voluntad —el destino de la salida— hacia un atributo del propio canal que transporta: su permiso y su franja horaria. En vez de enumerar hacia dónde no se puede ir, se acotó cuándo y con qué autorización se puede salir, y toda salida fuera de esa franja quedó marcada por sí sola.",
+        "bought": "Deja de ser posible que un cambio de destino evada el control: la señal ya no requiere conocer de antemano la dirección, así que la carrera entre una lista que se escribe a mano y una lista que crece del otro lado desaparece. También deja de ser posible el silencio engañoso de las primeras horas, donde el volumen en cero se leía como incidente resuelto mientras el permiso seguía intacto.",
+        "cost": "Se perdió el corte inmediato: el control nuevo marca y avisa, no detiene, así que la salida siguiente ocurrió y quedó registrada en vez de ser impedida. Además se paga rigidez operativa, porque cualquier uso legítimo del canal fuera de la franja acordada ahora falla o genera alerta, y esa franja hay que mantenerla al día.",
+        "old_valid_when": [
+          "Cuando el conjunto de destinos es realmente finito y no rotable —infraestructura fija que el otro lado no puede reemplazar a bajo costo— y enumerarlo termina en vez de crecer.",
+          "Cuando hace falta contención inmediata en los minutos siguientes al hallazgo: cortar la salida detiene el volumen ya, mientras el control sobre el permiso se prepara.",
+          "Cuando no se tiene autoridad sobre la cuenta ni sobre el horario del canal, y el borde de salida es la única palanca propia disponible."
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Bloquear el destino era lo correcto cuando el destino es uno solo y fijo, y no rota entre noches.",
+  "mecanismo_escrito_a_mano": "El transporte del atacante es un canal legítimo y programado, con permiso propio. Cada control ve un actor autorizado y ninguno protesta; la anomalía no existe en el eje del permiso, existe en el eje del horario. Buscar el binario malicioso vuelve limpio todas las veces."
+}

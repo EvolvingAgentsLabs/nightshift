@@ -113,6 +113,11 @@
         "decisive_signal": {
           "description": "La observación que volvió concluyente el diagnóstico.",
           "type": ["string", "null"]
+        },
+        "colloquial_queries": {
+          "description": "El mismo mecanismo dicho con las palabras de quien lo sufre. Superficie de búsqueda, no de display (enmienda 0.3.13): la consolidación traduce de noche lo que el enganche léxico no puede traducir en el momento.",
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },

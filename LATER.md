@@ -8,6 +8,106 @@ acá.
 
 ---
 
+## ENCONTRADO — la ventana de 6 pasos cayó entera sobre lecturas del repo (2026-08-30)
+
+`nightshift sleep` selló el capítulo de una sesión de 119 pasos, **117 con contenido**, y
+consolidó. Lo que el modelo vio fueron **6 pasos**: cinco `ls` y `cat` de los primeros
+minutos —los cinco marcados `LECTURA-DEL-REPO`, que el propio `dream.PROMPT` declara «no
+son observaciones sobre este trabajo» y prohíbe usar como evidencia— y **un** `tool_failure`.
+
+Todo lo demás quedó afuera: cada edición, cada corrida de tests, cada medición, los dos
+bugs encontrados y arreglados, cuatro horas de trabajo.
+
+**Es el mismo modo de falla que `pasos_para_el_prompt` documenta en su propio docstring,
+con otra cara.** Aquel era la ventana cayendo sobre pasos vacíos; éste es la ventana
+cayendo sobre lecturas. La causa es la misma función: `_prioridad` ordena `tool_failure` →
+`contradicted` → `decisive` → **resto por índice**, y «resto por índice» significa *los
+primeros de la sesión*, que en toda sesión son la orientación.
+
+Con un solo fallo capturado, cinco de los seis lugares se los llevó la orientación inicial.
+
+**Lo notable es que la consolidación salió bien igual** —el patrón generaliza
+correctamente ese único fallo, y las `colloquial_queries` que produjo son buenas— pero
+salió bien **a pesar del material**, no gracias a él. Un capítulo de cuatro horas se
+consolidó como si hubiera durado cinco minutos.
+
+**No se implementa nada:** cambiar `_prioridad` es tocar el corazón de qué se consolida, y
+la decisión de si el desempate va por índice, por recencia o por otra cosa es del dueño del
+proyecto. Queda medido: 6 de 117, y 5 de esos 6 son lecturas.
+
+### Y una conjetura que NO se resolvió, a propósito
+
+De ese sueño salió la proyección *"una lista de nombres permitidos deja afuera al campo
+nuevo, así que lo que sí se guardó nunca aparece en el resumen"* — que describe
+exactamente el bug de `camino_real.montar` arreglado en `d0c4b86` unas horas antes. Se
+verificó que el modelo **no** lo vio: ese paso no está entre los seis que entraron al
+prompt.
+
+Aun así **no se registró como confirmada**, y el motivo es el que hace que el notario
+exista: por marca de tiempo es una **postdicción** —el commit es anterior a la conjetura— y
+el notario la rechazaría. Que la proyección sea genuina por información no la vuelve
+notarizable por cronología, y la distinción es justamente la que impide convertir cualquier
+bug ya arreglado en una profecía cumplida.
+
+## ENCONTRADO — el retrieval es un contaminante experimental cuando el agente se mide a sí mismo (2026-08-30)
+
+El bucle de dogfooding intentó cerrar el retenido de `5b3ff97f` con el agente escribiendo
+los síntomas. Se abortó sin escribir ninguno: **el propio plugin le había inyectado las
+conjeturas de esa trayectoria** doce minutos antes, dos veces, enganchando por
+`signal_match,precondition_match,projected_match`, con el patrón, las precondiciones, el
+diagrama y los tres síntomas proyectados completos.
+
+El protocolo de `experimentos/retenido/README.md` prohíbe leer justamente eso antes de
+escribir. Con el texto leído, el retenido sería una paráfrasis y el número sería una
+tautología.
+
+**Lo que esto expone, y no estaba escrito en ningún lado:** cuando el agente es a la vez el
+experimentador y el sujeto, la memoria procedimental **no es neutral respecto de lo que
+mide**. El dogfooding y la medición ciega son incompatibles en la misma sesión, y hoy no
+hay forma de decirle al retrieval «esta fila no, estoy midiendo contra ella».
+
+**No se implementa nada.** Una clave de exclusión en el retrieval es una feature que no
+está en el plan, y además la solución correcta probablemente no sea técnica: el retenido lo
+tiene que escribir una persona, que es lo que el archivo pedía desde el principio.
+
+## MEDIDO — los seis dominios del README: el consolidador cruza, el retrieval no (2026-08-30)
+
+`experimentos/DOMINIOS.md`, con los sueños en `experimentos/salidas/dominios/` y el
+resultado en `experimentos/RESULTADOS-DOMINIOS.md`. Seis cadenas de ejecución escritas a
+mano —SOC, medicina interna, helpdesk, mantenimiento, memoria corporativa, QA de juegos—
+consolidadas por el camino real. **Material de autor: es un techo, no transferencia.**
+
+**Lo que salió a favor.** Seis candidatas de seis, sin un solo rechazo de gate y sin
+reintentos: `validate_scene`, `validate_logogram` y `VOCABULARIO_DEL_CODIGO` —escritos
+mirando software— aceptaron a la primera una acequia, un guardarropas y una balanza. El
+contraste de ADR-005 devolvió `old_valid_when` en los seis, y en dos casos la precondición
+que devolvió es **mejor** que la que el pre-registro había escrito a mano.
+
+**Lo que salió en contra, y es lo que hay que anotar acá.** El retrieval enganchó **2 de
+12** síntomas retenidos, con 3 falsos positivos. Diez de los doce comparten **una palabra
+de contenido o ninguna** con una superficie de búsqueda que dice lo mismo con otras
+palabras; los tres falsos positivos enganchan con exactamente dos, y las dos son `hora`,
+`nada`, `siempre`. **En el borde del piso, lo que decide el enganche no nombra el
+mecanismo.**
+
+**Y la salida que ya existe no alcanza, medido y no supuesto.** Con el fallback semántico
+enchufado (`tools/embed-ollama.sh`, embeddinggemma): 11 de 12 enganchan **y 20 de 60
+ajenos también**. Cambia un modo de falla silencioso por uno ruidoso. Estaba anticipado en
+la nota de calibración de `config.py` del 2026-08-29 — el coseno separa sinónimos, no
+separa síntoma contra mecanismo abstracto.
+
+**Nada de esto se implementa, y el motivo es el de siempre.** Lo que sugiere —un piso que
+pese cuánto informa cada palabra en vez de contarlas, o una superficie de búsqueda que no
+sea sólo léxica— es una feature que no está en el plan, y el plan lo escribe una persona.
+Queda anotado con su número al lado.
+
+**Lo que el experimento no puede tocar, dicho para que nadie lo lea de más:** no existe
+captura fuera de un agente de código. Que el consolidador funcione en seis dominios no
+acerca a nightshift a un SOC; acerca a un SOC que ya tuviera su cadena de ejecución
+capturada, que es un problema entero y ajeno a este repositorio. Y sigue sin medirse que
+la memoria sirva: doce síntomas escritos por la misma mano que escribió las trayectorias
+no son un experimento sobre la utilidad de nada.
+
 ## MEDIDO — la opción nuclear: lo que compró, lo que dijo que no, y lo que el notario rechazó (2026-08-29)
 
 Orden ejecutiva de Matías, ejecutada con tres correcciones que quedaron registradas en el

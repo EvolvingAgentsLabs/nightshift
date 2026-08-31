@@ -847,6 +847,7 @@ Devolvé SÓLO un objeto JSON, sin texto alrededor, con esta forma exacta:
   "decisive_signal": "la observación que volvió concluyente el diagnóstico",
   "valid_when": ["precondición bajo la que este procedimiento aplica"],
   "projected_signals": ["síntoma que este mecanismo produciría y que NADIE observó"],
+  "colloquial_queries": ["cómo escribiría esta queja quien la sufre, con sus palabras"],
   "diagram": "el dibujo del mecanismo, en el medio que te hayan pedido arriba, o null",
   "mechanism": "qué se conserva y qué se pierde, sólo si te pidieron idear"
 }
@@ -872,8 +873,8 @@ Reglas duras. Una respuesta que las rompa se descarta:
   que no esté en los pasos: la diferencia entre observar y anticipar es la única que
   hace que esto sea memoria y no adivinación. Si no te pidieron idear, dejá
   `projected_signals` vacío.
-- **`signals`, `valid_when`, `projected_signals` y `logogram` son la única superficie
-  contra la que se busca.** Cuando alguien abra la próxima sesión y describa lo que le
+- **`signals`, `valid_when`, `projected_signals`, `colloquial_queries` y `logogram` son la
+  única superficie contra la que se busca.** Cuando alguien abra la próxima sesión y describa lo que le
   está pasando, el retrieval compara sus palabras contra esos campos y
   **nunca contra `pattern`**. Así que ahí no va tu mejor oración de diseño: va el
   **síntoma, como lo diría quien lo sufre** antes de saber la causa —"la corrida termina
@@ -881,6 +882,16 @@ Reglas duras. Una respuesta que las rompa se descarta:
   vacía". `pattern` explica; `signals` se encuentra. El logograma se busca con el piso
   más alto: sólo engancha cuando el prompt trae casi el signo entero, así que sus dos a
   cuatro palabras tienen que ser las que alguien usaría de verdad.
+- **`colloquial_queries` es la traducción, y es lo único que se te pide en el idioma del
+  que sufre.** Dado el mecanismo que acabás de abstraer, escribí hasta 5 quejas literales
+  —un mensaje de error tal como se lee en la terminal, un ticket de soporte, lo que
+  alguien tipea al abrir la sesión— usando los sustantivos **concretos** del oficio donde
+  esto pasa y **ninguna palabra abstracta**. Nada de "mecanismo", "componente", "recurso",
+  "estado", "propagación", "consumidor": esas son las palabras con las que vos pensás, y
+  son justo las que nadie escribe cuando el problema le está pasando. Se mide así: si una
+  de tus quejas podría encabezar el informe de un consultor, está mal escrita; si suena a
+  alguien apurado y molesto, está bien. Cada queja nombra una cosa que se ve o se toca.
+
 - **Nombrá el mecanismo, no la herramienta.** Un síntoma escrito alrededor de un nombre
   propio de herramienta engancha con cualquier otro problema de esa herramienta: decir
   "el linter" trae también al que se queja de un import sin usar. Decí qué hace la cosa
@@ -1318,6 +1329,22 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
             if item not in signals:      # proyectar algo ya observado no proyecta nada
                 proyectados.append(item)
 
+    # La traducción al idioma de quien sufre (enmienda 0.3.13). Es superficie de
+    # búsqueda, así que pasa exactamente los mismos gates que `signals`: es texto de
+    # modelo y se persiste igual.
+    #
+    # **Y es el campo con más riesgo de fuga de todos**, porque el prompt le pide
+    # justamente lo contrario que a `pattern`: sustantivos concretos del oficio. La jerga
+    # concreta es donde alguien escribe una ruta sin pensarlo — por eso no tiene ninguna
+    # puerta propia y una fuga acá voltea la consolidación entera, como cualquier otra.
+    coloquiales = []
+    for item in (data.get("colloquial_queries") or [])[:MAX_SIGNALS]:
+        if isinstance(item, str) and item.strip():
+            item = " ".join(item.split())
+            problemas.extend(_leaks(item, "abstraction.colloquial_queries[]", redactor,
+                                    home_dir))
+            coloquiales.append(item)
+
     # El dibujo llega en dos campos: el diagrama Mermaid y la prosa del mecanismo. Los
     # dos son texto de modelo y se persisten, así que pasan los mismos gates — y el
     # diagrama **más** que el resto: las etiquetas de un flowchart son justo donde alguien
@@ -1388,6 +1415,8 @@ def validate(data, *, redactor, home_dir, ideation=None, observation_indices=Non
         abstraction["signals"] = signals
     if decisive:
         abstraction["decisive_signal"] = decisive
+    if coloquiales:
+        abstraction["colloquial_queries"] = coloquiales
     return abstraction, valid_when, hypothesis, []
 
 

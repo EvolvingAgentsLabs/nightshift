@@ -1,0 +1,84 @@
+{
+  "slug": "memoria-corporativa",
+  "dominio": "Memoria corporativa y estrategia legal",
+  "task_type": "memoria_corporativa",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.9536584999999999,
+  "tokens_entrada": 104806,
+  "tokens_salida": 10189,
+  "candidatas": [
+    {
+      "trajectory": "4b118ab6-aed9-45d0-abf9-c86571d89c1f",
+      "abstraction": {
+        "pattern": "Se dimensiona el alcance de la revisión alrededor del bien visible que se adquiere, y la contingencia mayor vive en el vínculo con quien ejecuta la operación, que queda fuera del alcance y no se cuantifica; el fix es invertir el orden, poner número al pasivo del vínculo antes de discutir la forma del acuerdo, y recién después mirar el bien.",
+        "signals": [
+          "El informe sobre el activo sale limpio, sin una sola observación, y no mueve ninguna decisión",
+          "La mayoría de quienes hacen el trabajo no está en relación de dependencia y factura como independiente",
+          "La autoridad ya reclasificó ese mismo esquema en otros casos del sector, con efecto retroactivo",
+          "Los contratos con quien opera tienen exclusividad sin plazo y sin causal de salida",
+          "La contingencia del vínculo supera el precio ofrecido o duplica el resultado esperado"
+        ],
+        "decisive_signal": "El pasivo no estaba en lo que se estaba comprando sino en quién hace el trabajo, y su monto superaba el precio: la revisión del activo había sido gasto sin efecto sobre la decisión.",
+        "colloquial_queries": [
+          "pagamos seis semanas de estudio de las patentes y el problema era que los que programan facturan como monotributistas",
+          "el informe salió sin observaciones y a los dos meses cayó una intimación por los que nos facturan",
+          "quiero cortar con el distribuidor y el contrato no tiene fecha de salida ni causal",
+          "salir del acuerdo me sale más caro que lo que el acuerdo me deja",
+          "miramos todo lo que estábamos comprando y nadie miró a la gente que hace el trabajo"
+        ]
+      },
+      "valid_when": [
+        {
+          "condition": "Se evalúa una operación donde el valor depende de gente que ejecuta, no sólo de bienes registrados",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe un alcance de revisión definido antes de mirar quién opera",
+          "source": "inferred"
+        },
+        {
+          "condition": "Los vínculos con quien trabaja o distribuye están fuera de ese alcance",
+          "source": "inferred"
+        },
+        {
+          "condition": "Hay un tercero con poder de reclasificar o un contrato del que hay que poder salir",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "La retención de precio pactada se agota antes de que venza el plazo en que el reclamo puede llegar",
+        "La misma figura aparece en proveedores críticos que nadie miró porque no eran parte de la compra",
+        "Al querer vender más adelante, el comprador siguiente frena por el mismo vínculo y castiga el precio",
+        "Formalizar a quienes facturan como independientes dispara la salida de los que sostienen la operación",
+        "El seguro contratado cubre el activo revisado y deja afuera justo el reclamo por quien hace el trabajo"
+      ],
+      "physical_scene": "Al patio entra un remolque cargado y todo el turno se va en el contenedor: la balanza lo pesa, el inspector revisa el lacre, los precintos y las paredes, y el remito sale sin una sola observación. Lo que nadie sube a la balanza es el gancho que une ese remolque al camión, con un perno gastado y dos eslingas que vienen aguantando desde hace años. Mientras el remolque está quieto en el patio nada cruje, porque el perno recién trabaja cuando el camión arranca en la subida o cuando hay que soltarlo. El capataz mira su planilla y ve un número exacto del peso de adentro, así que duerme tranquilo: la cifra que le falta no tiene casillero. Se entera el día que quiere desenganchar y el perno no sale, o sale llevándose la traviesa y el remolque entero se le viene encima.",
+      "logogram": "gancho sin pesar",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva con precisión la medición del bien que se transfiere: patentes, marca, tecnología, todo queda cuantificado y documentado. Lo que se pierde sin que ninguna etapa se queje es la carga que soporta el vínculo con quien ejecuta —el personal que factura como independiente, la red distribuidora con exclusividad perpetua—, porque ese vínculo no tiene casillero en la planilla y nadie lo pesa. Se pierde en el cuadro donde se fija el alcance de la revisión, antes de mirar nada: ahí se decide qué entra a la balanza. Sale a la luz recién en el momento de tensión —al desenganchar, al salir, al reclasificar— cuando ya no se puede elegir el precio."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "7b28c6a4-69c9-4049-9e93-7ab1339efa3d",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se invirtió el orden de la decisión: antes se elegía primero la forma de la operación para esquivar una contingencia nunca medida, y ahora se cuantifica esa contingencia primero y la forma sale como consecuencia del número.",
+        "bought": "Deja de ser posible que la estructura elegida quede colgada de una variable externa al activo — el costo del dinero — y que la discusión de precio se reabra cada vez que esa variable se mueve; también deja de ser posible cerrar sin que la contingencia tenga un monto asignado.",
+        "cost": "Parte del precio queda inmovilizada como retención hasta que la contingencia se resuelva, y hay que hacer todo el trabajo de cuantificación antes de saber siquiera si la operación existe.",
+        "old_valid_when": [
+          "Cuando el costo del dinero es bajo y el horizonte de pagos es corto, de modo que el flujo periódico vale menos que el precio de compra y evitar la contingencia por la forma del acuerdo sí sale más barato",
+          "Cuando la contingencia no se puede cuantificar dentro del plazo de la decisión y sólo queda elegir la forma que no la hereda"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Licenciar en vez de comprar era lo correcto cuando el costo del dinero está por debajo de cierto umbral, porque ahí el flujo de regalías vale menos que el precio de compra.",
+  "mecanismo_escrito_a_mano": "La estructura de la contraparte concentra el riesgo en un lugar distinto del que la diligencia mira por costumbre. El presupuesto se gasta en el activo visible, que sale limpio, y el pasivo que decide la operación está en cómo está armado el vínculo con quienes hacen el trabajo."
+}

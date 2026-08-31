@@ -1,0 +1,89 @@
+{
+  "slug": "mantenimiento-industrial",
+  "dominio": "Mantenimiento industrial y robótica",
+  "task_type": "mantenimiento_industrial",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.620958,
+  "tokens_entrada": 68986,
+  "tokens_salida": 6139,
+  "candidatas": [
+    {
+      "trajectory": "cc309d0f-fa21-4ce9-b215-6555c197702e",
+      "abstraction": {
+        "pattern": "El elemento que dispara el aviso no es donde está la falla: ante un estrechamiento ubicado más adelante en el recorrido, el empuje se apoya contra todo lo que viene antes y cede primero la pieza más débil, que además es la que tiene el instrumento al lado. Cambiarla o reforzarla devuelve la calma por horas o días, y atenuar lo que empuja apaga el aviso a costa del rendimiento en cada turno. El arreglo es medir la caída tramo por tramo hasta ubicar dónde se estrecha el paso, y abrir ahí.",
+        "signals": [
+          "El aviso vuelve a las pocas horas con la pieza recién cambiada y limpia.",
+          "El repuesto reforzado dura un poco más y falla igual, con el mismo dibujo de desgaste y del mismo lado.",
+          "Atenuar lo que empuja hace desaparecer el aviso durante todo el turno.",
+          "Con el empuje atenuado la producción del turno cae fuerte y no se recupera.",
+          "Midiendo a lo largo de la línea, el salto grande de caída aparece después de la pieza que se queja y no antes."
+        ],
+        "decisive_signal": "La caída medida tramo por tramo ubica el salto aguas abajo de la pieza que avisa: la restricción está ahí, y el que se rompe es sólo el eslabón más débil que queda por delante.",
+        "colloquial_queries": [
+          "cambié el filtro y a las seis horas volvió a saltar la alarma de presión",
+          "el sello de la bomba me dura tres semanas, ya puse uno reforzado y se rompió igual",
+          "bajé la presión y se fue la alarma pero el turno cerró con dieciocho por ciento menos",
+          "el filtro nuevo aparece tapado todos los turnos, algo lo está ensuciando",
+          "la aspiración se me cae cada vez que cierran la válvula del retorno"
+        ]
+      },
+      "valid_when": [
+        {
+          "condition": "Hay un recorrido en serie con algo que empuja y varias piezas encadenadas.",
+          "source": "inferred"
+        },
+        {
+          "condition": "El aviso lo emite un punto fijo y no dice en qué tramo se originó el desequilibrio.",
+          "source": "inferred"
+        },
+        {
+          "condition": "Reemplazar la pieza que avisa alivia por poco tiempo y con periodo repetido.",
+          "source": "inferred"
+        },
+        {
+          "condition": "Se puede medir la caída por tramos separados y no sólo el total.",
+          "source": "inferred"
+        },
+        {
+          "condition": "Bajar la exigencia apaga el aviso sin cambiar nada del recorrido.",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "El motor que impulsa empieza a tomar más corriente y a calentarse, y nadie lo relaciona con el aviso porque tiene su propio tablero.",
+        "Después de reforzar la pieza que avisaba, la falla se muda a la siguiente más débil: una junta que gotea, una manguera que se hincha, una unión que transpira.",
+        "La válvula de alivio empieza a abrir sola cada turno y se descarga producto, y eso se anota como pérdida aparte sin sumarlo al mismo caso.",
+        "Con el paso estrechado el fluido recircula y sube de temperatura, y las fallas siguientes se atribuyen al calor en vez de al estrechamiento.",
+        "Aparece ruido y vibración del lado de la aspiración que se explica como desbalanceo del rodete, y se manda a balancear una pieza sana."
+      ],
+      "physical_scene": "Una bomba empuja aceite por un caño que pasa primero por un filtro, después por un serpentín que lo enfría, y vuelve por una línea de retorno con una válvula al final. La aguja del manómetro está montada junto al filtro, porque el filtro es lo único que se puede abrir sin parar la línea. Cuando el serpentín enfría de más y el aceite se pone espeso, o cuando la válvula del retorno queda cerrada del todo, el paso se estrecha allá al fondo, pero el caño no tiene manera de decir dónde: la misma presión se apoya contra todo lo que hay antes, y lo primero que cede es la tela del filtro y el sello de la bomba. El que cambia la tela ve la aguja bajar y se va tranquilo, porque el estrechamiento del fondo no deja marca, no hace ruido y no tiene aguja propia. Seis horas después la tela nueva está igual de tapada, y el del turno siguiente la cambia otra vez, ya convencido de que el repuesto viene fallado.",
+      "logogram": "tapón aguas abajo",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva lo que pasa por unidad de tiempo: si un tramo se estrecha, la misma cantidad tiene que seguir pasando y la exigencia sube en todo lo que está antes. Lo que se pierde sin que nada se queje es la ubicación: el aviso dice cuánta presión hay, nunca en qué tramo se generó, y esa información se borra exactamente en el cuadro en que un desequilibrio repartido por toda la línea se traduce en una lectura local, tomada junto al eslabón más débil. Por eso reemplazar o reforzar al que avisa compra silencio por un rato y atenuar lo que empuja lo compra entero, mientras el estrechamiento sigue intacto y se cobra rendimiento en cada turno."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "5b4e2f75-350a-476d-974f-9cbee2ba39fe",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se pasó de actuar sobre la magnitud que empuja —bajarla hasta que el indicador dejara de señalar— a medir a lo largo del recorrido para localizar la restricción aguas abajo y removerla. El punto de intervención se movió del origen al lugar donde realmente se pierde el recorrido.",
+        "bought": "Deja de ser posible la falla de silenciar el indicador dejando la restricción adentro: ya no se paga un costo recurrente en cada ciclo para que la señal no aparezca, ni queda una degradación permanente del ritmo comprometido que nadie atribuye a la intervención. Además elimina el falso cierre, porque la señal apagada ya no puede confundirse con la causa resuelta.",
+        "cost": "Diagnóstico más lento y más caro: hay que instrumentar el recorrido entero y medir en varios puntos en vez de mover una sola perilla, y la intervención pasa a ser física sobre un elemento aguas abajo, con el acceso y la parada que eso exige.",
+        "old_valid_when": [
+          "Cuando la restricción de aguas abajo no se puede tocar en ese momento —sin acceso, sin repuesto, sin ventana de parada— y bajar lo que empuja funciona como contención temporal explícita, con su costo declarado y una fecha para removerla",
+          "Cuando el origen está sobredimensionado respecto del ritmo comprometido: al nivel más bajo la línea todavía cumple, y entonces bajar no cuesta producción sino que sólo consume margen sobrante",
+          "Cuando el período tiene demanda por debajo del compromiso y la pérdida de ritmo no se materializa, mientras el desgaste por operar contra la restricción sí se evita"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Bajar la presión era lo correcto cuando el fluido está frío y espeso y una parada de línea cuesta más que la producción que se pierde por trabajar más lento.",
+  "mecanismo_escrito_a_mano": "Una restricción aguas abajo hace subir la presión aguas arriba, y lo que se rompe o alarma es el elemento más débil de la línea, no el que causa. Cambiar la pieza rota devuelve la máquina a producción y el ciclo vuelve con el período de la pieza nueva."
+}

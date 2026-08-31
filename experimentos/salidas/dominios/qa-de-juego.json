@@ -1,0 +1,89 @@
+{
+  "slug": "qa-de-juego",
+  "dominio": "Diseño de juegos y testing de QA",
+  "task_type": "qa_de_juego",
+  "modo": "fisica",
+  "modelo": "claude -p --output-format json",
+  "estrategia": "ideate:fisica",
+  "grupos": 1,
+  "trayectorias": 4,
+  "rechazos": [],
+  "saltados": [],
+  "costo_usd": 0.654075,
+  "tokens_entrada": 69229,
+  "tokens_salida": 7387,
+  "candidatas": [
+    {
+      "trajectory": "051efdfc-00b4-4734-976e-f3afa08edcf6",
+      "abstraction": {
+        "pattern": "Una marca que suspende o protege algo se pone al entrar al estado, pero se limpia en el ultimo cuadro del gesto que lo acompaña en vez de en la salida del estado. Cualquier cosa que congele o corte ese gesto a mitad deja la marca puesta para siempre, y el sintoma sobrevive al estado que lo origino. El arreglo que prohibe la combinacion reportada tapa una puerta y deja abiertas todas las que nadie probo todavia; el arreglo que cierra el asunto es limpiar la marca en la salida del estado.",
+        "signals": [
+          "La secuencia se reprodujo doce veces seguidas y siempre quedo invulnerable",
+          "Prohibir la combinacion reportada arreglo el caso y a los dos dias volvio con otro menu y despues con la pausa",
+          "Engordar el volumen de colision de la pared no cambio nada, el personaje la sigue atravesando",
+          "La marca se levanta al empezar la animacion de golpe y se baja recien al terminarla, no por tiempo",
+          "Pasa en tres escaleras y dos mapas siempre que el consumo empieza antes de que termine el enganche"
+        ],
+        "decisive_signal": "Abrir cualquier menu congela la animacion, asi que el final que baja la marca no llega nunca: el menu era una puerta mas, no la causa.",
+        "colloquial_queries": [
+          "si abro el mapa en el aire y me pega el bicho no me saca vida nunca mas, queda asi hasta que muero",
+          "tome la pocion arriba de la escalera y sali caminando por dentro de la pared",
+          "bloqueamos abrir la mochila saltando y a los dos dias volvio igual con la pantalla de pausa",
+          "el golpe se queda congelado a la mitad y despues el personaje no recibe mas dano",
+          "cada vez que cerramos el reporte vuelve el mismo bicho con otro menu distinto"
+        ]
+      },
+      "valid_when": [
+        {
+          "condition": "Hay un estado que mientras dura suspende una comprobacion o pone una proteccion",
+          "source": "inferred"
+        },
+        {
+          "condition": "Esa suspension se limpia al final de un gesto y no en la salida del estado",
+          "source": "inferred"
+        },
+        {
+          "condition": "Existe algo capaz de congelar o interrumpir el gesto a mitad de camino",
+          "source": "inferred"
+        },
+        {
+          "condition": "El mismo efecto reaparece con disparadores distintos despues de bloquear el primero",
+          "source": "inferred"
+        },
+        {
+          "condition": "El sintoma dura mas que el estado que lo origino",
+          "source": "inferred"
+        }
+      ],
+      "projected_signals": [
+        "Si se guarda la partida mientras la marca quedo puesta, el efecto vuelve al cargar sin que nadie abra ningun menu",
+        "La cara inversa del mismo mecanismo: una traba de control que se pone al entrar y no se saca deja al personaje sin poder moverse, y eso se reporta como cuelgue y no como falla de menu",
+        "Interrupciones que nadie enumero -una escena de video, un cambio de mapa, morir a mitad del gesto, perder el foco de la ventana- producen el mismo efecto sin ningun menu de por medio",
+        "Dos entradas superpuestas al mismo estado dejan la marca puesta dos veces y una sola salida no alcanza a limpiarla",
+        "Un sonido o un efecto visual que arranca con el gesto queda sonando o encendido para siempre por la misma interrupcion, y se reporta como problema de audio"
+      ],
+      "physical_scene": "En un taller de galvanizado, cada pieza que entra al bano viaja colgada de un gancho y lleva una capucha de goma que la tapa para que el zinc no la toque. La capucha se suelta sola cuando el gancho llega al fondo del riel y golpea un tope de hierro del otro lado de la pileta. Si alguien saca la pieza por la compuerta lateral antes del tope -para pesarla, para cambiarla de gancho-, el tope no se golpea nunca y la pieza se va con la capucha puesta. Ninguna estacion protesta: la pileta sigue llena, el riel sigue andando, la balanza marca lo que tiene que marcar. Recien semanas despues aparecen en el deposito piezas sin una sola gota de zinc encima, y ya nadie sabe por que compuerta salieron. El taller tapia esa compuerta con una chapa y a los pocos dias vuelve a salir una pieza desnuda, esta vez por la puerta de mantenimiento.",
+      "logogram": "traba que queda puesta",
+      "diagram": null,
+      "ideation": "A lo largo del recorrido se conserva la puesta de la proteccion: cada vez que se entra al estado, la marca se pone sin fallar una sola vez. Lo que se pierde es el destrabe, porque cuelga del ultimo cuadro de un gesto que puede no llegar nunca. Se pierde exactamente en el cuadro en que algo congela o corta ese gesto a mitad de camino, y nadie se queja porque la etapa que puso la marca hizo su trabajo y la que la sacaria no llego a ejecutarse. Tapar el disparador conocido no devuelve lo perdido: solo esconde una de las bocas por donde la pieza sale sin destrabar."
+    }
+  ],
+  "contrastes": [
+    {
+      "trajectory": "1129a912-62b2-4f14-953a-221c761e8fe7",
+      "es_la_descartada": true,
+      "contrast": {
+        "changed": "Se pasó de prohibir en la entrada una combinación puntual a limpiar la marca de estado en el punto de salida por el que pasa toda transición, sin importar qué la haya interrumpido.",
+        "bought": "Deja de ser posible que una interrupción no enumerada deje la marca puesta: la falla ya no depende de haber previsto la lista de vías de entrada, que era infinita en la práctica.",
+        "cost": "El arreglo apuesta a que existe un punto de salida único y que toda transición pasa por ahí; si esa condición se rompe más adelante, la falla vuelve entera y sin las barreras puntuales que antes la tapaban.",
+        "old_valid_when": [
+          "Cuando el punto de salida del estado no es único ni modificable —está en una capa ajena o congelada— y sólo se puede intervenir en las entradas",
+          "Cuando hace falta contención inmediata sobre una vía ya reportada mientras se prepara el arreglo en la salida",
+          "Cuando prohibir esa combinación es además una regla querida del diseño, y no sólo un parche"
+        ]
+      }
+    }
+  ],
+  "precondicion_esperada": "Bloquear la combinación era lo correcto cuando falta muy poco para la fecha de publicación y tocar la máquina de estados no entra en la ventana de pruebas que queda.",
+  "mecanismo_escrito_a_mano": "Dos estados que el diseño supone excluyentes se solapan porque una transición se interrumpe antes de limpiar su marca. Cualquier acción que pueda interrumpir esa transición reproduce el estado, así que la lista de combinaciones no se termina nunca."
+}
