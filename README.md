@@ -11,8 +11,12 @@ A proof of concept, not a product.
 > The gate is `make dogfood`.
 >
 > **Everything on this page is a hypothesis about where this architecture fits, not a
-> record of what it has done.** nightshift has only ever run on its own repository.
-> Nobody has measured that it helps even there: `verify` does not exist,
+> record of what it has done.** Capture has only ever run on this repository. The
+> consolidator and the retrieval *were* measured on all six domains below — but with
+> trajectories written by hand, and the held-out symptoms written by the same hand, so
+> that number is a ceiling and never transfer
+> ([what came out](experimentos/RESULTADOS-DOMINIOS.md)).
+> Nobody has measured that it helps anywhere: `verify` does not exist,
 > nothing reaches `procedure`, and every memory it injects is unverified. Read them as
 > *"this is the shape of problem the machine was built for"*, never as case studies.
 
@@ -131,7 +135,7 @@ the last row is why none of the six is a case study:
 |---|---|---|
 | A | Procedural memory: the trajectory, not just the conclusion | yes |
 | B | Discarded alternatives kept **with the precondition** that made them right | yes ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)) |
-| C | Transfer across repositories — or across cases, patients, tickets, machines | off by default |
+| C | Transfer across repositories — or across cases, patients, tickets, machines | off by default, and [measured across domains](experimentos/RESULTADOS-DOMINIOS.md): the hook is vocabulary-bound |
 | D | Every injection traceable to its source (`why`) | yes |
 | E | Verification: nothing becomes a procedure until reproducing it passes a gate | **no — this is M5** |
 
@@ -170,6 +174,7 @@ make experiments               # which of the project's hypotheses are actually 
 - [`doc/LOGBOOK.md`](doc/LOGBOOK.md) — what actually happened, at its real size
 - [`doc/adr/`](doc/adr/) — the decisions and what each one cost
 - [`experimentos/`](experimentos/) — runnable experiments, including the ones whose results do not favour the plugin
+- [`experimentos/RESULTADOS-DOMINIOS.md`](experimentos/RESULTADOS-DOMINIOS.md) — the six domains above, actually dreamt: what crossed out of software and what did not
 - [`LATER.md`](LATER.md) — everything found and not fixed
 
 ## License

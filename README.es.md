@@ -11,8 +11,12 @@ Una prueba de concepto, no un producto.
 > Code. El gate es `make dogfood`.
 >
 > **Todo lo de esta página es una hipótesis sobre dónde encaja esta arquitectura, no un
-> registro de lo que hizo.** nightshift sólo corrió sobre su propio repositorio. Nadie
-> midió que ayude ni siquiera ahí: `verify` no existe, nada llega a `procedure` y toda
+> registro de lo que hizo.** La captura sólo corrió sobre este repositorio. El
+> consolidador y el retrieval *sí* se midieron sobre los seis dominios de abajo — pero con
+> trayectorias escritas a mano, y los síntomas retenidos escritos por la misma mano, así
+> que ese número es un techo y nunca transferencia
+> ([lo que salió](experimentos/RESULTADOS-DOMINIOS.md)).
+> Nadie midió que ayude en ningún lado: `verify` no existe, nada llega a `procedure` y toda
 > memoria que inyecta está sin verificar. Leé los dominios de abajo como *"ésta es la
 > forma de problema para la que se construyó la máquina"*, nunca como casos de éxito.
 
@@ -134,7 +138,7 @@ real, y la última fila es la razón por la que ninguno de los seis es un caso d
 |---|---|---|
 | A | Memoria procedimental: la trayectoria, no sólo la conclusión | sí |
 | B | Alternativas descartadas guardadas **con la precondición** que las hacía correctas | sí ([ADR-005](doc/adr/ADR-005-contraste-entre-implementaciones.md)) |
-| C | Transferencia entre repositorios — o entre casos, pacientes, tickets, máquinas | apagada por defecto |
+| C | Transferencia entre repositorios — o entre casos, pacientes, tickets, máquinas | apagada por defecto, y [medida entre dominios](experimentos/RESULTADOS-DOMINIOS.md): el enganche depende de compartir vocabulario |
 | D | Cada inyección trazable hasta su origen (`why`) | sí |
 | E | Verificación: nada es procedimiento hasta que reproducirlo pasa un gate | **no — eso es M5** |
 
@@ -173,6 +177,7 @@ make experiments               # cuáles hipótesis del proyecto están comproba
 - [`doc/BITACORA.md`](doc/BITACORA.md) — qué pasó de verdad, en su tamaño real
 - [`doc/adr/`](doc/adr/) — las decisiones y lo que costó cada una
 - [`experimentos/`](experimentos/) — experimentos que se corren, incluidos los que no favorecen al plugin
+- [`experimentos/RESULTADOS-DOMINIOS.md`](experimentos/RESULTADOS-DOMINIOS.md) — los seis dominios de arriba, soñados de verdad: qué cruzó fuera del software y qué no
 - [`LATER.md`](LATER.md) — todo lo encontrado y no arreglado
 
 ## Licencia
