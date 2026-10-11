@@ -1,5 +1,7 @@
 # nightshift
 
+> **Paused** since 2026-08-31 — kept readable, not developed. The lab's active projects are lora-kernel, agentvcs and gene-evidence: [evolvingagentslabs.github.io](https://evolvingagentslabs.github.io).
+
 **A procedural and epistemic memory engine.**
 A proof of concept, not a product.
 
